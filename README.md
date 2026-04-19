@@ -241,6 +241,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 激活虚拟环境 (Windows PowerShell)
+cmd
 .\venv\Scripts\Activate.ps1
 
 # 激活虚拟环境 (Windows CMD)
