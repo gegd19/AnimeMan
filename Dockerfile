@@ -5,7 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TZ=Asia/Shanghai \
     DEBIAN_FRONTEND=noninteractive
 
-# 安装系统依赖（包括编译工具和音频库）
+# 1. 替换 Debian 官方源为阿里云镜像（加速 apt-get）
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources
+
+# 2. 安装系统依赖（包含编译工具）
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ffmpeg \
@@ -19,19 +22,26 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 创建非 root 用户
+# 3. 创建非 root 用户
 RUN groupadd -r animeman && useradd -r -g animeman animeman
 
 WORKDIR /app
 
-# 复制依赖文件并安装
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 4. 配置 pip 国内镜像源（加速 Python 包下载）
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip config set global.trusted-host mirrors.aliyun.com
 
-# 复制项目代码
+# 5. 复制依赖文件并安装（增加超时和重试）
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    --timeout 120 \
+    --retries 5 \
+    -r requirements.txt
+
+# 6. 复制项目代码
 COPY . .
 
-# 创建必要目录并设置权限
+# 7. 创建必要目录并设置权限
 RUN mkdir -p /app/config /app/cache /app/logs && \
     chown -R animeman:animeman /app
 
