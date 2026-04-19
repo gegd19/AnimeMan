@@ -1,0 +1,65 @@
+<div id="correctionModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3>🔧 手动修正并重新处理</h3>
+            <span onclick="App.Correction.closeCorrectionModal()" style="cursor:pointer;font-size:28px;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="correctionSrcPath">
+            <div><strong>文件：</strong> <span id="correctionFileName"></span></div>
+            <div style="font-size:12px; color:#6c757d; margin-top:4px;">
+                <strong>位置：</strong> <span id="correctionFileLocation"></span>
+            </div>
+
+            <!-- TMDB 搜索行（移动端优化） -->
+            <div class="field-row" style="margin-top:15px;">
+                <label style="min-width:80px;">TMDB 搜索</label>
+                <div style="display:flex; gap:8px; flex:1; width:100%;">
+                    <input type="text" id="tmdbSearchInput" placeholder="输入标题搜索"
+                           style="flex:2; min-width:120px; padding:12px 10px; color:#000; background:#fff; border:1px solid #ced4da; border-radius:8px; font-size:16px;">
+                    <select id="tmdbSearchType" style="flex:0.8; min-width:80px; padding:12px 5px; background:#fff; border:1px solid #ced4da; border-radius:8px; font-size:16px;">
+                        <option value="tv">剧集</option>
+                        <option value="movie">电影</option>
+                    </select>
+                    <button onclick="App.Correction.searchTmdbForCorrection()" id="correctionSearchBtn"
+                            style="flex:0.5; min-width:70px; white-space:nowrap; padding:12px 8px; background:#2c7be5; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer;">
+                        搜索
+                    </button>
+                </div>
+            </div>
+
+            <div style="max-height: 300px; overflow-y: auto; margin-top:10px; border:1px solid #dee2e6; border-radius:8px;">
+                <table class="failed-table" id="tmdbSearchResults">
+                    <thead>
+                        <tr>
+                            <th>海报</th>
+                            <th>标题</th>
+                            <th>年份</th>
+                            <th>季集数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tmdbResultsBody">
+                        <tr><td colspan="5" style="text-align:center;">输入关键词搜索</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="selectedTmdbInfo" style="margin-top:15px; padding:10px; background:#e7f1ff; border-radius:8px; display:none;">
+                <strong>已选择：</strong> <span id="selectedTmdbTitle"></span> (ID: <span id="selectedTmdbId"></span>)
+            </div>
+            <div class="field-row">
+                <label>季号 (可选)</label>
+                <input type="number" id="correctionSeason" min="0" value="1" style="width:100%;">
+            </div>
+            <div class="field-row">
+                <label>集号 (可选)</label>
+                <input type="number" id="correctionEpisode" min="1" value="1" style="width:100%;">
+            </div>
+            <div class="note">💡 若为电影，季/集将被忽略。</div>
+            <div style="margin-top:20px; display:flex; gap:10px;">
+                <button onclick="App.Correction.executeCorrection()" class="success">✅ 确认修正并重新处理</button>
+                <button onclick="App.Correction.closeCorrectionModal()" class="secondary">取消</button>
+            </div>
+        </div>
+    </div>
+</div>

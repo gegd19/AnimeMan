@@ -1,0 +1,157 @@
+<div class="config-grid">
+    <div class="card">
+        <h3>📁 路径设置</h3>
+        <div class="field-row">
+            <label>源文件夹</label>
+            <div class="path-input-group">
+                <input type="text" id="sourceFoldersInput" placeholder="多个用逗号分隔">
+                <button type="button" class="browse" onclick="App.Browse.openBrowser('source')">浏览</button>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>剧集目标</label>
+            <div class="path-input-group">
+                <input type="text" id="tvTargetFolderInput" placeholder="Emby 剧集库根目录">
+                <button type="button" class="browse" onclick="App.Browse.openBrowser('tv_target')">浏览</button>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>电影目标</label>
+            <div class="path-input-group">
+                <input type="text" id="movieTargetFolderInput" placeholder="Emby 电影库根目录">
+                <button type="button" class="browse" onclick="App.Browse.openBrowser('movie_target')">浏览</button>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>链接类型</label>
+            <select id="linkTypeSelect">
+                <option value="hard">硬链接 (同盘)</option>
+                <option value="symlink">符号链接 (跨盘)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>🔧 处理选项</h3>
+        <div class="checkbox-group">
+            <div class="checkbox-item"><input type="checkbox" id="dryRunCheck"> 模拟运行</div>
+            <div class="checkbox-item"><input type="checkbox" id="incrementalCheck" checked> 增量处理</div>
+            <div class="checkbox-item"><input type="checkbox" id="downloadImagesCheck" checked> 下载图片</div>
+        </div>
+        <div class="checkbox-group">
+            <div class="checkbox-item"><input type="checkbox" id="addYearCheck" checked> 文件夹加年份</div>
+            <div class="checkbox-item"><input type="checkbox" id="forceChineseCheck" checked> 强制中文名称</div>
+        </div>
+        <div class="field-row">
+            <label>并发线程数</label>
+            <input type="number" id="maxWorkersInput" min="1" max="10" value="3">
+        </div>
+        <div class="field-row">
+            <label>最小文件大小(MB)</label>
+            <input type="number" id="minFileSizeInput" min="0" value="0">
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>🎞️ 视频扩展名</h3>
+        <input type="text" id="videoExtInput" style="width:100%;" placeholder=".mkv, .mp4, .avi ..." value=".mkv, .mp4, .avi, .ts, .m2ts, .mov, .wmv, .flv">
+        <h3 style="margin-top:18px;">🚫 忽略关键词</h3>
+        <input type="text" id="ignorePatternsInput" style="width:100%;" placeholder="sample, trailer, extra" value="sample, trailer, extra">
+    </div>
+</div>
+
+<div class="config-grid">
+    <div class="card api-section">
+        <h3>🤖 AI 解析设置</h3>
+        <div class="checkbox-item" style="margin-bottom:12px;">
+            <input type="checkbox" id="aiParserEnabledCheck"> 启用 AI 解析
+        </div>
+        <div class="checkbox-item" style="margin-bottom:12px;">
+            <input type="checkbox" id="aiBatchFolderCheck" checked> 优先使用文件夹批量解析 (推荐)
+        </div>
+        <div class="field-row"><label>提供商</label><select id="aiProviderSelect"><option>deepseek</option><option>openai</option><option>zhipu</option><option>qwen</option></select></div>
+        <div class="field-row"><label>模型</label><input type="text" id="aiModelInput" value="deepseek-chat"></div>
+        <div class="field-row"><label>API 地址</label><input type="text" id="aiBaseUrlInput" value="https://api.deepseek.com"></div>
+    </div>
+    <div class="card api-section">
+        <h3>✨ AI 简介润色</h3>
+        <div class="checkbox-item" style="margin-bottom:12px;"><input type="checkbox" id="aiPlotEnhanceCheck"> 启用简介润色</div>
+        <div class="field-row"><label>温度</label><input type="number" id="plotTempInput" step="0.1" min="0" max="1" value="0.7"></div>
+        <div class="field-row"><label>最大 tokens</label><input type="number" id="plotTokensInput" value="500"></div>
+    </div>
+    <div class="card">
+        <h3>🔑 API 密钥</h3>
+        <div class="field-row">
+            <label>TMDB API Key</label>
+            <div style="display: flex; gap: 8px; flex: 1;">
+                <input type="password" id="tmdbKeyInput" placeholder="必填" style="flex: 1;">
+                <button type="button" id="testTmdbBtn" onclick="App.Config.testTmdbConnection()" class="secondary" style="white-space: nowrap;">🔌 测试连通性</button>
+            </div>
+        </div>
+        <!-- TMDB 代理配置 -->
+        <div class="field-row">
+            <label>TMDB 代理</label>
+            <div style="display: flex; gap: 8px; flex: 1;">
+                <input type="text" id="tmdbProxyInput" placeholder="例如: 127.0.0.1:7890 或 http://127.0.0.1:7890" style="flex: 1;">
+            </div>
+        </div>
+        <div class="note" style="margin-top: 4px; margin-left: 130px;">
+            💡 留空则不使用代理。可直接填写 IP:端口，保存时自动补全 http://。支持 SOCKS5 (需加 socks5://)
+        </div>
+        <!-- AI API Key -->
+        <div class="field-row"><label>AI API Key</label><input type="password" id="aiKeyInput" placeholder="可选"></div>
+        <div class="note">AI Key 同时用于解析和润色</div>
+        <h3 style="margin-top:18px;">🌐 TMDB 语言</h3>
+        <input type="text" id="tmdbLanguageInput" value="zh-CN" placeholder="zh-CN">
+
+        <!-- 访问认证卡片 -->
+        <div style="margin-top: 24px;">
+            <h3>🔐 访问认证</h3>
+            <div class="checkbox-item" style="margin-bottom:12px;">
+                <input type="checkbox" id="authEnabledCheck"> 启用 HTTP 基本认证
+            </div>
+            <div class="field-row">
+                <label>用户名</label>
+                <input type="text" id="authUsernameInput" placeholder="admin" value="admin">
+            </div>
+            <div class="field-row">
+                <label>密码</label>
+                <input type="password" id="authPasswordInput" placeholder="密码">
+            </div>
+            <div class="note">⚠️ 密码明文存储，仅适用于内网环境。修改后需重启服务生效。</div>
+        </div>
+    </div>
+</div>
+
+<div class="config-grid">
+    <div class="card">
+        <h3>📝 字幕处理</h3>
+        <div class="checkbox-item" style="margin-bottom:12px;">
+            <input type="checkbox" id="subtitleEnabledCheck" checked> 启用字幕处理
+        </div>
+        <div class="checkbox-item" style="margin-bottom:12px;">
+            <input type="checkbox" id="subtitleAutoSyncCheck"> 自动同步时间轴 (需安装ffsubsync)
+        </div>
+        <div class="checkbox-item" style="margin-bottom:12px;">
+            <input type="checkbox" id="subtitleLinkCheck" checked> 字幕也创建链接 (否则复制)
+        </div>
+        <div class="field-row">
+            <label>同步超时(秒)</label>
+            <input type="number" id="subtitleSyncTimeoutInput" min="10" max="300" value="60">
+        </div>
+        <div class="note">💡 自动搜索同目录及 Subs/字幕 文件夹下的 .ass/.srt/.vtt 文件</div>
+    </div>
+    <div class="card">
+        <h3>🎌 动漫增强</h3>
+        <div class="checkbox-item" style="margin-bottom:12px;">
+            <input type="checkbox" id="animeParserEnabledCheck" checked> 启用 anitopy 动漫解析
+        </div>
+        <div class="checkbox-item" style="margin-bottom:12px;">
+            <input type="checkbox" id="animeParserFallbackCheck" checked> 解析失败时回退到原方法
+        </div>
+    </div>
+</div>
+
+<div class="note" style="margin-top: 15px; background: #fff3cd; padding: 10px; border-radius: 8px;">
+    💡 提示：修改配置后请点击「💾 保存配置」按钮，否则不会写入文件。
+</div>

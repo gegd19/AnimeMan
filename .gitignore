@@ -1,0 +1,24 @@
+# 缓存与日志
+*.log
+*.cache
+auto_processed_cache.json
+ai_parse_cache.json
+folder_ai_parse_cache.json
+raw_scan_cache.json
+tmdb_search_cache.json
+media_library_cache.json
+poster_cache.json
+
+# 配置文件（保留示例模板）
+auto_config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/

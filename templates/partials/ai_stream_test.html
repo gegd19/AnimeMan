@@ -1,0 +1,20 @@
+<div class="card" id="stream-card">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <span style="font-size: 28px;">✨</span>
+        <h3 style="margin:0;">AI 简介润色 · 流式测试</h3>
+    </div>
+    <div class="field-row">
+        <label>标题</label>
+        <input type="text" id="testTitle" placeholder="例如：权力的游戏" value="龙族" style="background:white;">
+    </div>
+    <div class="field-row">
+        <label>原始简介</label>
+        <textarea id="testPlot" rows="3" style="background:white;">少年楚子航觉醒龙族血脉，手持村雨踏上屠龙之路。</textarea>
+    </div>
+    <div style="display: flex; gap: 16px; margin: 20px 0;">
+        <button onclick="App.AIStream.startStreamEnhance()" class="primary" style="background: linear-gradient(135deg,#7c3aed,#2563eb);">🤖 开始流式生成</button>
+        <button onclick="App.AIStream.copyStreamResult()" class="secondary">📋 复制结果</button>
+    </div>
+    <div class="stream-output" id="streamOutput" style="background: #0f172a; color: #34d399; padding: 18px; border-radius: 20px; min-height: 100px;"></div>
+    <div class="note" style="margin-top: 12px;">💡 AI 会逐字生成，生成完毕文字将保留。</div>
+</div>

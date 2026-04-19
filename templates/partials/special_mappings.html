@@ -1,0 +1,17 @@
+<h2>🔖 特辑/OVA 手动映射规则</h2>
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <span class="note">💡 添加关键词规则，命中后直接使用指定的 TMDB ID 和季/集，优先级最高。</span>
+        <button onclick="App.MappingRules.openMappingModal()" class="success">➕ 新增规则</button>
+    </div>
+    <div style="max-height: 300px; overflow-y: auto; border:1px solid #dee2e6; border-radius:8px;">
+        <table class="failed-table" id="mappingRulesTable">
+            <thead>
+                <tr><th>关键词</th><th>TMDB ID</th><th>类型</th><th>季/集</th><th>状态</th><th>操作</th></tr>
+            </thead>
+            <tbody id="mappingRulesBody">
+                <tr><td colspan="6" style="text-align:center; padding:20px;">加载中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

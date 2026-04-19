@@ -1,0 +1,17 @@
+<div id="browseModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>📁 选择文件夹</h3>
+            <span onclick="App.Browse.closeModal()" style="cursor:pointer;font-size:28px;line-height:1;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="path-nav" style="margin-bottom:10px;"><strong>📍</strong> <span id="currentPath">/</span></div>
+            <div style="margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button onclick="App.Browse.goUp()">⬆ 上一级</button>
+                <button onclick="App.Browse.loadDrives()">💾 根目录</button>
+                <button onclick="App.Browse.selectCurrentPath()" style="margin-left:auto;background:#28a745;">✅ 选择此文件夹</button>
+            </div>
+            <ul class="dir-list" id="dirList"></ul>
+        </div>
+    </div>
+</div>

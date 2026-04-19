@@ -1,0 +1,24 @@
+<div id="mappingModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="mappingModalTitle">新增映射规则</h3>
+            <span onclick="App.MappingRules.closeMappingModal()" style="cursor:pointer;font-size:28px;line-height:1;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editingMappingIndex" value="-1">
+            <div class="field-row"><label>关键词 *</label><input type="text" id="mappingKeyword" placeholder="例如：[OVA] 某科学的超电磁炮"></div>
+            <div class="field-row"><label>TMDB ID *</label><input type="number" id="mappingTmdbId" placeholder="例如：4604"></div>
+            <div class="field-row"><label>媒体类型 *</label><select id="mappingMediaType"><option value="tv">剧集 (TV)</option><option value="movie">电影 (Movie)</option></select></div>
+            <div id="mappingTvFields">
+                <div class="field-row"><label>季号 (Season) *</label><input type="number" id="mappingSeason" value="0" min="0"></div>
+                <div class="field-row"><label>集号 (Episode) *</label><input type="number" id="mappingEpisode" value="1" min="1"></div>
+            </div>
+            <div class="field-row"><label>描述（可选）</label><input type="text" id="mappingDescription" placeholder="备注说明"></div>
+            <div class="checkbox-item"><input type="checkbox" id="mappingEnabled" checked> 启用该规则</div>
+            <div style="margin-top:20px; display:flex; gap:10px;">
+                <button onclick="App.MappingRules.saveMappingRule()" class="success">保存</button>
+                <button onclick="App.MappingRules.closeMappingModal()" class="secondary">取消</button>
+            </div>
+        </div>
+    </div>
+</div>

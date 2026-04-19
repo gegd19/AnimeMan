@@ -1,0 +1,35 @@
+<h2>📚 媒体库管理</h2>
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <span style="font-weight:500;">已入库</span>
+            <button onclick="App.MediaManager.refreshLibrary()" class="secondary" style="padding:8px 12px;">🔄 刷新</button>
+            <button onclick="App.MediaManager.batchCorrectSelected()" id="mediaBatchCorrectBtn" class="success" disabled style="padding:8px 12px;">📦 批量修正</button>
+            <button onclick="App.MediaManager.batchDeleteSelected()" id="mediaBatchDeleteBtn" class="danger" disabled style="padding:8px 12px;">🗑️ 批量删除</button>
+            <span style="margin-left:5px; color:#6c757d;">已选 <span id="mediaSelectedCount">0</span> 项</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="mediaLibrarySortSelect" style="padding:8px 10px; border-radius:6px; border:1px solid #ced4da; min-width:140px;" onchange="App.MediaManager.setSort(this.value.split('-')[0], this.value.split('-')[1])">
+                <option value="processed_time-desc" selected>最近处理 ↓</option>
+                <option value="processed_time-asc">最近处理 ↑</option>
+                <option value="title-asc">标题 A-Z</option>
+                <option value="title-desc">标题 Z-A</option>
+                <option value="year-desc">年份 ↓</option>
+                <option value="year-asc">年份 ↑</option>
+            </select>
+            <input type="text" id="mediaLibrarySearchInput" placeholder="🔍 过滤标题..." style="padding:8px 10px; border-radius:6px; border:1px solid #ced4da; min-width:180px;" oninput="App.MediaManager.filterLibrary(this.value)">
+        </div>
+    </div>
+
+    <!-- 卡片网格容器 -->
+    <div id="mediaLibraryManagerContainer" style="margin-top: 15px;">
+        <div style="text-align:center; padding:20px;">加载中...</div>
+    </div>
+
+    <!-- 分页控件容器（预留） -->
+    <div id="mediaLibraryPagination"></div>
+
+    <div class="note" style="margin-top:8px;">
+        💡 点击剧集卡片上的「📋 X季 ▼」展开季列表，再次点击或按「✕ 收起」关闭。勾选单集后可进行修正或删除。点击集数标题可查看源文件完整路径。
+    </div>
+</div>

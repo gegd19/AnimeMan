@@ -1,0 +1,54 @@
+<div id="processedCacheModal" class="modal">
+    <div class="modal-content" style="max-width: 1400px;">
+        <div class="modal-header">
+            <h3>📦 已处理缓存管理</h3>
+            <span onclick="App.ProcessedCache.closeModal()" style="cursor:pointer;font-size:28px;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button onclick="App.ProcessedCache.clearAllCache()" class="danger">🗑️ 清空全部成功缓存</button>
+                    <button onclick="App.ProcessedCache.batchCorrectSelected()" id="batchCorrectProcessedBtn" class="success" disabled>📦 批量修正</button>
+                    <button onclick="App.ProcessedCache.smartSortAndBatchCorrect()" class="warning">🧠 智能排序并修正</button>
+                    <button onclick="App.ProcessedCache.batchDeleteSelected()" id="batchDeleteProcessedBtn" class="danger" disabled>🗑️ 批量删除选中</button>
+                    <span style="margin-left: 8px;">本页 <span id="processedCacheCount">0</span> 条，已选 <span id="selectedProcessedCount">0</span> 条</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="App.ProcessedCache.toggleSelectAll(true)" class="secondary" style="padding:4px 10px;">☑️ 全选本页</button>
+                    <button onclick="App.ProcessedCache.toggleSelectAll(false)" class="secondary" style="padding:4px 10px;">⬜ 取消全选</button>
+                    <button onclick="App.ProcessedCache.invertSelection()" class="secondary" style="padding:4px 10px;">🔄 反选本页</button>
+                    <select id="processedCacheSortSelect" onchange="App.ProcessedCache.setSort(this.value)" style="padding:6px 10px; border-radius:6px;">
+                        <option value="processed_time">🕒 处理时间</option>
+                        <option value="confidence">📊 置信度</option>
+                        <option value="title">🎬 标题</option>
+                        <option value="src_name">📄 文件名</option>
+                    </select>
+                    <input type="text" id="processedCacheSearchInput" placeholder="🔍 搜索源文件名或标题" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #ced4da; width: 240px;" oninput="App.ProcessedCache.filterTable(this.value)">
+                </div>
+            </div>
+            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                <table class="failed-table" id="processedCacheTable">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;"><input type="checkbox" id="processedCacheSelectAll" onchange="App.ProcessedCache.toggleSelectAll(this.checked)"></th>
+                            <th style="width:18%;" data-sort="src_name">源文件</th>
+                            <th style="width:15%;">所在目录</th>
+                            <th style="width:18%;">目标文件</th>
+                            <th style="width:15%;" data-sort="title">类型/标题</th>
+                            <th style="width:8%; cursor:pointer;" data-sort="confidence" onclick="App.ProcessedCache.setSort('confidence')">📊 准确率</th>
+                            <th style="width:12%;" data-sort="processed_time" onclick="App.ProcessedCache.setSort('processed_time')">🕒 处理时间</th>
+                            <th style="width:120px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="processedCacheBody">
+                        <tr><td colspan="8" style="text-align:center;">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="processedCachePagination"></div>
+            <div class="note" style="margin-top: 12px;">
+                💡 清空缓存不会删除实际文件。点击「🔧 手动修正」可重新选择 TMDB 匹配。批量修正可对选中的文件进行批量重新匹配。
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,19 @@
+<div id="manualSelectModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3>🎯 为字幕手动选择目标媒体</h3>
+            <span onclick="App.MediaLibrary.closeManualSelectModal()" style="cursor:pointer;font-size:28px;line-height:1;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 15px;">
+                <strong>当前字幕：</strong> <span id="currentSubtitleName">-</span>
+            </div>
+            <div class="field-row">
+                <label>🔍 搜索</label>
+                <input type="text" id="mediaSearchInput" placeholder="输入标题、年份或季/集进行过滤" style="flex:1;" oninput="App.MediaLibrary.filterMediaLibrary()">
+            </div>
+            <div id="mediaLibraryContainer" style="max-height: 400px; overflow-y: auto; border:1px solid #dee2e6; border-radius:8px; margin-top:12px; padding:10px; background:#fafbfc;"></div>
+            <div class="note" style="margin-top:12px;">💡 点击剧集标题展开季列表，再点击季展开集数，选择具体剧集。</div>
+        </div>
+    </div>
+</div>

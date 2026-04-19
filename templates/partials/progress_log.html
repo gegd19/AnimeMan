@@ -1,0 +1,15 @@
+<div class="progress-bar">
+    <div id="progressFill" class="progress-fill" style="width:0%">0%</div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <span style="font-weight: 500;">📋 任务日志</span>
+    <div style="display: flex; gap: 8px;">
+        <button id="pauseLogsBtn" onclick="App.toggleLogsPause()" class="secondary" style="padding: 6px 12px; font-size: 13px;">⏸️ 暂停日志</button>
+        <button onclick="App.clearLogs()" class="secondary" style="padding: 6px 12px; font-size: 13px;">🧹 清空日志</button>
+    </div>
+</div>
+
+<div class="log-box" id="logBox">
+    <div style="color:#8a95a5;">✨ 准备就绪</div>
+</div>

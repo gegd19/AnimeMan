@@ -1,0 +1,68 @@
+<h1>AnimeMan · 番剧智能管家</h1>
+
+<div class="status">
+    <span id="statusText">⚪ 空闲</span>
+</div>
+
+<div class="action-bar">
+    <button id="runBtn" onclick="App.Task.startTask()">▶ 开始处理</button>
+    <button id="stopBtn" onclick="App.Task.stopTask()" class="danger" disabled>⏹️ 停止任务</button>
+    <button class="secondary" onclick="App.Task.refreshStatus()">🔄 刷新</button>
+    <button class="success" onclick="App.Config.saveConfig()">💾 保存配置</button>
+    <button class="secondary" onclick="App.Task.viewFullLog()">📄 完整日志</button>
+    <button class="warning" onclick="App.FailedCache.viewFailedCache()">⚠️ 失败缓存</button>
+    <button class="secondary" onclick="App.ProcessedCache.viewProcessedCache()">📋 已处理缓存</button>
+</div>
+
+<!-- 首次使用引导横幅（可展开教程，含AI指南，无广告） -->
+<div id="onboardingBanner" style="display: none; background: #e6f7ff; border-left: 5px solid #1890ff; border-radius: 12px; margin-bottom: 20px; overflow: hidden;">
+    <div style="padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 28px;">👋</span>
+            <div>
+                <strong style="font-size: 16px; color: #096dd9;">欢迎使用 AnimeMan · 番剧智能管家！</strong>
+                <p id="onboardingMessage" style="margin: 6px 0 0; color: #003eb3; opacity: 0.8;">检测到您尚未完成基本配置，请跟随教程快速上手。</p>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="App.Config.toggleTutorial()" class="success" style="padding: 8px 18px;">📘 查看教程</button>
+            <button onclick="App.Config.scrollToConfig()" class="primary" style="padding: 8px 18px; background: #2c7be5;">⚙️ 快速配置</button>
+            <button onclick="App.Config.dismissOnboarding()" class="secondary">稍后</button>
+        </div>
+    </div>
+    <!-- 教程折叠区域（含AI指南） -->
+    <div id="tutorialPanel" style="display: none; padding: 0 20px 20px 20px; background: #f0f7ff; border-top: 1px dashed #91d5ff;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 16px;">
+            <div style="background: white; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 22px; margin-bottom: 8px;">1️⃣</div>
+                <h4 style="margin: 0 0 8px;">获取 TMDB API Key</h4>
+                <p style="font-size: 13px; color: #555;">前往 <a href="https://www.themoviedb.org/settings/api" target="_blank" style="color: #1890ff;">TMDB 官网</a> 注册账号并申请 API 密钥（免费）。</p>
+            </div>
+            <div style="background: white; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 22px; margin-bottom: 8px;">2️⃣</div>
+                <h4 style="margin: 0 0 8px;">填写基础配置</h4>
+                <p style="font-size: 13px; color: #555;">在下方配置面板中填入 API Key、源文件夹和目标文件夹（剧集/电影）。</p>
+            </div>
+            <div style="background: white; border-radius: 10px; padding: 14px; border: 2px solid #a0d911;">
+                <div style="font-size: 22px; margin-bottom: 8px;">🤖</div>
+                <h4 style="margin: 0 0 8px;">启用 AI 智能解析</h4>
+                <p style="font-size: 13px; color: #555;">
+                    在「AI 解析设置」中勾选<strong>启用 AI 解析</strong>，并填入 AI API Key。<br>
+                    ⚡ 建议开启「文件夹批量解析」以节省 Token 费用。<br>
+                    ⚠️ 若未填写 Key，系统将自动禁用并回退到正则解析。
+                </p>
+            </div>
+            <div style="background: white; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 22px; margin-bottom: 8px;">3️⃣</div>
+                <h4 style="margin: 0 0 8px;">保存并测试连通性</h4>
+                <p style="font-size: 13px; color: #555;">点击「💾 保存配置」，然后点击「🔌 测试连通性」确保 TMDB 网络正常。</p>
+            </div>
+            <div style="background: white; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 22px; margin-bottom: 8px;">4️⃣</div>
+                <h4 style="margin: 0 0 8px;">开始处理任务</h4>
+                <p style="font-size: 13px; color: #555;">点击顶部「▶ 开始处理」，系统将自动扫描并整理媒体文件。AI 会在文件名不规范时辅助识别。</p>
+            </div>
+        </div>
+        <p style="margin-top: 16px; font-size: 13px; color: #888;">💡 AI 功能可选，但强烈推荐开启以提升识别准确率。部分服务商提供免费额度，请自行了解。</p>
+    </div>
+</div>

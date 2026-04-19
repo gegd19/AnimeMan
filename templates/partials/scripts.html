@@ -1,0 +1,23 @@
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/config.js') }}"></script>
+<script src="{{ url_for('static', filename='js/task.js') }}"></script>
+<script src="{{ url_for('static', filename='js/failedCache.js') }}"></script>
+<script src="{{ url_for('static', filename='js/correction.js') }}"></script>
+<script src="{{ url_for('static', filename='js/batchCorrection.js') }}"></script>
+<script src="{{ url_for('static', filename='js/offlinePreparser.js') }}"></script>
+<script src="{{ url_for('static', filename='js/browse.js') }}"></script>
+<script src="{{ url_for('static', filename='js/aiStream.js') }}"></script>
+<script src="{{ url_for('static', filename='js/subtitleCenter.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mediaLibrary.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mappingRules.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mediaManager.js') }}"></script>
+<script src="{{ url_for('static', filename='js/processedCache.js') }}"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        App.init();
+        if (typeof App.MediaManager !== 'undefined') {
+            App.MediaManager.init();
+        }
+    });
+</script>

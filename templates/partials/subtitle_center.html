@@ -1,0 +1,123 @@
+<h2>📝 字幕智能匹配中心</h2>
+<div class="card">
+    <div class="field-row">
+        <label>字幕文件夹</label>
+        <div class="path-input-group">
+            <input type="text" id="subSourceFolderInput" placeholder="待整理字幕文件夹">
+            <button type="button" class="browse" onclick="App.Browse.openBrowser('sub_source')">浏览</button>
+            <button type="button" class="secondary" onclick="App.Config.setDefaultSubtitleFolder()" title="将当前路径保存为默认">⭐ 设为默认</button>
+        </div>
+    </div>
+    <div class="field-row">
+        <label>匹配阈值</label>
+        <input type="range" id="matchThresholdInput" min="0" max="100" value="75" style="flex:2;">
+        <span id="thresholdValue" style="margin-left:10px;">75</span>
+    </div>
+    <div class="checkbox-group">
+        <div class="checkbox-item"><input type="checkbox" id="subtitleCenterAutoSyncCheck"> 自动调轴 (需ffsubsync)</div>
+        <div class="checkbox-item"><input type="checkbox" id="overwriteCheck"> 覆盖已有字幕</div>
+    </div>
+
+    <!-- 匹配操作栏 -->
+    <div style="margin: 20px 0 10px;">
+        <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+            <button onclick="App.SubtitleCenter.scanSubtitleFolder()">🔍 扫描字幕</button>
+            <button onclick="App.SubtitleCenter.autoMatchSubtitles()" id="matchBtn" disabled>🎯 自动匹配</button>
+            <button onclick="App.SubtitleCenter.executeAllMatches()" id="executeAllBtn" disabled>✅ 全部执行</button>
+        </div>
+        <div class="note" style="margin-bottom:15px;">💡 自动匹配：基于本地媒体库进行标题相似度匹配，无需手动选择目标。</div>
+    </div>
+
+    <!-- 目标选择区域：分为强制匹配（电影/单季）和 AI 匹配（整部剧集） -->
+    <div style="background:#f8f9fc; border-radius:10px; padding:15px; margin-bottom:15px;">
+        <div style="display:flex; flex-wrap:wrap; gap:20px;">
+            <!-- 左侧：强制匹配 -->
+            <div style="flex:1; min-width:250px;">
+                <div style="font-weight:600; margin-bottom:8px;">⚡ 强制匹配（需指定季号）</div>
+                <div class="field-row">
+                    <label style="width:80px;">目标媒体</label>
+                    <div style="flex:2; display:flex; gap:8px; align-items:center;">
+                        <span id="forceMatchShowDisplay" style="padding:6px 10px; background:#fff; border:1px solid #dee2e6; border-radius:6px; flex:1; word-break:break-word;">未选择</span>
+                        <button onclick="App.SubtitleCenter.selectForceMatchShow()" class="secondary" style="white-space:nowrap;">📺 选择电影/剧集季</button>
+                    </div>
+                </div>
+                <button onclick="App.SubtitleCenter.forceMatchToShow()" id="forceMatchBtn" disabled style="margin-top:8px;">⚡ 强制匹配勾选字幕</button>
+                <div class="note">按季号+集号强制对应，无视标题。</div>
+            </div>
+
+            <!-- 右侧：AI 智能匹配 -->
+            <div style="flex:1; min-width:250px;">
+                <div style="font-weight:600; margin-bottom:8px;">🤖 AI 智能匹配</div>
+                <div class="field-row">
+                    <label style="width:80px;">目标剧集</label>
+                    <div style="flex:2; display:flex; gap:8px; align-items:center;">
+                        <span id="selectedShowDisplay" style="padding:6px 10px; background:#fff; border:1px solid #dee2e6; border-radius:6px; flex:1; word-break:break-word;">未选择</span>
+                        <button onclick="App.SubtitleCenter.selectTargetShow()" class="secondary" style="white-space:nowrap;">🎯 选择整部剧集</button>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button onclick="App.SubtitleCenter.aiMatchToShow()" id="aiMatchBtn" class="success">🤖 AI 智能匹配</button>
+                    <button onclick="App.SubtitleCenter.applyAiMatches()" id="applyAiMatchBtn" class="warning">✅ 一键入库</button>
+                </div>
+                <div class="note">⭐ AI 将自动识别字幕文件名中的剧集标题，同一剧集只调用一次 AI，然后在媒体库中批量匹配。</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 匹配结果表格操作栏（固定全选/清除/排序） -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0 8px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="subtitleSelectAllFixed" onchange="App.SubtitleCenter.toggleSelectAllSubtitle(this.checked)">
+                <span>全选（当前页）</span>
+            </label>
+            <span style="color: #6c757d; font-size: 13px;">已选择 <span id="subtitleSelectedCount">0</span> 个文件</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <!-- 新增排序下拉框 -->
+            <select id="subtitleSortSelect" onchange="App.SubtitleCenter.setSortMode(this.value)" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #ced4da; background: white;">
+                <option value="name" selected>📄 按文件名排序</option>
+                <option value="confidence">📊 按匹配度排序</option>
+            </select>
+            <button onclick="App.SubtitleCenter.clearAllSelections()" class="secondary" style="padding: 4px 12px;">清除选中</button>
+        </div>
+    </div>
+
+    <!-- 匹配结果表格（粘性表头） -->
+    <div style="max-height: 300px; overflow-y: auto; border:1px solid #dee2e6; border-radius:8px;">
+        <table class="failed-table" id="subtitleMatchTable" style="position: relative;">
+            <thead style="position: sticky; top: 0; background: #f1f3f5; z-index: 10;">
+                <tr>
+                    <th style="width:30px;"><input type="checkbox" id="subtitleSelectAll" onchange="App.SubtitleCenter.toggleSelectAllSubtitle(this.checked)"></th>
+                    <th>字幕文件</th>
+                    <th>匹配结果</th>
+                    <th>置信度</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="subtitleMatchBody">
+                <tr><td colspan="5" style="text-align:center; padding:20px;">暂无数据，请先扫描并匹配</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <!-- 分页控件 -->
+    <div id="subtitlePagination"></div>
+    <div class="note" style="margin-top:6px;">💡 勾选字幕后，可点击“自由选择”手动指定目标媒体。已匹配的字幕会显示绿色标记。</div>
+
+    <!-- AI 匹配结果表格 -->
+    <div id="aiMatchResultsContainer" style="max-height: 300px; overflow-y: auto; border:1px solid #dee2e6; border-radius:8px; margin-top:15px; display:none;">
+        <table class="failed-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;">选择</th>
+                    <th>原文件名</th>
+                    <th>匹配集数</th>
+                    <th>单集标题</th>
+                    <th>建议新名称</th>
+                    <th>置信度</th>
+                </tr>
+            </thead>
+            <tbody id="aiMatchResultsBody"></tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,110 @@
+{
+  "source_folders": [
+    "/path/to/your/anime/downloads"
+  ],
+  "tv_target_folder": "/path/to/emby/tv",
+  "movie_target_folder": "/path/to/emby/movies",
+  "video_extensions": [
+    ".mkv",
+    ".mp4",
+    ".avi",
+    ".ts",
+    ".m2ts",
+    ".mov",
+    ".wmv",
+    ".flv"
+  ],
+  "link_type": "hard",
+  "ignore_patterns": [
+    "sample",
+    "trailer",
+    "extra",
+    "Disc",
+    "SP",
+    "Vol",
+    "Menu",
+    "NCED",
+    "CM",
+    "ncop",
+    "NCOP.",
+    "SPs",
+    "PV",
+    "IV",
+    "Menu",
+    "Bonus"
+  ],
+  "min_file_size_mb": 50,
+  "dry_run": false,
+  "add_year_to_folder": true,
+  "force_chinese_name": true,
+  "incremental": true,
+  "max_workers": 3,
+  "download_images": true,
+  "image_base_url": "https://image.tmdb.org/t/p/",
+  "tmdb_api": {
+    "api_key": "YOUR_TMDB_API_KEY_HERE",
+    "language": "zh-CN",
+    "proxy": ""
+  },
+  "tmdb_rate_limit": 0.05,
+  "ai_parser": {
+    "enabled": false,
+    "provider": "deepseek",
+    "api_key": "YOUR_AI_API_KEY_HERE",
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com",
+    "temperature": 0.1,
+    "max_tokens": 6000,
+    "timeout": 60,
+    "debug": false,
+    "batch_folder_enabled": true
+  },
+  "auth": {
+    "enabled": false,
+    "username": "admin",
+    "password": "admin"
+  },
+  "ai_plot_enhance": {
+    "enabled": false,
+    "provider": "deepseek",
+    "api_key": "YOUR_AI_API_KEY_HERE",
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com",
+    "temperature": 0.7,
+    "max_tokens": 500,
+    "timeout": 30,
+    "prompt_template": "你是一个专业的影视剧文案。请将以下剧情简介改写得更加生动、吸引人，语言流畅自然，可以适当增加一些悬念和感染力。请直接输出改写后的简介，不要添加额外说明。\n\n原标题：{title}\n原简介：{original_plot}\n\n优化后简介："
+  },
+  "subtitle": {
+    "enabled": true,
+    "auto_sync": false,
+    "sync_timeout": 300,
+    "keep_original": true,
+    "link_subtitles": true
+  },
+  "anime_parser": {
+    "enabled": true,
+    "fallback_to_regex": true
+  },
+  "subtitle_center": {
+    "default_source_folder": "",
+    "auto_match_threshold": 75,
+    "auto_sync_enabled": false,
+    "link_mode": "hard",
+    "overwrite_existing": true,
+    "opensubtitles_api_key": "",
+    "opensubtitles_username": "",
+    "opensubtitles_password": ""
+  },
+  "special_mappings": [
+    {
+      "description": "电磁炮 OVA",
+      "enabled": true,
+      "episode": 1,
+      "keyword": "[OVA] 某科学的超电磁炮",
+      "media_type": "tv",
+      "season": 0,
+      "tmdb_id": 4604
+    }
+  ]
+}

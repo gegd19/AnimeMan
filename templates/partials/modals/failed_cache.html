@@ -1,0 +1,18 @@
+<div id="failedCacheModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>⚠️ 处理失败缓存列表</h3>
+            <span onclick="App.FailedCache.closeFailedCacheModal()" style="cursor:pointer;font-size:28px;line-height:1;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <button onclick="App.FailedCache.clearFailedCache()" class="danger">🗑️ 清空失败缓存</button>
+                <span style="color: #6c757d;">共 <span id="failedCount">0</span> 条失败记录</span>
+            </div>
+            <div id="failedCacheList" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 10px; background: #f8f9fa;">
+                <div style="padding: 20px; text-align: center; color: #6c757d;">加载中...</div>
+            </div>
+            <div class="note" style="margin-top: 12px;">💡 这些文件无法自动处理，请根据原因手动整理。</div>
+        </div>
+    </div>
+</div>

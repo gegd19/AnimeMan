@@ -1,0 +1,1649 @@
+/* ========== 全局重置 ========== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+    margin: 0;
+    background: #f5f7fb;
+    padding: 8px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    padding: 16px 12px;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+}
+
+h1 {
+    font-size: 1.5rem;
+    margin: 0 0 12px 0;
+    color: #1a1e2b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+h2 {
+    font-size: 1.3rem;
+    color: #2c3e50;
+    margin: 20px 0 12px;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 8px;
+}
+
+h3 {
+    font-size: 1.1rem;
+    color: #495057;
+    margin: 12px 0 8px;
+}
+
+/* ========== 按钮样式 ========== */
+button {
+    background: #2c7be5;
+    color: white;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+button:hover {
+    background: #1a5bbf;
+}
+
+button:disabled {
+    background: #c0c4cc;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+button.secondary {
+    background: #6c757d;
+}
+
+button.secondary:hover {
+    background: #545b62;
+}
+
+button.success {
+    background: #28a745;
+}
+
+button.success:hover {
+    background: #218838;
+}
+
+button.danger {
+    background: #dc3545;
+}
+
+button.danger:hover {
+    background: #c82333;
+}
+
+button.browse {
+    background: #5a6d80;
+}
+
+button.warning {
+    background: #fd7e14;
+}
+
+button.warning:hover {
+    background: #e06b10;
+}
+
+/* ========== 进度条 ========== */
+.progress-bar {
+    width: 100%;
+    background: #e9ecef;
+    border-radius: 30px;
+    margin: 16px 0;
+    height: 28px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2c7be5, #00b4d8);
+    width: 0%;
+    transition: width 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+/* ========== 日志框 ========== */
+.log-box {
+    background: #1a1e2b;
+    color: #e3e8f0;
+    padding: 14px;
+    border-radius: 12px;
+    height: 200px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+    font-size: 12px;
+    margin: 16px 0;
+    line-height: 1.5;
+}
+
+/* ========== 配置网格 ========== */
+.config-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin: 16px 0;
+}
+
+.card {
+    background: #fafbfc;
+    border-radius: 16px;
+    padding: 18px 16px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.api-section {
+    background: #eef2ff;
+    border-left: 5px solid #2c7be5;
+}
+
+.stream-card {
+    background: #f0f4ff;
+    border-left: 5px solid #845ef7;
+}
+
+/* ========== 表单行 ========== */
+.field-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 18px;
+}
+
+.field-row label {
+    width: 100%;
+    font-weight: 500;
+    color: #495057;
+    font-size: 15px;
+    margin-bottom: 6px;
+}
+
+.field-row input,
+.field-row select,
+.field-row textarea {
+    width: 100%;
+    padding: 14px 14px;
+    border: 1px solid #ced4da;
+    border-radius: 12px;
+    font-size: 16px;
+    background: white;
+}
+
+.field-row input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    margin-left: 0;
+}
+
+.field-row input[type="range"] {
+    padding: 0;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+}
+
+.path-input-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+}
+
+.path-input-group input {
+    flex: 1;
+    min-width: 150px;
+}
+
+.path-input-group button {
+    flex: 1;
+}
+
+/* ========== 提示文字 ========== */
+.note {
+    font-size: 13px;
+    color: #6c757d;
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+/* ========== 状态标签 ========== */
+.status {
+    display: inline-block;
+    padding: 8px 18px;
+    background: #e9ecef;
+    border-radius: 30px;
+    font-weight: 500;
+    margin-bottom: 10px;
+    font-size: 15px;
+}
+
+/* ========== 操作栏 ========== */
+.action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0 12px;
+}
+
+.action-bar button {
+    flex: 1 0 calc(50% - 10px);
+    margin-right: 0;
+    white-space: normal;
+    line-height: 1.3;
+}
+
+/* ========== 流式输出框 ========== */
+.stream-output {
+    background: #1a1e2b;
+    color: #51cf66;
+    padding: 16px;
+    border-radius: 12px;
+    min-height: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 14px;
+}
+
+/* ========== 表格样式 ========== */
+.failed-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+}
+
+.failed-table th,
+.failed-table td {
+    padding: 12px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.failed-table th {
+    background: #f1f3f5;
+    font-weight: 600;
+}
+
+.failed-table td {
+    border-bottom: 1px solid #e9ecef;
+    vertical-align: top;
+}
+
+.failed-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* ========== 媒体库手动选择样式 ========== */
+.media-section {
+    margin-bottom: 24px;
+}
+
+.media-section h4 {
+    margin: 12px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.movie-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.movie-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 14px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    border: none;
+    gap: 10px;
+}
+
+.tv-show-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.tv-show-card {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    overflow: hidden;
+    border: none;
+}
+
+.tv-show-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 14px 14px;
+    cursor: pointer;
+    background: #f8f9fa;
+    transition: background 0.2s;
+    gap: 12px;
+    border: none;
+    user-select: none;
+}
+
+.tv-show-header:hover {
+    background: #e9ecef;
+}
+
+.show-poster {
+    width: 65px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #e9ecef;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+    flex-shrink: 0;
+}
+
+.show-info {
+    flex: 1;
+    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+}
+
+.show-title {
+    font-weight: 600;
+    font-size: 16px;
+    word-break: break-word;
+}
+
+.show-seasons-count {
+    font-size: 13px;
+    color: #6c757d;
+}
+
+/* ========== 模态框 ========== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    overflow-y: auto;
+    padding: 0;
+}
+
+.modal-content {
+    background: white;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: none;
+}
+
+.modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.modal-body {
+    padding: 20px 20px;
+    overflow-y: auto;
+    flex: 1;
+    background: white;
+}
+
+/* ========== Toast 提示 ========== */
+.app-toast {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
+    padding: 14px 20px;
+    border-radius: 16px;
+    font-size: 15px;
+    font-weight: 500;
+    color: white;
+    z-index: 10000;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+    word-break: break-word;
+    text-align: center;
+}
+
+.app-toast-success { background-color: #28a745; }
+.app-toast-error { background-color: #dc3545; }
+.app-toast-info { background-color: #2c7be5; }
+.app-toast-warning { background-color: #fd7e14; }
+
+/* ========== 媒体库卡片网格（完整可见版） ========== */
+.media-card-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+    min-height: 120px; /* 防止高度塌陷 */
+}
+
+.media-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 1px solid #ddd;
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.media-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+}
+
+.media-card-poster {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    background: #e9ecef;
+    overflow: hidden;
+}
+
+.media-card-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background: #e9ecef; /* 图片加载中背景 */
+}
+
+.media-card-check {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 4px;
+    padding: 2px;
+    z-index: 2;
+}
+
+.media-card-check input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    display: block;
+}
+
+.media-card-info {
+    padding: 6px 6px 2px;
+}
+
+.media-card-title {
+    font-weight: 600;
+    font-size: 11px;
+    line-height: 1.3;
+    color: #1a1e2b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.media-card-year {
+    font-size: 9px;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.media-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 2px;
+    padding: 0 6px 6px;
+}
+
+.media-card-actions button {
+    padding: 2px 5px;
+    font-size: 10px;
+    min-height: 20px;
+    line-height: 1;
+    background: transparent;
+    color: #495057;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.media-card-actions button:hover {
+    background: #f1f3f5;
+}
+
+/* 季切换按钮 */
+.media-card-seasons-toggle {
+    padding: 0 6px 6px;
+}
+
+.season-toggle-btn {
+    width: 100%;
+    padding: 3px 4px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 10px;
+    color: #495057;
+    cursor: pointer;
+    text-align: center;
+}
+
+.season-toggle-btn:hover {
+    background: #e9ecef;
+}
+
+/* 季列表面板 */
+.show-seasons-panel {
+    margin: 10px 0 16px;
+    background: #fafbfc;
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.show-seasons-header {
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.season-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.season-row {
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    background: white;
+    overflow: hidden;
+}
+
+.season-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: #f8f9fa;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.season-row-header:hover {
+    background: #e9ecef;
+}
+
+.expand-arrow {
+    color: #6c757d;
+    font-size: 11px;
+}
+
+.episode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 6px;
+    padding: 8px;
+}
+
+.episode-item-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.episode-item-card .episode-number {
+    font-weight: 600;
+    color: #2c7be5;
+    min-width: 32px;
+    font-size: 11px;
+}
+
+.episode-item-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+    min-height: 40px; /* 新增 */
+}
+
+.episode-item-card .episode-actions button {
+    padding: 2px 4px;
+    font-size: 10px;
+    min-height: 20px;
+}
+
+/* ========== 响应式 ========== */
+
+@media (min-width: 1024px) {
+
+    .media-card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important;
+    }
+    .media-card-title {
+        font-size: 12px !important;
+    }
+    .container {
+        padding: 24px 28px;
+    }
+    h1 {
+        font-size: 1.8rem;
+    }
+    .config-grid {
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    }
+    .field-row {
+        flex-direction: row;
+        align-items: center;
+    }
+    .field-row label {
+        width: 130px;
+        margin-bottom: 0;
+    }
+    .field-row input,
+    .field-row select,
+    .field-row textarea {
+        flex: 1;
+        min-width: 180px;
+    }
+    .path-input-group {
+        flex-wrap: nowrap;
+    }
+    .path-input-group button {
+        flex: initial;
+    }
+    .action-bar button {
+        flex: initial;
+    }
+    .modal-content {
+        margin: 5% auto;
+        width: 90%;
+        max-width: 800px;
+        height: auto;
+        max-height: 85vh;
+        border-radius: 28px;
+        box-shadow: 0 30px 50px rgba(0,0,0,0.2);
+    }
+    .app-toast {
+        left: auto;
+        max-width: 380px;
+        text-align: left;
+    }
+    .failed-table {
+        display: table;
+        overflow-x: visible;
+        white-space: normal;
+    }
+    .failed-table th,
+    .failed-table td {
+        white-space: normal;
+    }
+}
+
+@media (max-width: 480px) {
+    .media-card-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .episode-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.episode-number {
+    cursor: pointer;
+    color: #2c7be5;
+    text-decoration: underline dotted;
+}
+.episode-number:hover {
+    color: #1a5bbf;
+}
+/* =========================================
+   移动端适配优化 (最大宽度 768px)
+   - 触摸区域 ≥ 44x44px
+   - 双列卡片网格
+   - 表格卡片化（失败缓存 + 已处理缓存）
+   - 复选框尺寸优化 (18px)
+   - 模态框加大尺寸
+   - 输入框垂直布局
+   - 已处理缓存信息精简
+   ========================================= */
+@media (max-width: 768px) {
+
+    /* ----- 全局触摸优化 ----- */
+    button,
+    .button,
+    [role="button"],
+    select,
+    .clickable,
+    .episode-title-clickable,
+    .season-toggle-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* 防止 iOS 输入框自动缩放 */
+    input, select, textarea {
+        font-size: 16px !important;
+        padding: 14px 12px !important;
+    }
+
+    /* ----- 操作栏网格布局（两列等宽）----- */
+    .action-bar {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    .action-bar button {
+        margin-right: 0;
+        width: 100%;
+        justify-content: center;
+        padding: 14px 8px;
+        font-size: 14px;
+        white-space: normal;
+        line-height: 1.3;
+    }
+
+    /* ----- 双列卡片网格（高级设计保留）----- */
+    .media-card-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px;
+    }
+
+    .media-card {
+        flex-direction: column;
+        padding: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        background: #ffffff;
+    }
+
+    .media-card-poster {
+        width: 100%;
+        aspect-ratio: 2 / 3;
+        height: auto;
+    }
+
+    .media-card-info {
+        padding: 10px 8px 4px;
+        display: block;
+    }
+
+    .media-card-title {
+        font-size: 13px !important;
+        font-weight: 700;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .media-card-year {
+        font-size: 11px;
+        color: #6c757d;
+    }
+
+    .media-card-actions {
+        display: flex;
+        flex-direction: row;
+        gap: 6px;
+        padding: 4px 8px 10px;
+    }
+
+    .media-card-actions button {
+        flex: 1;
+        padding: 8px 0;
+        font-size: 11px;
+        min-height: 36px;
+        border-radius: 30px;
+        background: rgba(44,123,229,0.06);
+        border: 1px solid rgba(44,123,229,0.15);
+        color: #2c7be5;
+        font-weight: 600;
+    }
+
+    .media-card-actions button.danger {
+        background: rgba(220,53,69,0.06);
+        border-color: rgba(220,53,69,0.15);
+        color: #dc3545;
+    }
+
+    .media-card-seasons-toggle {
+        padding: 0 8px 8px;
+    }
+
+    .season-toggle-btn {
+        width: 100%;
+        padding: 8px 0;
+        font-size: 12px;
+        min-height: 36px;
+        border-radius: 30px;
+        background: rgba(108,117,125,0.06);
+        border: 1px solid rgba(108,117,125,0.12);
+        color: #495057;
+        font-weight: 600;
+    }
+
+    /* ----- 剧集季列表面板（独立于卡片）----- */
+    .show-seasons-panel {
+        margin: 8px 0 16px;
+        padding: 12px;
+        background: rgba(255,255,255,0.7);
+        backdrop-filter: blur(12px);
+        border-radius: 20px;
+    }
+
+    .episode-grid {
+        grid-template-columns: 1fr !important;
+        gap: 6px;
+    }
+
+    .episode-item-card {
+        padding: 10px 8px;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        background: rgba(255,255,255,0.6);
+        border-radius: 14px;
+    }
+
+    .episode-item-card .episode-number {
+        min-width: 40px;
+        font-size: 13px;
+    }
+
+    .episode-item-card .episode-title-clickable {
+        flex: 1;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 6px 0;
+    }
+
+    .episode-item-card .episode-actions {
+        display: flex;
+        gap: 4px;
+    }
+
+    .episode-item-card .episode-actions button {
+        min-width: 36px;
+        min-height: 36px;
+        padding: 6px;
+        font-size: 12px;
+    }
+
+    .season-row-header {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .season-row-header button {
+        min-height: 36px;
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    /* ----- 复选框优化（美观且触摸友好）----- */
+    .checkbox-item {
+        padding: 10px 0;
+    }
+    .checkbox-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin-right: 10px;
+        accent-color: #2c7be5;
+    }
+
+    .failed-table input[type="checkbox"],
+    #subtitleMatchTable input[type="checkbox"],
+    #processedCacheTable input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        accent-color: #2c7be5;
+    }
+
+    .media-card-check {
+        padding: 8px;
+        margin: -4px;
+    }
+    .media-card-check input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        accent-color: #2c7be5;
+    }
+
+    /* ----- 表格横向滑动 + 阴影提示（通用表格）----- */
+    .failed-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+        box-shadow: inset -10px 0 8px -8px rgba(0,0,0,0.1);
+    }
+    .failed-table table {
+        min-width: 600px;
+    }
+    .failed-table th,
+    .failed-table td {
+        white-space: nowrap;
+        padding: 12px 8px;
+    }
+
+    #subtitleMatchTable {
+        min-width: 700px;
+    }
+    #subtitleMatchTable th,
+    #subtitleMatchTable td {
+        padding: 10px 6px;
+    }
+
+    /* ----- 模态框加大尺寸 + 布局优化 ----- */
+    .modal {
+        padding: 8px !important;
+    }
+
+    .modal-content {
+        margin: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: calc(100vh - 16px) !important;
+        border-radius: 28px !important;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25) !important;
+    }
+
+    .modal-header {
+        padding: 20px 20px 16px !important;
+    }
+
+    .modal-header h3 {
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+    }
+
+    .modal-header span {
+        font-size: 36px !important;
+        padding: 8px 12px !important;
+    }
+
+    .modal-body {
+        padding: 20px !important;
+        overflow-y: auto !important;
+    }
+
+    /* ----- 配置面板输入框垂直布局 ----- */
+    .config-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .field-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+    .field-row label {
+        width: 100%;
+        margin-bottom: 2px;
+    }
+
+    /* TMDB API Key 输入框垂直布局 */
+    .field-row:has(#tmdbKeyInput) > div {
+        flex-direction: column !important;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .field-row #tmdbKeyInput {
+        width: 100% !important;
+        padding: 14px 12px !important;
+        font-size: 16px !important;
+        background: white !important;
+        border-radius: 12px !important;
+    }
+
+    #testTmdbBtn {
+        width: 100% !important;
+        padding: 14px 12px !important;
+        font-size: 16px !important;
+        white-space: nowrap;
+    }
+
+    /* 批量修正搜索框垂直布局 */
+    .field-row:has(#batchTmdbSearchInput) > div {
+        flex-direction: column !important;
+        width: 100%;
+        gap: 10px;
+    }
+
+    #batchTmdbSearchInput,
+    #batchTmdbSearchType {
+        width: 100% !important;
+        padding: 14px 12px !important;
+        font-size: 16px !important;
+        background: white !important;
+        border-radius: 12px !important;
+    }
+
+    .field-row:has(#batchTmdbSearchInput) button {
+        width: 100% !important;
+        padding: 14px 12px !important;
+        font-size: 16px !important;
+    }
+
+    .path-input-group {
+        flex-wrap: wrap;
+    }
+    .path-input-group input {
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
+    .path-input-group button {
+        flex: 1;
+    }
+
+    /* ----- 失败缓存列表卡片化（加大尺寸）----- */
+    #failedCacheList {
+        padding: 4px 2px !important;
+        background: transparent !important;
+    }
+
+    #failedCacheList .failed-table,
+    #failedCacheList .failed-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    #failedCacheList .failed-table thead {
+        display: none;
+    }
+
+    #failedCacheList .failed-table tr {
+        display: block;
+        padding: 20px 18px !important;
+        margin-bottom: 16px !important;
+        border-radius: 24px !important;
+        background: #ffffff;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+    }
+
+    #failedCacheList .failed-table td {
+        display: block;
+        border: none;
+        padding: 6px 0;
+        white-space: normal;
+    }
+
+    #failedCacheList .failed-table td:first-child {
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        color: #1a1e2b !important;
+        word-break: break-word;
+        padding-bottom: 8px !important;
+    }
+
+    #failedCacheList .failed-table td:nth-child(2) {
+        font-size: 28px !important;
+        font-weight: 800 !important;
+        color: #dc3545;
+        padding-bottom: 16px !important;
+    }
+
+    #failedCacheList .failed-table td:last-child {
+        display: flex;
+        gap: 12px !important;
+        flex-wrap: wrap;
+    }
+
+    #failedCacheList .failed-table td:last-child button {
+        flex: 1 0 calc(50% - 6px) !important;
+        min-height: 52px !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        border-radius: 40px !important;
+    }
+
+    /* ----- 已处理缓存管理 · 移动端极简卡片优化 ----- */
+    #processedCacheModal .modal-body > div:first-child {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    #processedCacheModal .modal-body > div:first-child > div:first-child {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        width: 100%;
+    }
+
+    #processedCacheModal .modal-body > div:first-child > div:first-child button {
+        flex: 1 0 calc(33% - 4px);
+        font-size: 12px;
+        padding: 8px 4px;
+        min-height: 40px;
+    }
+
+    #processedCacheModal .modal-body > div:first-child > span {
+        width: 100%;
+        text-align: center;
+        font-size: 13px;
+        background: #f0f4ff;
+        padding: 8px;
+        border-radius: 30px;
+    }
+
+    #processedCacheModal .modal-body > div:first-child > div:last-child {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+    }
+
+    #processedCacheModal .modal-body > div:first-child > div:last-child select,
+    #processedCacheModal .modal-body > div:first-child > div:last-child input {
+        flex: 1;
+        min-height: 44px;
+        font-size: 14px;
+        padding: 8px 12px;
+        border-radius: 30px;
+        border: 1px solid #dee2e6;
+    }
+
+    /* 已处理缓存表格卡片化 */
+    #processedCacheTable,
+    #processedCacheTable tbody,
+    #processedCacheTable tr,
+    #processedCacheTable td {
+        display: block;
+        width: 100%;
+    }
+
+    #processedCacheTable thead {
+        display: none;
+    }
+
+    #processedCacheTable tr {
+        background: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        padding: 16px;
+        margin-bottom: 14px;
+        position: relative;
+    }
+
+    #processedCacheTable td {
+        border: none;
+        padding: 4px 0;
+        white-space: normal;
+        word-break: break-word;
+        text-align: left;
+    }
+
+    /* 字段标签 */
+    #processedCacheTable td:nth-of-type(2)::before { content: "📄 "; font-weight: 400; color: #6c757d; }
+    #processedCacheTable td:nth-of-type(3)::before { content: "📁 "; font-weight: 400; color: #8a93a0; }
+    #processedCacheTable td:nth-of-type(5)::before { content: "🎬 "; }
+    #processedCacheTable td:nth-of-type(6)::before { content: "⭐ 置信度 "; color: #6c757d; }
+    #processedCacheTable td:nth-of-type(7)::before { content: "🕒 "; }
+
+    /* 源文件名加粗 */
+    #processedCacheTable td:nth-of-type(2) {
+        font-weight: 700;
+        font-size: 15px;
+        padding-top: 4px;
+    }
+
+    /* 目录路径省略 */
+    #processedCacheTable td:nth-of-type(3) {
+        font-size: 12px;
+        color: #8a93a0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 2px 0;
+    }
+
+    /* 隐藏目标文件名（与标题重复） */
+    #processedCacheTable td:nth-of-type(4) {
+        display: none;
+    }
+
+    /* 标题行 */
+    #processedCacheTable td:nth-of-type(5) {
+        font-size: 14px;
+        font-weight: 600;
+        padding: 6px 0;
+    }
+
+    /* 置信度 */
+    #processedCacheTable td:nth-of-type(6) {
+        font-size: 12px;
+        color: #28a745;
+        font-weight: 500;
+    }
+
+    /* 处理时间缩小 */
+    #processedCacheTable td:nth-of-type(7) {
+        font-size: 11px;
+        color: #a0aab5;
+        padding: 2px 0;
+    }
+
+    /* 操作按钮底部对齐 */
+    #processedCacheTable td:last-child {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #eef2f6;
+    }
+
+    #processedCacheTable td:last-child button {
+        flex: 1;
+        min-height: 44px;
+        font-size: 14px;
+        border-radius: 40px;
+        font-weight: 600;
+    }
+
+    /* 复选框置于右上角 */
+    #processedCacheTable td:first-child {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: auto;
+        padding: 0;
+    }
+
+    #processedCacheTable td:first-child::before {
+        content: none;
+    }
+
+    #processedCacheTable td:nth-of-type(2) {
+        padding-right: 40px;
+    }
+
+    /* ----- 批量修正文件列表路径简化（只显示文件名）----- */
+    #batchFileList table td:nth-child(3) {
+        max-width: 250px;
+        word-break: break-word;
+    }
+
+    /* ----- 进度条与日志 ----- */
+    .progress-bar {
+        height: 32px;
+    }
+    .progress-fill {
+        font-size: 14px;
+    }
+    .log-box {
+        height: 180px;
+        font-size: 12px;
+    }
+
+    /* ----- Toast 提示 ----- */
+    .app-toast {
+        left: 16px;
+        right: 16px;
+        max-width: none;
+        text-align: center;
+        padding: 14px 16px;
+        font-size: 15px;
+    }
+
+    /* ----- 分页控件 ----- */
+    #subtitlePagination button,
+    #processedCachePagination button {
+        min-width: 44px;
+        padding: 10px 12px;
+    }
+
+    /* ----- 引导横幅按钮 ----- */
+    #onboardingBanner {
+        padding: 12px;
+    }
+    #onboardingBanner button {
+        flex: 1;
+        min-height: 44px;
+    }
+
+    .field-row button {
+        width: 100%;
+        margin-top: 4px;
+    }
+
+    #configForm .success {
+        width: 100%;
+        margin: 10px 0;
+    }
+}
+
+/* =========================================
+   超小屏微调 (最大宽度 480px)
+   ========================================= */
+@media (max-width: 480px) {
+    .action-bar {
+        grid-template-columns: 1fr;
+    }
+
+    .media-card-title {
+        font-size: 12px !important;
+    }
+
+    .media-card-actions button {
+        font-size: 10px;
+        padding: 6px 0;
+    }
+
+    .season-toggle-btn {
+        font-size: 11px;
+        padding: 6px 0;
+    }
+
+    .episode-item-card {
+        flex-wrap: wrap;
+    }
+
+    .episode-item-card .episode-actions {
+        width: 100%;
+        margin-top: 4px;
+        justify-content: flex-end;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+}
+/* 移动端卡片高级样式微调 */
+@media (max-width: 768px) {
+    .media-card {
+        border-radius: 16px;
+    }
+    .media-card-title {
+        font-size: 13px !important;
+    }
+    .media-card-actions button {
+        font-size: 10px;
+        padding: 6px 0;
+        min-height: 34px;
+    }
+    .season-toggle-btn {
+        font-size: 11px;
+        padding: 6px 0;
+        min-height: 34px;
+    }
+    .show-seasons-panel {
+        padding: 12px;
+        border-radius: 16px;
+    }
+}
+/* =========================================
+   移动端表格卡片化（失败缓存 + 已处理缓存）
+   ========================================= */
+
+/* ----- 已处理缓存表格卡片化 ----- */
+#processedCacheTable,
+#processedCacheTable tbody,
+#processedCacheTable tr,
+#processedCacheTable td {
+    display: block;
+    width: 100%;
+}
+
+#processedCacheTable thead {
+    display: none;
+}
+
+#processedCacheTable tr {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid #f0f0f0;
+    position: relative;
+}
+
+#processedCacheTable td {
+    border: none;
+    padding: 6px 0;
+    white-space: normal;
+    word-break: break-word;
+    text-align: left;
+}
+
+#processedCacheTable td:nth-of-type(1)::before { content: "选择："; font-weight: 600; color: #6c757d; margin-right: 8px; }
+#processedCacheTable td:nth-of-type(2)::before { content: "源文件："; font-weight: 600; color: #6c757d; margin-right: 8px; }
+#processedCacheTable td:nth-of-type(3)::before { content: "所在目录："; font-weight: 600; color: #6c757d; margin-right: 8px; }
+#processedCacheTable td:nth-of-type(4)::before { content: "目标文件："; font-weight: 600; color: #6c757d; margin-right: 8px; }
+#processedCacheTable td:nth-of-type(5)::before { content: "类型/标题："; font-weight: 600; color: #6c757d; margin-right: 8px; }
+#processedCacheTable td:nth-of-type(6)::before { content: "准确率："; font-weight: 600; color: #6c757d; margin-right: 8px; }
+#processedCacheTable td:nth-of-type(7)::before { content: "处理时间："; font-weight: 600; color: #6c757d; margin-right: 8px; }
+
+#processedCacheTable td:last-child {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #dee2e6;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+#processedCacheTable td:last-child::before {
+    content: none;
+}
+
+#processedCacheTable td:last-child button {
+    flex: 1;
+    min-height: 40px;
+    font-size: 13px;
+    border-radius: 30px;
+}
+
+#processedCacheTable td:first-child {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: auto;
+    padding: 0;
+}
+
+#processedCacheTable td:first-child::before {
+    content: none;
+}
+
+#processedCacheTable td:nth-of-type(2) {
+    padding-right: 40px;
+}
+
+/* ----- 失败缓存聚类卡片美化 ----- */
+#failedCacheList .failed-table tr {
+    display: block;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    border: 1px solid #f0f0f0;
+}
+
+#failedCacheList .failed-table td {
+    display: block;
+    border: none;
+    padding: 6px 0;
+    white-space: normal;
+}
+
+#failedCacheList .failed-table td:first-child {
+    font-weight: 700;
+    font-size: 16px;
+    color: #1a1e2b;
+    margin-bottom: 4px;
+}
+
+#failedCacheList .failed-table td:nth-child(2) {
+    color: #dc3545;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+#failedCacheList .failed-table td:last-child {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#failedCacheList .failed-table td:last-child button {
+    flex: 1 0 calc(50% - 4px);
+    min-height: 40px;
+    font-size: 12px;
+    border-radius: 30px;
+}
+
+#failedCacheList .failed-table thead {
+    display: none;
+}
+
+/* ----- 已处理缓存操作栏移动端优化 ----- */
+#processedCacheModal .modal-body > div:first-child {
+    flex-direction: column !important;
+    align-items: stretch !important;
+}
+
+#processedCacheModal .modal-body > div:first-child > div {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+#processedCacheModal .modal-body > div:first-child button,
+#processedCacheModal .modal-body > div:first-child select,
+#processedCacheModal .modal-body > div:first-child input {
+    flex: 1 0 calc(50% - 4px);
+    min-height: 44px;
+}
+
+#processedCacheModal .modal-body > div:first-child span {
+    width: 100%;
+    text-align: center;
+}
+.view-toggle-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.view-btn {
+    padding: 10px 22px;
+    border-radius: 40px;
+    background: #f1f3f5;
+    border: none;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #495057;
+}
+.view-btn.active {
+    background: #2c7be5;
+    color: white;
+    box-shadow: 0 4px 10px rgba(44, 123, 229, 0.2);
+}
+.view-btn:hover {
+    background: #e9ecef;
+}
+.view-btn.active:hover {
+    background: #1a5bbf;
+}
+
+
+

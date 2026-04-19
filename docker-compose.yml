@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  animeman:
+    build: .
+    container_name: animeman
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # 配置文件和数据持久化
+      - ./config:/app/config
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+      # 媒体库挂载（请根据实际情况修改）
+      - /path/to/your/downloads:/media/source:ro          # 源文件夹（建议只读）
+      - /path/to/emby/tv:/media/tv                        # 剧集目标库
+      - /path/to/emby/movies:/media/movies                # 电影目标库
+    environment:
+      - TZ=Asia/Shanghai
+      - SECRET_KEY=${SECRET_KEY:-change_this_in_production}
+      - CONFIG_PATH=/app/config/auto_config.json
+      - CACHE_PATH=/app/cache
+      - LOG_PATH=/app/logs
+      # 可选：直接覆盖配置中的关键路径（与配置文件二选一）
+      - SOURCE_FOLDERS=/media/source
+      - TV_TARGET_FOLDER=/media/tv
+      - MOVIE_TARGET_FOLDER=/media/movies
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - animeman_network
+
+networks:
+  animeman_network:
+    driver: bridge

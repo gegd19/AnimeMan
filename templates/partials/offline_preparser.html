@@ -1,0 +1,17 @@
+<h2>🧠 离线 AI 预解析</h2>
+<div class="card">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <span id="offlineScanStatus">📁 未扫描</span><br>
+            <span id="offlineCacheStatus">🤖 未缓存</span>
+        </div>
+        <div class="offline-actions">
+            <button onclick="App.OfflinePreparser.scanFolders()" id="offlineScanBtn">🔍 扫描</button>
+            <button onclick="App.OfflinePreparser.runFullPreparse()" id="offlineParseBtn" class="warning">⚡ 全量预解析</button>
+            <button onclick="App.OfflinePreparser.refreshStatus()" class="secondary">🔄 刷新</button>
+        </div>
+    </div>
+    <div class="note" style="margin-top: 12px;">
+        💡 扫描会生成文件清单。实际处理时，若 anitopy 解析失败且该文件夹未缓存，将自动调用 AI 解析并保存结果（按需付费）。全量预解析为可选操作。
+    </div>
+</div>

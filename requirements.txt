@@ -1,0 +1,10 @@
+flask>=2.3.0
+requests>=2.32.0
+anitopy>=2.0.0
+ffsubsync>=0.4.20
+thefuzz>=0.20.0
+python-Levenshtein>=0.21.1
+ffmpeg-python>=0.2.0
+chardet>=5.0.0
+colorama>=0.4.6
+pysubs2>=1.6.0
