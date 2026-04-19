@@ -19,7 +19,7 @@
 
 ## 🤔 你是否也经历过这些崩溃瞬间？
 
-- 辛辛苦苦bt拖了 **178 集《网球王子》BDRip**，文件名全是 `[压制组] Prince of Tennis [01][Ma10p_1080p].mkv`，手动改名改到怀疑人生？
+- 辛辛苦苦从网络上下载了 100多集的番剧BDRip**，文件名全是 `[压制组] Prince of Tennis [01][Ma10p_1080p].mkv`，手动改名改到怀疑人生？
 - Emby / Jellyfin 刮削总是识别成奇怪的罗马音，海报牛头不对马嘴，媒体库乱七八糟？
 - 特典、OVA、SP、NCED 散落各处，被 Emby 统统塞进 `S00E00`，找都找不到？
 - 想保种又想让媒体库整洁美观，复制一份浪费空间，不复制 Emby 又扫不到？
@@ -64,7 +64,7 @@
 
 ```bash
 # 下载项目
-git clone https://github.com/yourusername/AnimeMan.git
+git clone https://github.com/gegd19/AnimeMan.git
 cd AnimeMan
 
 # 修改 docker-compose.yml 中的挂载路径（将 /path/to/... 替换为你 NAS 上的实际路径）
@@ -84,7 +84,7 @@ docker compose up -d
 
 #### 1. 克隆项目并创建虚拟环境
 ```bash
-git clone https://github.com/yourusername/AnimeMan.git
+git clone https://github.com/gegd19/AnimeMan.git
 cd AnimeMan
 
 # 创建虚拟环境
@@ -133,13 +133,33 @@ python web_app.py
 
 ## 📸 界面预览
 
-| 桌面端主面板 | 移动端卡片视图 |
-|:---:|:---:|
-| ![主面板](https://via.placeholder.com/600x338/1a1e2b/ffffff?text=AnimeMan+主面板) | ![移动端](https://via.placeholder.com/300x600/2c7be5/ffffff?text=移动端适配) |
+### 桌面端
 
-| 失败缓存批量修正 | 媒体库卡片管理 |
-|:---:|:---:|
-| ![批量修正](https://via.placeholder.com/600x338/dc3545/ffffff?text=批量手动修正) | ![媒体库](https://via.placeholder.com/600x338/28a745/ffffff?text=电影+剧集卡片) |
+**主控制面板**
+
+<img width="2542" height="1352" alt="桌面控制面板" src="https://github.com/user-attachments/assets/628e5794-50ff-40cd-85f7-f9b861f592db" />
+
+**失败缓存管理**
+
+<img width="1568" height="1151" alt="失败缓存管理" src="https://github.com/user-attachments/assets/e990039a-0d19-4c3f-b7ca-6dfb7f597569" />
+
+**批量手动修正**
+
+<img width="1937" height="1141" alt="批量手动修正" src="https://github.com/user-attachments/assets/68e1403c-26dd-4cb5-a5d8-461ded88690a" />
+
+**媒体库管理界面**
+
+<img width="2478" height="1295" alt="桌面媒体库管理界面" src="https://github.com/user-attachments/assets/4553413d-5797-4eb6-9671-b786b5a6b394" />
+
+### 移动端
+
+**手机控制面板**
+
+<img width="1096" height="2560" alt="手机控制面板" src="https://github.com/user-attachments/assets/19cb163a-3494-4b75-941b-9aa61c2dcc95" />
+
+**手机媒体库管理界面**
+
+<img width="1096" height="2149" alt="手机媒体库管理界面" src="https://github.com/user-attachments/assets/fb3d93b9-29df-4e30-9301-36f5282dc4aa" />
 
 ---
 
@@ -158,16 +178,16 @@ python web_app.py
 
 ## 🙋 常见问题
 
-**Q：我下载的文件在多个硬盘上，能用硬链接吗？**
+**Q：我下载的文件在多个硬盘上，能用硬链接吗？**  
 A：硬链接仅限同一分区。跨盘会自动尝试符号链接，并在 Web 界面提示。建议将下载盘与媒体库盘设置在同一分区。
 
-**Q：AI 解析会花很多钱吗？**
+**Q：AI 解析会花很多钱吗？**  
 A：DeepSeek 等大模型新用户通常有免费额度，文件夹批量解析模式能大幅节省 Token。单文件解析成本极低（约 0.001 元/次）。
 
-**Q：为什么有些特典还是被识别为 S01E01？**
+**Q：为什么有些特典还是被识别为 S01E01？**  
 A：你可以在「特辑/OVA 手动映射规则」中添加关键词规则，强制指定 TMDB ID 和季/集号。OVA、SP 等将自动归类到 S00 季。
 
-**Q：支持 Windows NAS 吗？**
+**Q：支持 Windows NAS 吗？**  
 A：完全支持。源码运行或 Docker Desktop 均可。注意 Windows 下符号链接可能需要开启「开发者模式」。
 
 ---
