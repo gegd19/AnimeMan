@@ -16,7 +16,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "movie_target_folder": "D:/Emby_Media/Movies",
     "video_extensions": [".mkv", ".mp4", ".avi", ".ts", ".m2ts", ".mov", ".wmv", ".flv"],
     "link_type": "hard",
-    "ignore_patterns": ["sample", "trailer", "extra"],
+    "ignore_patterns": ["sample", "trailer", "extra","sample","trailer","extra","Disc","SP","Vol","Menu","NCED","CM","ncop","NCOP.","SPs","PV","IV","Menu","Bonus"],
     "min_file_size_mb": 0,
     "dry_run": False,
     "add_year_to_folder": True,
