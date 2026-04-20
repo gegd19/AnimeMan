@@ -218,8 +218,11 @@ cd AnimeMan
 vim docker-compose.yml
 
 # 准备配置文件
-cp auto_config.json.example auto_config.json
-# 编辑 auto_config.json，至少填写 tmdb_api.api_key 和路径
+#### 通过 Web 界面填写（推荐，最简单）
+1. 启动容器后，浏览器访问 `http://你的NAS_IP:8000`。
+2. 在「配置面板」→「API 密钥」中粘贴你的 TMDB API Key，点击「保存配置」即可生效。
+> **无需手动编辑任何文件**，所有路径也可在 Web 界面中通过「浏览」按钮选择。
+
 
 # 启动！
 docker compose up -d
