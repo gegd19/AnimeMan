@@ -42,13 +42,28 @@ def should_skip_file(file_path: Path) -> bool:
     return False
 
 
-def should_skip_path(path: Path) -> bool:
-    """检查路径或其任何父目录是否包含应跳过的关键词（不区分大小写）"""
-    for part in path.parts:
+_PATH_TOKEN_SPLIT = re.compile(r'[\s\[\]\(\)\{\}._\-+&,，、【】（）]+')
+
+
+def should_skip_path(path: Path, root: Optional[Path] = None) -> bool:
+    """检查目录名是否为特典/无关目录（不区分大小写）
+
+    - 只检查 root 之下的目录部分，挂载点（如 /media/source）本身不参与判断
+    - 按分隔符切成词后做整词匹配，避免 "media" 命中 "ed"、"shared" 命中 "ed" 这类误判
+    """
+    parts = path.parts
+    if root is not None:
+        try:
+            parts = path.relative_to(root).parts
+        except ValueError:
+            pass
+    for part in parts:
         part_lower = part.lower()
-        for keyword in SKIP_PATH_KEYWORDS:
-            if keyword in part_lower:
-                return True
+        if part_lower in SKIP_PATH_KEYWORDS:
+            return True
+        tokens = {t for t in _PATH_TOKEN_SPLIT.split(part_lower) if t}
+        if tokens & SKIP_PATH_KEYWORDS:
+            return True
     return False
 
 
