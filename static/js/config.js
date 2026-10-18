@@ -39,7 +39,7 @@ App.Config = (function(app) {
         }
         document.getElementById('aiBatchFolderCheck').checked = aiParser.batch_folder_enabled !== false;
         document.getElementById('aiProviderSelect').value = aiParser.provider || 'deepseek';
-        document.getElementById('aiModelInput').value = aiParser.model || 'deepseek-chat';
+        document.getElementById('aiModelInput').value = aiParser.model || 'deepseek-flash';
         document.getElementById('aiBaseUrlInput').value = aiParser.base_url || 'https://api.deepseek.com';
         document.getElementById('aiKeyInput').value = aiParser.api_key || '';
 
