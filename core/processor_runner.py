@@ -34,8 +34,6 @@ def _scan_video_files(root: Path, config: dict) -> List[Path]:
     递归扫描视频文件，自动跳过特典/无关目录
     """
     video_files = []
-    video_exts = {ext.lower() for ext in config["video_extensions"]}
-    ignore_patterns = [p.lower() for p in config.get("ignore_patterns", [])]
 
     def _walk(current: Path):
         try:
@@ -45,25 +43,16 @@ def _scan_video_files(root: Path, config: dict) -> List[Path]:
                 if item.is_symlink():
                     continue
 
-                if should_skip_path(item):
+                if should_skip_path(item, root):
                     continue
 
                 if item.is_dir():
                     _walk(item)
                 elif item.is_file():
-                    ext = item.suffix.lower()
-                    if ext not in video_exts:
+                    # 与离线预解析共用同一套过滤规则（整词匹配 ignore_patterns），
+                    # 避免两处扫描结果不一致
+                    if not is_video_file(item, config):
                         continue
-                    name_lower = item.name.lower()
-                    if any(p in name_lower for p in ignore_patterns):
-                        continue
-                    min_mb = config.get("min_file_size_mb", 0)
-                    if min_mb > 0:
-                        try:
-                            if item.stat().st_size / (1024 * 1024) < min_mb:
-                                continue
-                        except Exception:
-                            continue
                     abs_path = str(item.resolve())
                     if abs_path.startswith("\\\\?\\"):
                         abs_path = abs_path[4:]
