@@ -31,7 +31,7 @@ def register(app):
 
             provider = ai_config.get("provider", "deepseek")
             api_key = ai_config.get("api_key")
-            model = ai_config.get("model", "deepseek-chat")
+            model = ai_config.get("model", "deepseek-flash")
             base_url = ai_config.get("base_url", "https://api.deepseek.com")
             temperature = ai_config.get("temperature", 0.7)
             max_tokens = ai_config.get("max_tokens", 500)
