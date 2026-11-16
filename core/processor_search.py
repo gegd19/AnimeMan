@@ -182,90 +182,26 @@ def ai_select_best_match(
     if not ai_cfg.get("enabled"):
         return None
 
-    effective_min_conf = MIN_CONFIDENCE_FOR_AI_CACHE
-    stem = src.stem
-    if re.match(r'^\d+$', stem):
-        effective_min_conf = 85
-        if log_func:
-            log_func(f"⚠️ 纯数字文件名，AI选择缓存阈值提高至 {effective_min_conf}%", "info")
-
-    use_cache = (media_type != "movie") and (base_confidence >= effective_min_conf)
-
-    folder_key = str(src.parent.resolve())
-    cache_key = (tmdb_scope(src.parent,config),search_title,media_type,tuple(item.get("id") for item in candidates))
-
-    if use_cache:
-        with _ai_selection_cache_lock:
-            frame = _ai_selection_cache.get(cache_key)
-            cached_tmdb_id = frame.get("id") if isinstance(frame,dict) and frame.get("media_type")==media_type else None
-            if cached_tmdb_id:
-                for item in candidates:
-                    if item.get("id") == cached_tmdb_id:
-                        if log_func:
-                            title = item.get("title") or item.get("name")
-                            log_func(f"📦 命中 AI 选择缓存: {title} (TMDB ID: {cached_tmdb_id})", LOG_INFO)
-                        return item
-
-    if log_func:
-        log_func(f"🤖 检测到多个搜索结果，调用 AI 辅助选择...", LOG_INFO)
-
+    from .ai_selection import accepted_suggestion
     top_candidates = candidates[:10]
-    candidate_count = len(top_candidates)
-
-    candidates_desc = []
-    for idx, item in enumerate(top_candidates, 1):
-        title = item.get("title") or item.get("name")
-        year = (item.get("release_date") if media_type == "movie" else item.get("first_air_date") or "")[:4]
-        candidates_desc.append(f"{idx}. {title} ({year})")
-
-    candidates_text = "\n".join(candidates_desc)
-
-    prompt = f"""你是影视文件识别专家。请从以下 TMDB 搜索结果中选择最匹配的一项。
-
-原始文件信息：
-- 文件路径：{src}
-- 文件名：{src.name}
-- 所在目录：{src.parent.name}
-- 搜索词：{search_title}
-- 媒体类型：{"电影" if media_type == "movie" else "剧集"}
-
-候选列表：
-{candidates_text}
-
-**选择规则**：
-1. 标题与搜索词完全相同或高度相似的候选最优先。
-2. 若没有完全匹配，优先选择标题最短且包含搜索词（或被搜索词包含）的候选。
-3. 注意：避免选择续作、外传、重制版，除非文件名明确包含对应关键词（如“Z”、“改”、“超”）。
-4. 若有年份信息，优先选择与常见发行年份相符的。
-
-请直接返回候选编号（1-{candidate_count}），例如：3"""
-
+    if not top_candidates:
+        return None
+    choices = [{'id': item.get('id'), 'title': item.get('title') or item.get('name'),
+                'date': (item.get('release_date') if media_type == 'movie' else item.get('first_air_date')) or ''}
+               for item in top_candidates]
+    prompt = (f"从候选中选择匹配 {search_title} 的 {media_type}；无法判断时 selected_id 为 null。"
+              f"候选：{json.dumps(choices, ensure_ascii=False)}\n"
+              '仅返回 JSON：{"selected_id":整数或null,"media_type":"tv或movie","reason":"简短说明"}')
     try:
-        resp = ai_client.call_ai_api(prompt, ai_cfg, log_func)
-        if resp:
-            match = re.search(r'\b([1-9]\d*)\b', resp)
-            if match:
-                idx = int(match.group(1)) - 1
-                if 0 <= idx < candidate_count:
-                    selected = top_candidates[idx]
-                    tmdb_id = selected.get("id")
-                    if tmdb_id and use_cache and not is_preview():
-                        with _ai_selection_cache_lock:
-                            _ai_selection_cache[cache_key] = {"id":tmdb_id,"media_type":media_type}
-                    if log_func:
-                        title = selected.get("title") or selected.get("name")
-                        cache_msg = " (模拟，未缓存)" if is_preview() else (" (已缓存)" if use_cache else " (未缓存-低置信度)")
-                        log_func(f"✅ AI 选择: {title}{cache_msg}", LOG_SUCCESS)
-                    return selected
-    except CacheCorruptionError:
+        response = ai_client.call_ai_api(prompt, ai_cfg, log_func)
+        return accepted_suggestion(response, top_candidates, media_type, [search_title])
+    except (CacheCorruptionError, ProcessingCancelled):
         raise
-    except ProcessingCancelled:
-        raise
-    except Exception as e:
-        logger.warning(f"AI 辅助选择失败: {e}")
+    except Exception as error:
+        logger.warning(f"AI 辅助选择失败: {error}")
         if log_func:
-            log_func(f"⚠️ AI 辅助选择失败，回退到评分算法", LOG_WARNING)
-    return None
+            log_func("AI 候选建议不可用，需要人工确认", LOG_WARNING)
+        return None
 
 
 def search_tmdb_with_fallback(

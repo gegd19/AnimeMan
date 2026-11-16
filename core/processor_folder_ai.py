@@ -87,58 +87,25 @@ def _ai_select_tmdb_series(
     if not ai_cfg.get("enabled"):
         return None
 
-    # 限制候选数量
+    from .ai_selection import accepted_suggestion
     limited_candidates = candidates[:MAX_CANDIDATES_FOR_AI_SELECTION]
-
-    if log_func:
-        log_func(f"🤖 TMDB 搜索返回 {len(candidates)} 个候选，取前 {len(limited_candidates)} 个调用 AI 选择...", "info")
-
-    # 构建精简候选描述（仅标题、年份、首播日期）
-    candidates_desc = []
-    for idx, item in enumerate(limited_candidates, 1):
-        title = item.get("name") or item.get("title")
-        first_air = item.get("first_air_date", "")
-        year = first_air[:4] if first_air else "未知"
-        candidates_desc.append(f"{idx}. {title} ({year})")
-
-    candidates_text = "\n".join(candidates_desc)
-
-    prompt = f"""你是影视文件识别专家。请从以下 TMDB 搜索结果中选择与文件夹最匹配的剧集。
-
-文件夹路径：{folder_path}
-文件夹名称：{folder_path.name}
-
-候选列表：
-{candidates_text}
-
-**选择规则**：
-1. 标题与文件夹名完全相同或高度相似的优先。
-2. 若有年份信息，优先选择与文件夹名中的年份相符的。
-3. 注意避免选择续作、外传、重制版，除非文件夹名明确包含对应关键词。
-
-请直接返回候选编号（1-{len(limited_candidates)}），例如：3"""
-
+    if not limited_candidates:
+        return None
+    choices = [{'id': item.get('id'), 'title': item.get('name') or item.get('title'),
+                'date': item.get('first_air_date') or ''} for item in limited_candidates]
+    prompt = (f"从候选中选择匹配 {folder_path.name} 的 tv；无法判断时 selected_id 为 null。"
+              f"候选：{json.dumps(choices, ensure_ascii=False)}\n"
+              '仅返回 JSON：{"selected_id":整数或null,"media_type":"tv","reason":"简短说明"}')
     try:
-        resp = ai_client.call_ai_api(prompt, ai_cfg, log_func)
-        if resp:
-            match = re.search(r'\b([1-9])\b', resp)  # 仅匹配1-9，因为最多5个候选
-            if match:
-                idx = int(match.group(1)) - 1
-                if 0 <= idx < len(limited_candidates):
-                    selected = limited_candidates[idx]
-                    if log_func:
-                        title = selected.get("name") or selected.get("title")
-                        log_func(f"✅ AI 选择剧集: {title} (ID: {selected.get('id')})", "success")
-                    return selected
-    except ProcessingCancelled:
+        response = ai_client.call_ai_api(prompt, ai_cfg, log_func)
+        return accepted_suggestion(response, limited_candidates, 'tv', [folder_path.name])
+    except (ProcessingCancelled, CacheCorruptionError):
         raise
-    except CacheCorruptionError:
-        raise
-    except Exception as e:
-        logger.warning(f"AI 选择 TMDB 剧集失败: {e}")
+    except Exception as error:
+        logger.warning(f"AI 选择 TMDB 剧集失败: {error}")
         if log_func:
-            log_func(f"⚠️ AI 选择 TMDB 剧集失败: {redact(e)}", "warning")
-    return None
+            log_func("AI 候选建议不可用，需要人工确认", "warning")
+        return None
 
 
 def _get_tmdb_structure(
