@@ -1,4 +1,14 @@
-# README 界面截图
+# README 图片来源
+
+## 当前 README 使用的图片
+
+- `banner-light.png` / `banner-dark.png`：用户提供的浅色、深色项目横幅；对应 `.svg` 为可编辑源文件。
+- `library-light.png` / `library-dark.png`、`workbench.png`、`correction.png`、`phone.png`：用户提供的界面演示截图，使用 `tests/ui_preview.cjs` 和合成数据生成，片名与海报为虚构内容。
+- 上述图片随用户提供的 `animeman-readme.diff` 导入，不代表本机真实媒体库。
+
+## 保留的本机实际截图
+
+以下说明仅适用于 `local-*.png` 文件：
 
 这些图片来自本机实际安装、运行的 AnimeMan v1.1.0（提交 b454707），通过真实浏览器访问本地服务截取。没有使用 mock API、合成媒体库或旧版本截图。
 
