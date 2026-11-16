@@ -156,16 +156,16 @@ def test_legacy_folder_cache_is_ignored_then_backed_up_before_replacement(tmp_pa
     assert backups and json.loads(backups[0].read_text())==old
 
 
-def test_tmdb_fallback_cache_keeps_resolved_media_type(config_file,tmp_path,monkeypatch):
+def test_tmdb_cache_keeps_validated_media_type(config_file,tmp_path,monkeypatch):
     from core import processor_core as core,config_manager
     cfg=config_manager.load_config(config_file);cfg['source_folders']=[str(tmp_path)]
     files=[tmp_path/f'{i}.mkv' for i in range(2)]
     for file in files:file.write_bytes(b'test')
-    monkeypatch.setattr(core,'parse_filename_info',lambda *a:media_info())
+    monkeypatch.setattr(core,'parse_filename_info',lambda *a:dict(media_info(),media_type='movie'))
     monkeypatch.setattr(core,'try_folder_ai_batch',lambda *a:None)
     monkeypatch.setattr(core.video_info,'get_video_duration',lambda *a:None)
     searches=[];types=[]
-    monkeypatch.setattr(core,'search_tmdb_with_fallback',lambda *a,**k:(searches.append(1) or {'id':7},'movie',1))
+    monkeypatch.setattr(core,'search_tmdb_with_fallback',lambda *a,**k:(searches.append(1) or {'id':7,'title':'Show','release_date':'2024-01-01'},'movie',1))
     monkeypatch.setattr(core.tmdb_client,'get_tmdb_details',lambda **k:types.append(k['media_type']) or {'title':'Film'})
     monkeypatch.setattr(core,'process_movie_branch',lambda *a:True)
     for src in files:assert core.process_video(src,cfg,{})
@@ -332,10 +332,10 @@ def test_tmdb_cache_keys_include_language_and_year(config_file,tmp_path,monkeypa
     src=tmp_path/'input.mkv';src.write_bytes(b'test')
     cfg=config_manager.load_config(config_file);cfg['source_folders']=[str(tmp_path)]
     year=['2024'];calls=[]
-    monkeypatch.setattr(core,'parse_filename_info',lambda *a:dict(media_info(),year=year[0]))
+    monkeypatch.setattr(core,'parse_filename_info',lambda *a:dict(media_info(),media_type='movie',year=year[0]))
     monkeypatch.setattr(core,'try_folder_ai_batch',lambda *a:None)
     monkeypatch.setattr(core.video_info,'get_video_duration',lambda *a:None)
-    monkeypatch.setattr(core,'search_tmdb_with_fallback',lambda *a,**k:(calls.append(1) or {'id':7},'movie',1))
+    monkeypatch.setattr(core,'search_tmdb_with_fallback',lambda *a,**k:(calls.append(1) or {'id':7,'title':'Show','release_date':year[0]+'-01-01'},'movie',1))
     monkeypatch.setattr(core.tmdb_client,'get_tmdb_details',lambda **k:{'title':'Film'})
     monkeypatch.setattr(core,'process_movie_branch',lambda *a:True)
     assert core.process_video(src,cfg,{}) and core.process_video(src,cfg,{}) and len(calls)==1

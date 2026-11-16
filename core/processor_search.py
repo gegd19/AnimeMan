@@ -78,38 +78,22 @@ def original_search_tmdb(
     language = config["tmdb_api"].get("language", "zh-CN")
     proxy = config.get("tmdb_api", {}).get("proxy")
 
-    primary_type = media_type
-    secondary_type = "movie" if media_type == "tv" else "tv"
-    if duration_hint and duration_hint != media_type:
-        primary_type, secondary_type = secondary_type, primary_type
-
-    attempts = [(primary_type, search_title, search_year)]
-    for alt in alt_titles:
-        attempts.append((primary_type, alt, search_year))
-
+    from .candidate_evaluator import evaluate_candidates
+    from .failure_policy import note_error
+    if media_type not in ("tv", "movie"):
+        return None, media_type, 0
+    attempts = [(media_type, search_title, search_year)]
+    attempts.extend((media_type, alt, search_year) for alt in alt_titles)
     for mtype, query, year in attempts:
         try:
             result = tmdb_client.search_tmdb(mtype, query, year, api_key, language, log_func, alt_titles, proxy=proxy)
-            if result:
-                return result, mtype, 0
-        except CacheCorruptionError:
+            if result and evaluate_candidates([result], mtype, [search_title, *alt_titles], search_year)['selected']:
+                return result, mtype, 1
+        except (CacheCorruptionError, ProcessingCancelled):
             raise
-        except ProcessingCancelled:
-            raise
-        except Exception:
-            continue
-
-    for mtype, query, year in attempts:
-        try:
-            result = tmdb_client.search_tmdb(secondary_type, query, year, api_key, language, log_func, alt_titles, proxy=proxy)
-            if result:
-                return result, secondary_type, 0
-        except CacheCorruptionError:
-            raise
-        except ProcessingCancelled:
-            raise
-        except Exception:
-            continue
+        except Exception as error:
+            note_error(error)
+            logger.warning(f"TMDB 搜索异常: {error}")
 
     return None, media_type, 0
 
@@ -296,32 +280,30 @@ def search_tmdb_with_fallback(
     title_for_attempts: str = "",
     base_confidence: int = 0
 ) -> Tuple[Optional[Dict], str, int]:
-    # 0. 本地别名映射优先（最高优先级）
-    alias = _lookup_local_alias(search_title)
-    if alias:
-        tmdb_id = alias.get("tmdb_id")
-        forced_type = alias.get("media_type", media_type)
-        if log_func:
-            log_func(f"🔖 命中本地别名映射: {search_title} → TMDB ID {tmdb_id}", LOG_SUCCESS)
-        return {"id": tmdb_id}, forced_type, 0
-
+    from .candidate_evaluator import evaluate_candidates
+    api_key = config["tmdb_api"]["api_key"]
+    language = config["tmdb_api"].get("language", "zh-CN")
+    proxy = config.get("tmdb_api", {}).get("proxy")
     try:
         from . import search_enhancer
     except ImportError:
         return original_search_tmdb(media_type, search_title, search_year, alt_titles, config, log_func, duration_hint)
 
-    api_key = config["tmdb_api"]["api_key"]
-    language = config["tmdb_api"].get("language", "zh-CN")
-    proxy = config.get("tmdb_api", {}).get("proxy")
-
-    # 1. 内置别名映射（search_enhancer）
-    alias = search_enhancer.lookup_local_alias(search_title)
-    if alias:
-        tmdb_id = alias.get("tmdb_id")
-        forced_type = alias.get("media_type", media_type)
-        if log_func:
-            log_func(f"🔖 命中内置别名映射: {search_title} → TMDB ID {tmdb_id}", LOG_SUCCESS)
-        return {"id": tmdb_id}, forced_type, 0
+    # A saved alias is a hint, not a bypass around candidate validation.
+    for alias in (_lookup_local_alias(search_title), search_enhancer.lookup_local_alias(search_title)):
+        if not isinstance(alias, dict):
+            continue
+        alias_id = alias.get('tmdb_id')
+        alias_type = alias.get('media_type', media_type)
+        if type(alias_id) is not int or alias_id <= 0 or alias_type not in ('tv','movie'):
+            continue
+        if media_type in ('tv','movie') and alias_type != media_type:
+            continue
+        details = tmdb_client.get_tmdb_details(alias_type, alias_id, api_key, language, log_func, proxy=proxy)
+        if not isinstance(details, dict) or details.get('id') != alias_id:
+            continue
+        if evaluate_candidates([details], alias_type, [search_title, title_for_attempts, *alt_titles], search_year)['selected']:
+            return details, alias_type, 1
 
     # Gather a bounded set of result pages before choosing; identical IDs are
     # deduplicated, while aliases from different languages remain evidence.
@@ -375,9 +357,12 @@ def search_tmdb_with_fallback(
     # 5. TVmaze 备选
     if media_type == "tv" and config.get("ai_parser", {}).get("enabled"):
         tmdb_id = search_enhancer.search_tvmaze(search_title, config=config)
-        if tmdb_id:
-            if log_func:
-                log_func(f"📺 TVmaze 备选成功，找到 TMDB ID: {tmdb_id}", LOG_SUCCESS)
-            return {"id": tmdb_id}, "tv", 0
+        if type(tmdb_id) is int and tmdb_id > 0:
+            details = tmdb_client.get_tmdb_details("tv", tmdb_id, api_key, language, log_func, proxy=proxy)
+            if (isinstance(details, dict) and details.get('id') == tmdb_id
+                    and evaluate_candidates([details], 'tv', titles, search_year)['selected']):
+                if log_func:
+                    log_func(f"📺 TVmaze 备选通过标题验证: TMDB ID {tmdb_id}", LOG_SUCCESS)
+                return details, "tv", 1
 
     return None, media_type, 0

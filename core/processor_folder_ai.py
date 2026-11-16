@@ -229,42 +229,29 @@ def _get_tmdb_info_for_folder(
     """
     folder_key = tmdb_scope(folder_path,config)
 
-    # 检查缓存
-    if folder_key in _tmdb_search_cache:
-        cached = _tmdb_search_cache[folder_key]
-        if log_func:
-            log_func(f"📦 命中 TMDB 选择缓存: {cached.get('title')} (ID: {cached.get('id')})", "info")
-        return cached.get("id"), cached.get("structure_text")
+    from .candidate_evaluator import evaluate_candidates
+    titles = [folder_path.name]
+    if info:
+        titles.extend([info.get('title', ''), info.get('search_title', '')])
+        titles.extend(info.get('alternative_titles', []))
+    year = info.get('year') if info else None
+    cached = _tmdb_search_cache.get(folder_key)
+    if cached:
+        candidate = {'id': cached.get('id'), 'name': cached.get('title'), 'first_air_date': cached.get('first_air_date')}
+        if cached.get('media_type') == 'tv' and evaluate_candidates([candidate], 'tv', titles, year)['selected']:
+            return cached['id'], cached.get('structure_text')
 
-    # 决定是否搜索
-    should_search = True
-    if info and not _should_use_tmdb_structure(info, folder_path):
-        # 不强制搜索，但为了结构信息，如果文件名异常还是搜索
-        pass
-
-    # 搜索 TMDB
     candidates = _search_tmdb_for_folder(folder_path.name, config, log_func)
     if not candidates:
         return None, None
-
-    selected = None
-    if len(candidates) == 1:
-        selected = candidates[0]
+    decision = evaluate_candidates(candidates, 'tv', titles, year)
+    selected = decision['selected']
+    if not selected:
         if log_func:
-            title = selected.get("name") or selected.get("title")
-            log_func(f"🎯 TMDB 唯一匹配: {title} (ID: {selected.get('id')})", "success")
-    else:
-        # 多结果，调用 AI 选择
-        selected = _ai_select_tmdb_series(folder_path, candidates, config, log_func)
-        if not selected:
-            # AI 选择失败，回退到第一个结果
-            selected = candidates[0]
-            if log_func:
-                title = selected.get("name") or selected.get("title")
-                log_func(f"⚠️ AI 选择失败，回退到首个结果: {title}", "warning")
-
-    tmdb_id = selected.get("id")
-    title = selected.get("name") or selected.get("title")
+            log_func('文件夹候选证据不足或存在歧义，需要人工确认', 'warning')
+        return None, None
+    tmdb_id = selected['id']
+    title = selected.get('name') or selected.get('title')
 
     # 获取结构信息
     structure_text = _get_tmdb_structure(tmdb_id, config, log_func)
@@ -275,6 +262,7 @@ def _get_tmdb_info_for_folder(
             "id": tmdb_id,
             "media_type":"tv",
             "title": title,
+            "first_air_date": selected.get("first_air_date"),
             "structure_text": structure_text
         }
 

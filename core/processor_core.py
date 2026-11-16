@@ -132,14 +132,22 @@ def process_video(
                 # 文件夹级 TMDB 缓存
                 folder_key = str(src.parent.resolve())
                 cache_key = (tmdb_scope(src.parent,config),search_title,media_type,search_year,tuple(alt_titles),duration_hint)
+                from .candidate_evaluator import evaluate_candidates
                 with _folder_tmdb_cache_lock:
                     cached = _folder_tmdb_cache.get(cache_key)
-                    cached_tmdb_id = cached.get("id") if isinstance(cached,dict) and cached.get("media_type") in ("tv","movie") and type(cached.get("id")) is int else None
+                    cached_item = cached.get("candidate") if isinstance(cached, dict) else None
+                    cached_type = cached.get("media_type") if isinstance(cached, dict) else None
+                    cached_count = cached.get("candidate_count") if isinstance(cached, dict) else None
+                    validated = (cached_type == media_type and isinstance(cached_item, dict)
+                                 and type(cached_count) is int and cached_count >= 1
+                                 and evaluate_candidates([cached_item], cached_type,
+                                     [search_title, title_orig, *alt_titles], search_year)['selected'])
+                    cached_tmdb_id = cached_item.get('id') if validated else None
 
                 if cached_tmdb_id:
-                    tmdb_result = {"id": cached_tmdb_id}
-                    media_type = cached["media_type"]
-                    candidate_count = 0
+                    tmdb_result = dict(cached_item)
+                    media_type = cached_type
+                    candidate_count = cached_count
                     if wrapped_log:
                         wrapped_log(f"📦 命中文件夹TMDB缓存: ID {cached_tmdb_id}", LOG_INFO)
                 else:
@@ -152,7 +160,8 @@ def process_video(
                         tmdb_id = tmdb_result.get("id")
                         if type(tmdb_id) is int and tmdb_id>0 and media_type in ("tv","movie") and not is_preview():
                             with _folder_tmdb_cache_lock:
-                                _folder_tmdb_cache[cache_key] = {"id":tmdb_id,"media_type":media_type}
+                                _folder_tmdb_cache[cache_key] = {"id":tmdb_id,"media_type":media_type,
+                                    "candidate":dict(tmdb_result),"candidate_count":candidate_count}
 
                 if not tmdb_result:
                     return (False, None, None, None, None, None, confidence, current_info)
