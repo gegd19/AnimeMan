@@ -5,10 +5,13 @@
 负责加载、保存、合并默认配置
 """
 
-import json
+from copy import deepcopy
 import threading
-from pathlib import Path
+from .execution_mode import skip_preview_write
 from typing import Dict, Any
+from .runtime_paths import config_file, effective_config
+from .json_store import path_lock, write_json, backup_json
+from .validation import validate_config, strict_loads, object_value, json_value, ValidationError, MAX_JSON_BYTES
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "source_folders": ["D:/movie"],
@@ -73,6 +76,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "link_mode": "hard",
         "overwrite_existing": False,
     },
+    "scan_policy": {"include_specials": False, "exclude_patterns": []},
     "special_mappings": [
         {
             "keyword": "[OVA] 某科学的超电磁炮",
@@ -89,47 +93,82 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 _config_lock = threading.RLock()
 
 
-def load_config(config_path: str = "auto_config.json") -> Dict[str, Any]:
-    """加载配置文件，如果不存在则创建默认配置"""
-    with _config_lock:
-        config_path_obj = Path(config_path)
-        if config_path_obj.exists():
-            try:
-                with open(config_path_obj, 'r', encoding='utf-8') as f:
-                    user_config = json.load(f)
-            except Exception:
-                user_config = {}
+class ConfigError(ValueError):
+    """The persisted configuration cannot be used; never apply defaults to damage."""
+
+
+def _merge(defaults, values):
+    result = deepcopy(defaults)
+    for key, value in values.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _merge(result[key], value)
         else:
-            user_config = {}
-
-        merged = DEFAULT_CONFIG.copy()
-        # 深度合并一级字典
-        for k, v in user_config.items():
-            if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
-                merged[k] = {**merged[k], **v}
-            else:
-                merged[k] = v
-
-        # 如果 AI 功能启用但未提供有效的 API Key，则自动禁用并回退到正则解析
-        if merged.get("ai_parser", {}).get("enabled"):
-            ai_key = merged.get("ai_parser", {}).get("api_key", "")
-            if not ai_key or ai_key == "YOUR_API_KEY":
-                merged["ai_parser"]["enabled"] = False
-                # 可在此记录日志，但因避免循环导入，logger 调用已省略
-                # from .logger import get_logger
-                # get_logger(__name__).warning("AI 解析已启用但 API Key 无效，已自动禁用")
-
-        # 如果配置文件不存在，写入默认配置
-        if not config_path_obj.exists():
-            save_config(merged, config_path)
-
-        return merged
+            result[key] = deepcopy(value)
+    return result
 
 
-def save_config(config: Dict[str, Any], config_path: str = "auto_config.json"):
-    """保存配置到文件"""
-    with _config_lock:
-        temp_file = config_path + ".tmp"
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-        Path(temp_file).replace(config_path)
+def _complete(value):
+    object_value(value, '配置')
+    json_value(value, '配置')
+    # A persisted enabled auth section must explicitly carry its credentials.
+    auth = value.get('auth')
+    if isinstance(auth, dict) and auth.get('enabled') is True:
+        if any(not isinstance(auth.get(key), str) or not auth[key].strip() for key in ('username', 'password')):
+            raise ValidationError('启用认证需要显式非空用户名和密码')
+    return validate_config(_merge(DEFAULT_CONFIG, value))
+
+
+def _read_config(path):
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        if path.is_symlink():
+            raise ConfigError('配置符号链接目标不存在，拒绝按新安装回退默认配置')
+        return None
+    try:
+        if len(raw) > MAX_JSON_BYTES:
+            raise ValidationError('配置文件超过 4 MiB')
+        return _complete(strict_loads(raw))
+    except (ValueError, TypeError, KeyError) as exc:
+        # Keep the original plus a private, byte-for-byte recovery copy.
+        backup_json(path, tag='t13-invalid')
+        raise ConfigError('配置文件损坏或字段无效；已保留原件与备份，请修复后重试') from exc
+
+
+def load_config(config_path=None, *, apply_environment=True, create_if_missing=True) -> Dict[str, Any]:
+    path = config_file(config_path)
+    with _config_lock, path_lock(path):
+        stored = _read_config(path)
+        merged = stored if stored is not None else _complete({})
+        effective = effective_config(merged) if apply_environment else deepcopy(merged)
+        validate_config(effective)
+        # Preserve the existing runtime fallback; it never rewrites stored config.
+        if effective['ai_parser'].get('enabled') and effective['ai_parser'].get('api_key') in ('', 'YOUR_API_KEY'):
+            effective['ai_parser']['enabled'] = False
+        if stored is None and create_if_missing and not effective.get('dry_run'):
+            save_config(merged, path)
+        return effective
+
+
+@skip_preview_write
+def save_config(config: Dict[str, Any], config_path=None):
+    """Replace a validated snapshot atomically, refusing a damaged current file."""
+    complete = _complete(config)
+    path = config_file(config_path)
+    with _config_lock, path_lock(path):
+        _read_config(path)
+        write_json(path, complete)
+
+
+@skip_preview_write
+def update_config(mutate, config_path=None):
+    """Read/modify/validate/publish under one lock, without persisting env overrides."""
+    path = config_file(config_path)
+    with _config_lock, path_lock(path):
+        current = _read_config(path)
+        current = current if current is not None else _complete({})
+        candidate = mutate(deepcopy(current))
+        complete = _complete(candidate)
+        if complete != current or not path.exists():
+            write_json(path, complete)
+        return deepcopy(complete)

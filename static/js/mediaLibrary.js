@@ -37,101 +37,66 @@ App.MediaLibrary = (function(app) {
     function renderLibrary() {
         const container = document.getElementById(containerId);
         if (!container) return;
-
-        let html = '';
-
-        // 电影部分
-        if (filteredMovies.length > 0 && (selectorMode === 'episode' || selectorMode === 'target')) {
-            html += '<div class="media-section"><h4>🎬 电影</h4><div class="movie-list">';
-            filteredMovies.forEach(movie => {
-                const displayTitle = cleanTitle(movie.title);
-                const year = movie.year || '';
-                const posterUrl = `/media_poster/${movie.tmdb_id}`;
-                html += `<div class="movie-item" style="display:flex; align-items:center; gap:12px;">`;
-                html += `<img src="${posterUrl}" style="width:45px; height:68px; object-fit:cover; border-radius:6px;" onerror="this.style.display='none'">`;
-                html += `<span class="movie-title" style="flex:1;">${app.escapeHtml(displayTitle)} ${year ? '(' + year + ')' : ''}</span>`;
-                if (selectorMode === 'target') {
-                    html += `<button class="select-movie-btn success" data-movie='${JSON.stringify(movie).replace(/'/g, "&apos;")}'>选择此电影</button>`;
-                } else if (selectorMode === 'episode') {
-                    html += `<button class="select-media-btn success" data-media='${JSON.stringify(movie).replace(/'/g, "&apos;")}'>选择</button>`;
-                }
-                html += `</div>`;
-            });
-            html += '</div></div>';
+        container.replaceChildren();
+        if (filteredMovies.length && ['episode', 'target'].includes(selectorMode)) {
+            const list = app.el('div', {className: 'movie-list'});
+            container.append(app.el('div', {className: 'media-section'}, app.el('h4', {text: '🎬 电影'}), list));
+            for (const movie of filteredMovies) {
+                const button = app.el('button', {type: 'button', className: `${selectorMode === 'target' ? 'select-movie-btn' : 'select-media-btn'} success`,
+                    text: selectorMode === 'target' ? '选择此电影' : '选择'});
+                button.dataset[selectorMode === 'target' ? 'movie' : 'media'] = JSON.stringify(movie);
+                list.append(app.el('div', {className: 'movie-item', style: 'display:flex;align-items:center;gap:12px;'},
+                    app.poster(app.mediaPosterUrl('movie', movie.tmdb_id), {style: 'width:45px;height:68px;object-fit:cover;border-radius:6px;'}),
+                    app.el('span', {className: 'movie-title', style: 'flex:1;', text: `${cleanTitle(movie.title)} ${movie.year ? '(' + movie.year + ')' : ''}`}), button));
+            }
         }
-
-        // 剧集部分
-        if (filteredShows.length > 0) {
-            html += '<div class="media-section"><h4>📺 剧集</h4><div class="tv-show-list">';
-            filteredShows.forEach(show => {
+        if (filteredShows.length) {
+            const list = app.el('div', {className: 'tv-show-list'});
+            container.append(app.el('div', {className: 'media-section'}, app.el('h4', {text: '📺 剧集'}), list));
+            for (const show of filteredShows) {
                 const seasons = show.seasons || {};
-                const seasonNumbers = Object.keys(seasons).sort((a,b) => parseInt(a)-parseInt(b));
-                const posterUrl = show.poster_url || `/media_poster/${show.tmdb_id}`;
-                const displayTitle = cleanTitle(show.title);
-                const year = show.year || '';
-                const isShowExpanded = expandedShows.has(show.tmdb_id);
-                const seasonSummary = getSeasonSummary(show);
-
-                html += `<div class="tv-show-card">`;
-                // 剧集标题行（点击展开/折叠季列表）
-                html += `<div class="tv-show-header" onclick="App.MediaLibrary.toggleShowExpand('${show.tmdb_id}')">`;
-                html += `<img class="show-poster" src="${posterUrl}" onerror="this.style.display='none'">`;
-                html += `<div class="show-info">`;
-                html += `<span class="show-title">${app.escapeHtml(displayTitle)} ${year ? '(' + year + ')' : ''}</span>`;
-                html += `<span class="show-seasons-count" title="${app.escapeHtml(seasonSummary)}">${seasonNumbers.length} 季 · ${seasonSummary}</span>`;
-                html += `</div>`;
-                if (selectorMode === 'show') {
-                    html += `<button class="select-show-btn success" style="margin-left:auto;" data-show='${JSON.stringify(show).replace(/'/g, "&apos;")}'>选择此剧集</button>`;
-                }
-                html += `<span class="expand-icon">${isShowExpanded ? '▼' : '▶'}</span>`;
-                html += `</div>`;
-
-                // 季列表（默认随剧集展开而可见）
-                html += `<div class="tv-show-seasons" id="seasons-${show.tmdb_id}" style="display: ${isShowExpanded ? 'block' : 'none'};">`;
-                seasonNumbers.forEach(seasonNum => {
-                    const seasonData = seasons[seasonNum];
-                    const episodes = seasonData.episodes || [];
-                    const seasonKey = `${show.tmdb_id}-${seasonNum}`;
-                    const isSeasonExpanded = expandedSeasons.has(seasonKey);
-
-                    html += `<div class="season-item">`;
-                    // 季标题行（点击展开/折叠集数）
-                    html += `<div class="season-header" onclick="App.MediaLibrary.toggleSeasonExpand('${seasonKey}')">`;
-                    html += `<span class="season-title">第 ${seasonNum} 季 (${episodes.length} 集)</span>`;
-                    if (selectorMode === 'season' || selectorMode === 'target') {
-                        html += `<button class="select-season-btn success" style="margin-left:10px;" data-show='${JSON.stringify(show).replace(/'/g, "&apos;")}' data-season="${seasonNum}">选择此季</button>`;
-                    }
-                    html += `<span class="expand-icon">${isSeasonExpanded ? '▼' : '▶'}</span>`;
-                    html += `</div>`;
-
-                    // 集数列表（默认折叠）
-                    html += `<div class="season-episodes" id="episodes-${seasonKey}" style="display: ${isSeasonExpanded ? 'block' : 'none'};">`;
-                    episodes.forEach(ep => {
-                        const epMedia = {
-                            media_type: 'tv', title: show.title, year: show.year,
-                            season: seasonNum, episode: ep.episode,
-                            target_path: ep.target_path, target_dir: ep.target_dir,
-                            cache_key: ep.cache_key, tmdb_id: show.tmdb_id,
-                        };
-                        const epTitle = ep.title ? ` - ${ep.title}` : '';
-                        html += `<div class="episode-item"><span>第 ${ep.episode} 集${epTitle}</span>`;
-                        if (selectorMode === 'episode') {
-                            html += `<button class="select-media-btn success" data-media='${JSON.stringify(epMedia).replace(/'/g, "&apos;")}'>选择</button>`;
-                        }
-                        html += `</div>`;
-                    });
-                    html += `</div></div>`;
+                const numbers = Object.keys(seasons).sort((a,b) => parseInt(a) - parseInt(b));
+                const header = app.el('div', {className: 'tv-show-header'},
+                    app.poster(app.mediaPosterUrl('tv', show.tmdb_id), {className: 'show-poster'}),
+                    app.el('div', {className: 'show-info'},
+                        app.el('span', {className: 'show-title', text: `${cleanTitle(show.title)} ${show.year ? '(' + show.year + ')' : ''}`}),
+                        app.el('span', {className: 'show-seasons-count', title: getSeasonSummary(show), text: `${numbers.length} 季 · ${getSeasonSummary(show)}`})));
+                header.addEventListener('click', event => {
+                    if (!event.target.closest('button')) App.MediaLibrary.toggleShowExpand(show.tmdb_id);
                 });
-                html += `</div></div>`;
-            });
-            html += '</div></div>';
+                if (selectorMode === 'show') header.append(app.el('button', {type: 'button', className: 'select-show-btn success',
+                    text: '选择此剧集', style: 'margin-left:auto;', dataset: {show: JSON.stringify(show)}}));
+                header.append(app.el('span', {className: 'expand-icon', text: expandedShows.has(show.tmdb_id) ? '▼' : '▶'}));
+                const seasonList = app.el('div', {className: 'tv-show-seasons', id: `seasons-${show.tmdb_id}`,
+                    style: `display:${expandedShows.has(show.tmdb_id) ? 'block' : 'none'};`});
+                for (const number of numbers) {
+                    const episodes = seasons[number].episodes || [];
+                    const key = `${show.tmdb_id}-${number}`;
+                    const expanded = expandedSeasons.has(key);
+                    const seasonHeader = app.el('div', {className: 'season-header'},
+                        app.el('span', {className: 'season-title', text: `第 ${number} 季 (${episodes.length} 集)`}));
+                    seasonHeader.addEventListener('click', event => {
+                        if (!event.target.closest('button')) App.MediaLibrary.toggleSeasonExpand(key);
+                    });
+                    if (['season', 'target'].includes(selectorMode)) seasonHeader.append(app.el('button', {
+                        type: 'button', className: 'select-season-btn success', text: '选择此季', style: 'margin-left:10px;',
+                        dataset: {show: JSON.stringify(show), season: number}}));
+                    seasonHeader.append(app.el('span', {className: 'expand-icon', text: expanded ? '▼' : '▶'}));
+                    const episodeList = app.el('div', {className: 'season-episodes', id: `episodes-${key}`, style: `display:${expanded ? 'block' : 'none'};`});
+                    for (const ep of episodes) {
+                        const media = {media_type: 'tv', title: show.title, year: show.year, season: number, episode: ep.episode,
+                            target_path: ep.target_path, target_dir: ep.target_dir, cache_key: ep.cache_key, tmdb_id: show.tmdb_id};
+                        const row = app.el('div', {className: 'episode-item'}, app.el('span', {text: `第 ${ep.episode} 集${ep.title ? ' - ' + ep.title : ''}`}));
+                        if (selectorMode === 'episode') row.append(app.el('button', {type: 'button', className: 'select-media-btn success',
+                            text: '选择', dataset: {media: JSON.stringify(media)}}));
+                        episodeList.append(row);
+                    }
+                    seasonList.append(app.el('div', {className: 'season-item'}, seasonHeader, episodeList));
+                }
+                list.append(app.el('div', {className: 'tv-show-card'}, header, seasonList));
+            }
         }
-
-        if (filteredMovies.length === 0 && filteredShows.length === 0) {
-            html = '<div style="text-align:center; padding:20px;">没有匹配的媒体</div>';
-        }
-
-        container.innerHTML = html;
+        if (!filteredMovies.length && !filteredShows.length) container.textContent = '没有匹配的媒体';
     }
 
     function filterLibrary(keyword) {
@@ -152,7 +117,7 @@ App.MediaLibrary = (function(app) {
 
     async function loadLibrary() {
         try {
-            const resp = await fetch('/api/media/library');
+            const resp = await app.fetch('/api/media/library');
             fullLibrary = await resp.json();
             filteredMovies = fullLibrary.movies || [];
             filteredShows = fullLibrary.tv_shows || [];
@@ -248,7 +213,7 @@ App.MediaLibrary = (function(app) {
                 resetExpandState();   // ⭐ 默认展开所有剧集
                 filterLibrary('');
             } catch (e) {
-                container.innerHTML = '<div style="text-align:center; padding:20px; color:#dc3545;">加载媒体库失败</div>';
+                container.textContent = '加载媒体库失败：' + e.message;
             }
         },
 
@@ -268,7 +233,7 @@ App.MediaLibrary = (function(app) {
                 resetExpandState();
                 filterLibrary('');
             } catch (e) {
-                container.innerHTML = '<div style="text-align:center; padding:20px; color:#dc3545;">加载媒体库失败</div>';
+                container.textContent = '加载媒体库失败：' + e.message;
             }
         },
 
@@ -288,7 +253,7 @@ App.MediaLibrary = (function(app) {
                 resetExpandState();
                 filterLibrary('');
             } catch (e) {
-                container.innerHTML = '<div style="text-align:center; padding:20px; color:#dc3545;">加载媒体库失败</div>';
+                container.textContent = '加载媒体库失败：' + e.message;
             }
         },
 
@@ -308,7 +273,7 @@ App.MediaLibrary = (function(app) {
                 resetExpandState();
                 filterLibrary('');
             } catch (e) {
-                container.innerHTML = '<div style="text-align:center; padding:20px; color:#dc3545;">加载媒体库失败</div>';
+                container.textContent = '加载媒体库失败：' + e.message;
             }
         },
 
@@ -328,7 +293,7 @@ App.MediaLibrary = (function(app) {
                 resetExpandState();   // ⭐ 关键：默认展开剧集季列表
                 filterLibrary('');
             } catch (e) {
-                container.innerHTML = '<div style="text-align:center; padding:20px; color:#dc3545;">加载媒体库失败</div>';
+                container.textContent = '加载媒体库失败：' + e.message;
             }
         },
 

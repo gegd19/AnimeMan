@@ -6,9 +6,13 @@
 - 代理支持：所有 TMDB 请求（含图片下载）均传递 proxy 参数
 """
 
+from .failure_policy import note_error
+from .json_store import CacheCorruptionError
+from .cancellation import check_cancelled, ProcessingCancelled
 import os
 import time
 from pathlib import Path
+from .path_safety import absolute_link_path, validate_target_path
 from typing import Dict, Optional, Callable
 
 from . import cache_manager, tmdb_client, nfo_writer, file_linker, subtitle_handler
@@ -17,6 +21,7 @@ from .processor_utils import sanitize_filename
 from .processor_cache_ops import save_failed_cache
 from .constants import MIN_FINAL_CONFIDENCE
 from .logger import get_logger
+from .library_transaction import transactional_media, preview_target
 
 logger = get_logger(__name__)
 
@@ -26,6 +31,7 @@ LOG_WARNING = "warning"
 LOG_ERROR = "error"
 
 
+@transactional_media
 def process_movie_branch(
     src: Path,
     config: dict,
@@ -52,6 +58,13 @@ def process_movie_branch(
         target_root = Path(config["movie_target_folder"])
         movie_dir = target_root / folder_name
 
+        target_path = movie_dir / f"{folder_name}{src.suffix}"
+        if config.get("dry_run"):
+            target_path = preview_target(src, target_path, config, "movie")
+            if log_func:
+                log_func(f"🔍 [模拟] -> {target_path}", LOG_INFO)
+            return True
+
         nfo_writer.write_movie_nfo(movie_dir, official_title, tmdb_id, details.get("overview", ""), official_year, config, log_func)
 
         if config.get("download_images"):
@@ -70,39 +83,18 @@ def process_movie_branch(
                     proxy=proxy
                 )
 
-        target_path = movie_dir / f"{folder_name}{src.suffix}"
-        if config.get("dry_run"):
-            if log_func:
-                log_func(f"🔍 [模拟] -> {target_path}", LOG_INFO)
-            return True
+        target_path = validate_target_path(src, target_path, config, "movie")
 
-        if target_path.exists():
-            try:
-                src_str = str(src).replace('\\\\?\\', '')
-                tgt_str = str(target_path).replace('\\\\?\\', '')
-                if os.path.samefile(src_str, tgt_str):
-                    if log_func:
-                        log_func(f"🔗 目标已存在且指向同一文件，跳过链接创建", LOG_INFO)
-                else:
-                    target_path.unlink()
-                    if log_func:
-                        log_func(f"🗑️ 已删除已存在的不同目标文件: {target_path.name}", LOG_WARNING)
-            except Exception as e:
-                logger.error(f"处理已存在目标文件失败 {target_path}: {e}")
-                save_failed_cache(src, f"处理已存在目标文件失败: {e}", cache_dict, log_func)
-                return False
-
-        if not target_path.exists():
-            if not file_linker.create_link(src, target_path, config["link_type"], log_func):
-                save_failed_cache(src, "链接创建失败", cache_dict, log_func)
-                return False
+        if not file_linker.create_link(src, target_path, config["link_type"], log_func):
+            return False
         src_str = str(src.resolve())
         confidence = min(max(confidence, 0), 100)
         alt_titles = extract_all_alternative_titles(details, official_title)
 
         with cache_manager.cache_lock:
             cache_dict[src_str] = {
-                "target": str(target_path.resolve()),
+                "target": str(absolute_link_path(target_path)),
+                "source_path": src_str,
                 "fingerprint": cache_manager.get_file_fingerprint(src),
                 "fingerprint_strong": cache_manager.get_file_fingerprint_strong(src),
                 "media_type": "movie",
@@ -120,7 +112,12 @@ def process_movie_branch(
         if log_func:
             log_func(f"💾 缓存已保存 (准确率: {confidence}%)", LOG_SUCCESS)
         return True
+    except ProcessingCancelled:
+        raise
+    except CacheCorruptionError:
+        raise
     except Exception as e:
+        note_error(e)
         logger.error(f"电影分支处理失败 {src}: {e}", exc_info=True)
         save_failed_cache(src, f"处理异常: {e}", cache_dict, log_func)
         return False

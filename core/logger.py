@@ -1,54 +1,42 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-统一日志配置（含自动轮转清理）
-使用 RotatingFileHandler 实现日志文件自动轮转，防止无限增长。
-单文件最大 10MB，保留 1 个备份，总占用空间 ≤ 20MB。
-"""
+"""Rotating application log, bound explicitly to the current runtime log path."""
 
 import logging
 from logging.handlers import RotatingFileHandler
+import threading
 from pathlib import Path
+from .runtime_paths import log_file, writable
 
 LOG_FILE = Path("auto_processor_errors.log")
-
-# 单例模式确保只配置一次
 _logger_configured = False
+_logger_lock = threading.RLock()
 
 
 def setup_logging():
-    """配置全局日志，使用 RotatingFileHandler 自动清理旧日志"""
     global _logger_configured
-    if _logger_configured:
-        return
-
-    # 创建 logger
-    logger = logging.getLogger('emby_auto')
-    logger.setLevel(logging.INFO)
-
-    # 自动轮转文件处理器：单文件最大 10MB，保留 1 个备份
-    file_handler = RotatingFileHandler(
-        str(LOG_FILE),
-        maxBytes=10 * 1024 * 1024,  # 10 MB
-        backupCount=1,              # 保留一个备份文件 .log.1
-        encoding='utf-8'
-    )
-    file_handler.setLevel(logging.WARNING)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-
-    # 控制台处理器（可选，便于调试）
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    _logger_configured = True
+    target = log_file()
+    with _logger_lock:
+        logger = logging.getLogger('emby_auto')
+        owned = [handler for handler in logger.handlers if getattr(handler, '_animeman_handler', False)]
+        if any(isinstance(handler, RotatingFileHandler) and Path(handler.baseFilename) == target for handler in owned):
+            return
+        # Construct the replacement first; failed setup does not remove the old handler.
+        file_handler = RotatingFileHandler(str(writable(target)), maxBytes=10 * 1024 * 1024,
+                                           backupCount=1, encoding='utf-8', delay=True)
+        file_handler.setLevel(logging.WARNING)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        for handler in owned:
+            logger.removeHandler(handler)
+            handler.close()
+        for handler in (file_handler, console_handler):
+            handler._animeman_handler = True
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        _logger_configured = True
 
 
 def get_logger(name=None):
-    """获取已配置的 logger"""
     setup_logging()
     return logging.getLogger('emby_auto')

@@ -5,15 +5,22 @@
 包含扫描、匹配、时间轴同步、整理、AI解析、批量重命名、缓存记录等功能
 """
 
+from .cancellation import check_cancelled, ProcessingCancelled
+import os
 import re
+from contextlib import contextmanager
+from dataclasses import dataclass
 import shutil
 import subprocess
 import tempfile
 import time
 from pathlib import Path
+from .execution_mode import execution_scope, is_preview
+from .path_safety import absolute_link_path, validate_target_path, validate_source_path, source_roots
 from typing import List, Dict, Any, Optional, Callable
 
 from . import cache_manager
+from .json_store import path_lock
 from .file_linker import create_link
 from .logger import get_logger
 
@@ -49,96 +56,10 @@ def _get_subtitle_fingerprint(sub_path: Path) -> str:
 
 # ========== 媒体库获取（增强容错，即使目标文件暂时缺失也保留剧集信息） ==========
 def get_media_library_from_cache(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    从处理缓存中提取已入库媒体的详细信息，按剧集分组，返回结构化数据。
-    即使目标文件暂时不存在，也尽可能保留剧集/电影的基础信息，避免前端展示丢失。
-    """
-    cache = cache_manager.load_cache()
-    movies = []
-    tv_shows = {}
-
-    for src_str, entry in cache.items():
-        if entry.get("media_type") == "failed":
-            continue
-
-        target_path = Path(entry.get("target", ""))
-        media_type = entry.get("media_type")
-        title = entry.get("title", "")
-        year = entry.get("year", "")
-        tmdb_id = entry.get("tmdb_id")
-        alt_titles = entry.get("alternative_titles", [title] if title else [])
-
-        target_exists = target_path.exists() if target_path else False
-        if not target_exists and media_type:
-            if target_path and str(target_path) != ".":
-                logger.debug(f"目标文件缺失: {target_path}")
-
-        if media_type == "movie":
-            movies.append({
-                "cache_key": src_str,
-                "media_type": "movie",
-                "title": title,
-                "year": year,
-                "target_path": str(target_path) if target_path else "",
-                "target_dir": str(target_path.parent) if target_path else "",
-                "tmdb_id": tmdb_id,
-                "alternative_titles": alt_titles,
-                "target_exists": target_exists,
-                "processed_time": entry.get("processed_time", 0)
-            })
-        elif media_type == "tv":
-            season = entry.get("season", 1)
-            episode = entry.get("episode", 1)
-            if tmdb_id not in tv_shows:
-                show_dir = None
-                poster_url = None
-                if target_path and target_path.exists():
-                    show_dir = target_path.parent.parent
-                else:
-                    for other_src, other_entry in cache.items():
-                        if other_entry.get("tmdb_id") == tmdb_id and other_entry.get("media_type") == "tv":
-                            other_target = Path(other_entry.get("target", ""))
-                            if other_target.exists():
-                                show_dir = other_target.parent.parent
-                                break
-                if show_dir:
-                    fanart = show_dir / "fanart.jpg"
-                    poster = show_dir / "poster.jpg"
-                    if fanart.exists() or poster.exists():
-                        poster_url = f"/media_poster/{tmdb_id}"
-                tv_shows[tmdb_id] = {
-                    "tmdb_id": tmdb_id,
-                    "title": title,
-                    "year": year,
-                    "poster_url": poster_url,
-                    "seasons": {},
-                    "alternative_titles": alt_titles,
-                }
-            show = tv_shows[tmdb_id]
-            if season not in show["seasons"]:
-                show["seasons"][season] = {
-                    "season_number": season,
-                    "episodes": []
-                }
-            show["seasons"][season]["episodes"].append({
-                "episode": episode,
-                "title": entry.get("episode_title") or f"第 {episode} 集",
-                "target_path": str(target_path) if target_path else "",
-                "target_dir": str(target_path.parent) if target_path else "",
-                "cache_key": src_str,
-                "target_exists": target_exists,
-                "processed_time": entry.get("processed_time", 0)
-            })
-
-    for show in tv_shows.values():
-        for season_data in show["seasons"].values():
-            season_data["episodes"].sort(key=lambda x: x["episode"])
-        show["seasons"] = dict(sorted(show["seasons"].items()))
-
-    return {
-        "movies": movies,
-        "tv_shows": list(tv_shows.values())
-    }
+    """Read a fresh complete projection, retaining explicit offline target state."""
+    from .media_library_cache import get_media_library_cache
+    frame = get_media_library_cache(config)
+    return {key: frame[key] for key in ('movies', 'tv_shows', 'issues')}
 
 
 # ========== 字幕扫描（带缓存过滤，附加目录信息） ==========
@@ -151,10 +72,13 @@ def scan_subtitle_folder(folder_path: str, config: Dict[str, Any]) -> List[Dict[
     sub_exts = ['.ass', '.ssa', '.srt', '.vtt']
     subtitle_files = []
     processed_cache = cache_manager.load_cache()
+    allowed_roots = source_roots(config)
 
     for ext in sub_exts:
         try:
             for sub_path in folder.rglob(f'*{ext}'):
+                if not any(sub_path.resolve().is_relative_to(root) for root in allowed_roots):
+                    continue
                 src_str = str(sub_path.resolve())
                 parent_dir = sub_path.parent.name
                 grandparent_dir = sub_path.parent.parent.name if sub_path.parent.parent else ""
@@ -349,11 +273,14 @@ def match_subtitle_to_media(
 def _get_video_duration_seconds(video_path: Path) -> Optional[float]:
     try:
         cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', str(video_path)]
+        check_cancelled()
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode == 0:
             import json
             data = json.loads(result.stdout)
             return float(data['format'].get('duration', 0))
+    except ProcessingCancelled:
+        raise
     except Exception:
         pass
     return None
@@ -365,141 +292,170 @@ def _fix_ass_color_code(content: str) -> str:
 
 
 # ========== 字幕时间轴同步 ==========
+SUBTITLE_EXTENSIONS = {'.ass', '.ssa', '.srt', '.vtt'}
+
+
+def _language_suffix(path: Path) -> str:
+    match = re.search(r'\.(chs|cht|en|eng|jp|jpn|sc|tc|gb|big5)$', path.stem, re.I)
+    return f".{match.group(1).lower()}" if match else ""
+
+
+@dataclass
+class SyncedSubtitle:
+    """Own the temporary result until its consumer has published a durable copy.
+
+    Use as a context manager (or call close); path expires when closed.
+    """
+    path: Path
+    original: Path
+    language_suffix: str
+    workspace: tempfile.TemporaryDirectory
+
+    def __fspath__(self):
+        return str(self.path)
+
+    def close(self):
+        self.workspace.cleanup()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+@execution_scope
 def sync_subtitle_with_ffsubsync(
     video_path: Path,
     subtitle_path: Path,
     config: Dict[str, Any],
     log_func: Optional[Callable] = None
-) -> Optional[Path]:
-    """使用 ffsubsync 同步字幕时间轴，对大视频创建临时片段并自动清理"""
+) -> Optional[SyncedSubtitle]:
+    """Prepare and sync a private copy. The returned object owns its workspace."""
+    check_cancelled()
+    if is_preview(config):
+        if log_func:
+            log_func(f"🔍 [模拟] 字幕调轴: {subtitle_path}", LOG_INFO)
+        return None
     if not FFSUBSYNC_AVAILABLE:
         if log_func:
-            log_func(f"⚠️ ffsubsync 未安装，跳过字幕同步", LOG_WARNING)
+            log_func("⚠️ ffsubsync 未安装，跳过字幕同步", LOG_WARNING)
         return None
 
+    workspace = None
     try:
         subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5, check=True)
-    except Exception as e:
-        if log_func:
-            log_func(f"❌ FFmpeg 不可用，无法进行字幕同步: {e}", LOG_ERROR)
-        return None
-
-    try:
-        file_size_gb = video_path.stat().st_size / (1024 * 1024 * 1024)
-        if file_size_gb > 20:
+        if video_path.stat().st_size > 20 * 1024 ** 3:
             if log_func:
-                log_func(f"⚠️ 视频文件过大 ({file_size_gb:.1f} GB)，跳过自动调轴", LOG_WARNING)
+                log_func("⚠️ 视频超过 20 GB，跳过自动调轴", LOG_WARNING)
             return None
-    except Exception:
-        pass
-
-    # ASS 颜色代码修复（保持不变）
-    if subtitle_path.suffix.lower() in ['.ass', '.ssa']:
-        try:
+        workspace = tempfile.TemporaryDirectory(prefix='animeman-subtitle-')
+        folder = Path(workspace.name)
+        working = folder / ('input' + subtitle_path.suffix)
+        shutil.copyfile(subtitle_path, working)
+        if subtitle_path.suffix.lower() in {'.ass', '.ssa'}:
             import pysubs2
             import chardet
-
-            with open(subtitle_path, 'rb') as f:
-                raw_data = f.read()
-            detected = chardet.detect(raw_data)
-            encoding = detected.get('encoding', 'utf-8')
-
+            raw = working.read_bytes()
+            detected = chardet.detect(raw).get('encoding')
             content = None
-            try:
-                content = raw_data.decode(encoding)
-            except Exception:
-                for enc in ['utf-8', 'utf-16', 'utf-16-le', 'utf-16-be', 'gbk', 'shift-jis', 'cp932', 'latin-1']:
-                    try:
-                        content = raw_data.decode(enc)
-                        encoding = enc
-                        break
-                    except Exception:
-                        continue
-                if content is None:
-                    raise ValueError("所有编码均无法解码该字幕文件")
-
+            for encoding in dict.fromkeys([detected, 'utf-8', 'utf-16', 'gbk', 'shift-jis', 'latin-1']):
+                if not encoding:
+                    continue
+                try:
+                    content = raw.decode(encoding)
+                    break
+                except (UnicodeError, LookupError):
+                    continue
+            if content is None:
+                raise ValueError("无法解码字幕")
             try:
                 pysubs2.SSAFile.from_string(content)
-            except ValueError as e:
-                if "invalid literal for int() with base 16" in str(e):
-                    if log_func:
-                        log_func(f"⚠️ ASS 字幕颜色代码格式异常，尝试自动修复...", LOG_WARNING)
+            except ValueError as exc:
+                if "invalid literal for int() with base 16" not in str(exc):
+                    raise
+                fixed = _fix_ass_color_code(content)
+                if fixed == content:
+                    raise
+                # Only the private copy is repaired. Never write or back up in source.
+                working.write_text(fixed, encoding=encoding)
+                pysubs2.load(str(working))
 
-                    fixed_content = _fix_ass_color_code(content)
-                    if fixed_content != content:
-                        backup_path = subtitle_path.with_suffix(subtitle_path.suffix + '.bak')
-                        shutil.copy2(subtitle_path, backup_path)
-                        with open(subtitle_path, 'w', encoding=encoding) as f:
-                            f.write(fixed_content)
-                        if log_func:
-                            log_func(f"🔧 已修复 ASS 字幕颜色代码格式并保存", LOG_INFO)
-
-                        try:
-                            pysubs2.load(str(subtitle_path))
-                        except Exception as ex:
-                            if log_func:
-                                log_func(f"⚠️ 修复后仍无法加载 ASS 字幕，跳过调轴: {ex}", LOG_WARNING)
-                            return None
-                    else:
-                        return None
-                else:
-                    return None
-        except Exception:
-            return None
-
-    duration_sec = _get_video_duration_seconds(video_path)
-    use_temp_video = False
-    temp_video = None
-
-    sync_timeout = config.get("subtitle", {}).get("sync_timeout", 300)
-    synced_path = subtitle_path.with_suffix(f".synced{subtitle_path.suffix}")
-
-    try:
-        if duration_sec and duration_sec > 1800:
-            if log_func:
-                log_func(f"⏱️ 视频时长 {duration_sec/60:.1f} 分钟，创建前30分钟临时文件用于对齐", LOG_INFO)
-
-            # ========== 优化项12：使用 NamedTemporaryFile 替代 mktemp ==========
-            import tempfile
-            temp_video = tempfile.NamedTemporaryFile(suffix='.mkv', delete=True)
-            temp_video_path = Path(temp_video.name)
-            cmd_ffmpeg = [
+        duration = _get_video_duration_seconds(video_path)
+        video_to_use = video_path
+        if duration and duration > 1800:
+            segment = folder / 'segment.mkv'
+            check_cancelled()
+            trimmed = subprocess.run([
                 'ffmpeg', '-y', '-i', str(video_path), '-t', '1800',
-                '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
-                str(temp_video_path)
-            ]
-            result_ffmpeg = subprocess.run(cmd_ffmpeg, capture_output=True, text=True, timeout=120)
-            if result_ffmpeg.returncode == 0 and temp_video_path.exists():
-                use_temp_video = True
-            else:
-                temp_video.close()
-                temp_video = None
-
-        video_to_use = temp_video_path if use_temp_video else video_path
-        cmd = ['ffs', str(video_to_use), '-i', str(subtitle_path), '-o', str(synced_path)]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=sync_timeout)
-
-        if result.returncode == 0 and synced_path.exists():
-            if log_func:
-                log_func(f"✅ 字幕同步完成: {synced_path.name}", LOG_SUCCESS)
-            return synced_path
-        else:
-            return None
-
-    except subprocess.TimeoutExpired:
-        return None
-    except Exception:
+                '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', str(segment)
+            ], capture_output=True, text=True, timeout=120)
+            if trimmed.returncode == 0 and segment.is_file():
+                video_to_use = segment
+        output = folder / ('synced' + subtitle_path.suffix)
+        check_cancelled()
+        result = subprocess.run(['ffs', str(video_to_use), '-i', str(working), '-o', str(output)],
+                                capture_output=True, text=True,
+                                timeout=config.get('subtitle', {}).get('sync_timeout', 300))
+        check_cancelled()
+        if result.returncode != 0 or not output.is_file() or output.stat().st_size == 0:
+            raise ValueError("ffsubsync 未生成有效输出")
+        owned = SyncedSubtitle(output, subtitle_path, _language_suffix(subtitle_path), workspace)
+        workspace = None  # Transfer lifetime to the consumer.
+        if log_func:
+            log_func(f"✅ 字幕同步完成: {subtitle_path.name}", LOG_SUCCESS)
+        return owned
+    except ProcessingCancelled:
+        raise
+    except (OSError, subprocess.SubprocessError, ValueError, ImportError) as exc:
+        if log_func:
+            log_func(f"⚠️ 字幕调轴失败，使用原字幕: {exc}", LOG_WARNING)
         return None
     finally:
-        # ========== NamedTemporaryFile 在 close 时自动删除，无需手动 unlink ==========
-        if use_temp_video and temp_video:
-            try:
-                temp_video.close()
-            except Exception:
-                pass
+        if workspace is not None:
+            workspace.cleanup()
+
+
+@contextmanager
+def _working_subtitle(video, subtitle, config, auto_sync, log_func):
+    result = sync_subtitle_with_ffsubsync(video, subtitle, config, log_func) if auto_sync else None
+    if result is None:
+        yield subtitle, False
+    else:
+        with result:
+            yield result.path, True
+
+
+def _publish_subtitle(source, target, mode, *, overwrite, temporary=False):
+    """Stage a new directory entry, never copy into an existing hard/symbolic link."""
+    with path_lock(target):
+        if (target.exists() or target.is_symlink()) and not overwrite:
+            return False
+        check_cancelled()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='.subtitle-', dir=target.parent) as folder:
+            staged = Path(folder) / target.name
+            # A synced file must not become a symlink into an expiring workspace.
+            if temporary or mode == 'copy':
+                shutil.copy2(source, staged)
+                with staged.open('rb') as stream:
+                    os.fsync(stream.fileno())
+            elif not create_link(source.resolve(), staged, mode):
+                shutil.copy2(source, staged)
+            check_cancelled()
+            if overwrite:
+                os.replace(staged, target)
+            else:
+                # Atomic no-clobber publication, including broken existing symlinks.
+                try:
+                    os.link(staged, target, follow_symlinks=False)
+                except FileExistsError:
+                    return False
+        return True
 
 
 # ========== 字幕整理执行（带缓存写入） ==========
+@execution_scope
 def execute_subtitle_organization(
     subtitle_path: str,
     target_media: Dict[str, Any],
@@ -507,162 +463,105 @@ def execute_subtitle_organization(
     auto_sync: bool = False,
     log_func: Optional[Callable] = None
 ) -> bool:
+    check_cancelled()
     sub_path = Path(subtitle_path)
-    if not sub_path.exists():
+    if not sub_path.is_file():
         return False
-
-    target_dir = Path(target_media["target_dir"])
-    target_video_path = Path(target_media["target_path"])
-    video_stem = target_video_path.stem
-
-    working_sub_path = sub_path
-    if auto_sync:
-        synced = sync_subtitle_with_ffsubsync(target_video_path, sub_path, config, log_func)
-        if synced:
-            working_sub_path = synced
-
-    lang_suffix = ""
-    name_without_ext = working_sub_path.stem
-    lang_match = re.search(r'\.(chs|cht|en|eng|jp|jpn|sc|tc|gb|big5)$', name_without_ext, re.I)
-    if lang_match:
-        lang_suffix = f".{lang_match.group(1).lower()}"
-
-    target_sub_name = f"{video_stem}{lang_suffix}{working_sub_path.suffix}"
-    target_sub_path = target_dir / target_sub_name
-
-    if target_sub_path.exists() and not config.get("subtitle_center", {}).get("overwrite_existing", False):
+    target_dir = Path(target_media['target_dir'])
+    target_video = Path(target_media['target_path'])
+    name = target_video.stem + _language_suffix(sub_path) + sub_path.suffix
+    target = validate_target_path(sub_path, target_dir / name, config, 'subtitle')
+    if is_preview(config):
         if log_func:
-            log_func(f"⏭️ 字幕已存在，跳过: {target_sub_name}", LOG_INFO)
+            log_func(f"🔍 [模拟] 字幕整理: {sub_path.name} -> {target}", LOG_INFO)
+        return True
+    overwrite = config.get('subtitle_center', {}).get('overwrite_existing', False)
+    if (target.exists() or target.is_symlink()) and not overwrite:
+        if log_func:
+            log_func(f"⏭️ 字幕已存在，跳过: {target.name}", LOG_INFO)
         return False
-
     try:
-        target_sub_path.parent.mkdir(parents=True, exist_ok=True)
-        link_mode = config.get("subtitle_center", {}).get("link_mode", "hard")
-        if link_mode == "copy":
-            shutil.copy2(working_sub_path, target_sub_path)
-            if log_func:
-                log_func(f"📋 字幕已复制: {target_sub_name}", LOG_SUCCESS)
-        else:
-            if not create_link(working_sub_path, target_sub_path, link_mode, log_func):
-                shutil.copy2(working_sub_path, target_sub_path)
-                if log_func:
-                    log_func(f"📋 链接失败，已复制: {target_sub_name}", LOG_INFO)
-
+        with _working_subtitle(target_video, sub_path, config, auto_sync, log_func) as (working, temporary):
+            if not _publish_subtitle(working, target,
+                    config.get('subtitle_center', {}).get('link_mode', 'hard'),
+                    overwrite=overwrite, temporary=temporary):
+                return False
         try:
             with cache_manager.cache_lock:
                 cache = cache_manager.load_cache()
                 src_str = str(sub_path.resolve())
                 cache[src_str] = {
-                    "target": str(target_sub_path.resolve()),
-                    "fingerprint": _get_subtitle_fingerprint(sub_path),
-                    "media_type": "subtitle",
-                    "title": target_media.get("title", ""),
-                    "season": target_media.get("season"),
-                    "episode": target_media.get("episode"),
-                    "confidence": 100,
-                    "processed_time": time.time()
+                    'target': str(absolute_link_path(target)), 'source_path': src_str,
+                    'fingerprint': _get_subtitle_fingerprint(sub_path), 'media_type': 'subtitle',
+                    'title': target_media.get('title', ''), 'season': target_media.get('season'),
+                    'episode': target_media.get('episode'), 'confidence': 100,
+                    'processed_time': time.time()
                 }
                 cache_manager.save_cache(cache)
-        except Exception as e:
-            logger.warning(f"写入字幕缓存失败: {e}")
+        except ProcessingCancelled:
+            raise
+        except Exception as exc:
+            logger.warning(f"写入字幕缓存失败: {exc}")
             if log_func:
-                log_func(f"⚠️ 写入字幕缓存失败: {e}", "warning")
-
-        return True
-    except Exception as e:
-        logger.error(f"字幕整理失败 {sub_path.name}: {e}")
+                log_func(f"⚠️ 写入字幕缓存失败: {exc}", LOG_WARNING)
         if log_func:
-            log_func(f"❌ 字幕整理失败 {sub_path.name}: {e}", LOG_ERROR)
+            log_func(f"✅ 字幕已整理: {target.name}", LOG_SUCCESS)
+        return True
+    except ProcessingCancelled:
+        raise
+    except Exception as exc:
+        logger.error(f"字幕整理失败 {sub_path.name}: {exc}")
+        if log_func:
+            log_func(f"❌ 字幕整理失败 {sub_path.name}: {exc}", LOG_ERROR)
         return False
 
 
 # ========== 视频处理时的自动字幕匹配 ==========
 def find_subtitle_files(video_path: Path, config: Dict[str, Any]) -> List[Path]:
-    subtitle_exts = ['.ass', '.ssa', '.srt', '.vtt']
-    base_name = video_path.stem
-    parent = video_path.parent
-
-    found_subs = []
-    for ext in subtitle_exts:
-        sub_path = parent / f"{base_name}{ext}"
-        if sub_path.exists():
-            found_subs.append(sub_path)
-
-    for ext in subtitle_exts:
-        pattern = f"{base_name}.*{ext}"
-        for sub_path in parent.glob(pattern):
-            if sub_path not in found_subs:
-                found_subs.append(sub_path)
-
-    sub_dirs = ['Subs', 'subs', '字幕', 'Subtitles', 'subtitle']
-    for sub_dir_name in sub_dirs:
-        sub_dir = parent / sub_dir_name
-        if sub_dir.exists():
-            for ext in subtitle_exts:
-                pattern = f"{base_name}*{ext}"
-                for sub_path in sub_dir.glob(pattern):
-                    if sub_path not in found_subs:
-                        found_subs.append(sub_path)
-    return found_subs
+    base = video_path.stem
+    found = []
+    for directory in [video_path.parent] + [video_path.parent / name for name in
+                                           ['Subs', 'subs', '字幕', 'Subtitles', 'subtitle']]:
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.iterdir()):
+            if (path.is_file() and path.suffix.lower() in SUBTITLE_EXTENSIONS
+                    and (path.stem == base or path.stem.startswith(base + '.'))):
+                found.append(path)
+    return found
 
 
+@execution_scope
 def process_subtitles_for_video(
-    video_src: Path,
-    video_target: Path,
-    target_dir: Path,
-    config: Dict[str, Any],
+    video_src: Path, video_target: Path, target_dir: Path, config: Dict[str, Any],
     log_func: Optional[Callable] = None
 ) -> int:
-    if not config.get("subtitle", {}).get("enabled", True):
+    if not config.get('subtitle', {}).get('enabled', True):
         return 0
-
     sub_files = find_subtitle_files(video_src, config)
-    if not sub_files:
+    if is_preview(config):
+        if log_func:
+            log_func(f"🔍 [模拟] 关联字幕 {len(sub_files)} 个 -> {target_dir}", LOG_INFO)
         return 0
-
-    if log_func:
-        log_func(f"📝 发现 {len(sub_files)} 个字幕文件", LOG_INFO)
-
     processed = 0
-    video_stem = video_target.stem
-
-    for sub_path in sub_files:
-        lang_suffix = ""
-        name_without_ext = sub_path.stem
-        lang_match = re.search(r'\.(chs|cht|en|eng|jp|jpn|sc|tc|gb|big5)$', name_without_ext, re.I)
-        if lang_match:
-            lang_suffix = f".{lang_match.group(1).lower()}"
-
-        final_sub_path = sub_path
-        if config.get("subtitle", {}).get("auto_sync", False):
-            synced = sync_subtitle_with_ffsubsync(video_src, sub_path, config, log_func)
-            if synced:
-                final_sub_path = synced
-
-        target_sub_name = f"{video_stem}{lang_suffix}{final_sub_path.suffix}"
-        target_sub_path = target_dir / target_sub_name
-
+    for subtitle in sub_files:
+        check_cancelled()
         try:
-            if target_sub_path.exists():
-                target_sub_path.unlink()
-            if config.get("subtitle", {}).get("link_subtitles", True):
-                if not create_link(final_sub_path, target_sub_path, config["link_type"], log_func):
-                    shutil.copy2(final_sub_path, target_sub_path)
+            name = video_target.stem + _language_suffix(subtitle) + subtitle.suffix
+            target = validate_target_path(subtitle, target_dir / name, config, 'subtitle')
+            with _working_subtitle(video_src, subtitle, config,
+                    config.get('subtitle', {}).get('auto_sync', False), log_func) as (working, temporary):
+                mode = config.get('link_type', 'hard') if config.get('subtitle', {}).get('link_subtitles', True) else 'copy'
+                if _publish_subtitle(working, target, mode, overwrite=True, temporary=temporary):
+                    processed += 1
                     if log_func:
-                        log_func(f"📋 链接失败，已复制: {target_sub_name}", LOG_INFO)
-                else:
-                    if log_func:
-                        log_func(f"🔗 字幕链接成功: {target_sub_name}", LOG_SUCCESS)
-            else:
-                shutil.copy2(final_sub_path, target_sub_path)
-                if log_func:
-                    log_func(f"📋 字幕已复制: {target_sub_name}", LOG_INFO)
-            processed += 1
-        except Exception as e:
-            logger.error(f"字幕处理失败 {sub_path.name}: {e}")
+                        log_func(f"✅ 字幕已整理: {target.name}", LOG_SUCCESS)
+        except ProcessingCancelled:
+            raise
+        except Exception as exc:
+            logger.error(f"字幕处理失败 {subtitle.name}: {exc}")
             if log_func:
-                log_func(f"❌ 字幕处理失败 {sub_path.name}: {e}", LOG_ERROR)
-
+                log_func(f"❌ 字幕处理失败 {subtitle.name}: {exc}", LOG_ERROR)
     return processed
 
 
@@ -1069,24 +968,82 @@ TMDB ID: {show_info.get('tmdb_id')}
     return valid_matches
 
 
-def batch_rename_subtitles(renames: List[Dict[str, str]], log_func: Optional[Callable] = None) -> Dict[str, int]:
-    success = 0
-    failed = 0
+@execution_scope
+def batch_rename_subtitles(renames: List[Dict[str, str]], log_func: Optional[Callable] = None, config=None) -> Dict[str, Any]:
+    """Validate the entire batch first; dependent/cyclic moves are rejected.
+
+    Exclusive link + unlink supports same-filesystem regular files without
+    overwriting a concurrently created destination. A failed move keeps source.
+    """
+    check_cancelled()
+    config = config or {}
+    results = []
+    paths = []
     for item in renames:
-        old = Path(item["old_path"])
-        new = Path(item["new_path"])
-        if not old.exists():
-            failed += 1
+        row = {'old_path': item.get('old_path') if isinstance(item, dict) else None,
+               'new_path': item.get('new_path') if isinstance(item, dict) else None,
+               'status': 'failed', 'error': ''}
+        results.append(row)
+        try:
+            old = validate_source_path(row['old_path'], config)
+            new = validate_source_path(row['new_path'], config)
+            paths.append((old, new))
+            if old.suffix.lower() not in SUBTITLE_EXTENSIONS or new.suffix.lower() not in SUBTITLE_EXTENSIONS:
+                raise ValueError('仅允许字幕扩展名 ass/ssa/srt/vtt')
+            if old.is_symlink() or not old.is_file():
+                raise ValueError('源字幕必须是普通文件，禁止符号链接')
+            if old == new:
+                raise ValueError('新旧路径相同')
+            if new.exists() or new.is_symlink():
+                raise ValueError('目标已存在；不覆盖文件，不支持依赖或循环改名')
+        except (ValueError, TypeError, OSError) as exc:
+            if len(paths) < len(results):
+                paths.append(None)
+            row['error'] = str(exc)
+    for position in (0, 1):
+        counts = {}
+        for pair in paths:
+            if pair:
+                counts[pair[position]] = counts.get(pair[position], 0) + 1
+        for row, pair in zip(results, paths):
+            if pair and counts[pair[position]] > 1:
+                row['error'] = '重复源路径' if position == 0 else '重复目标路径'
+    if any(row['error'] for row in results):
+        for row in results:
+            row['error'] = row['error'] or '整批校验失败，未执行改名'
+        return {'success': 0, 'failed': len(results), 'planned': 0, 'results': results}
+    preview = is_preview(config)
+    success = failed = 0
+    for row, (old, new) in zip(results, paths):
+        check_cancelled()
+        if preview:
+            row['status'] = 'planned'
             continue
         try:
-            new.parent.mkdir(parents=True, exist_ok=True)
-            old.rename(new)
+            with path_lock(new):
+                # Recheck resolved parent boundaries immediately before mutation.
+                validate_source_path(old, config)
+                validate_source_path(new, config)
+                if old.is_symlink() or not old.is_file():
+                    raise ValueError('源文件已改变')
+                new.parent.mkdir(parents=True, exist_ok=True)
+                os.link(old, new, follow_symlinks=False)
+                try:
+                    old.unlink()
+                except OSError:
+                    # Undo only our own newly created entry, preserving source.
+                    if os.path.samefile(old, new):
+                        new.unlink()
+                    raise
+            row['status'] = 'success'
             success += 1
             if log_func:
-                log_func(f"✅ 重命名: {old.name} -> {new.name}", "success")
-        except Exception as e:
-            logger.error(f"重命名失败 {old.name}: {e}")
+                log_func(f"✅ 重命名: {old.name} -> {new.name}", LOG_SUCCESS)
+        except ProcessingCancelled:
+            raise
+        except (OSError, ValueError) as exc:
+            row['error'] = str(exc)
             failed += 1
             if log_func:
-                log_func(f"❌ 重命名失败 {old.name}: {e}", "error")
-    return {"success": success, "failed": failed}
+                log_func(f"❌ 重命名失败 {old.name}: {exc}", LOG_ERROR)
+    return {'success': success, 'failed': failed, 'planned': len(results) if preview else 0, 'results': results}

@@ -7,18 +7,12 @@
 
 import threading
 from pathlib import Path
+from core.runtime_paths import log_file
 from flask import request, jsonify
 
 from core import media_processor
-from .task_state import (
-    progress_callback,
-    reset_task_state,
-    set_task_running,
-    is_task_running,
-    get_task_status,
-    request_stop,
-    force_reset
-)
+from . import task_state
+from flask import g
 from .auth import require_auth
 
 CONFIG_PATH = "auto_config.json"
@@ -26,56 +20,40 @@ LOG_FILE = "auto_processor_errors.log"
 
 
 def register(app):
+    config_path = app.config.get("CONFIG_PATH", CONFIG_PATH)
+
     @app.route('/api/run', methods=['POST'])
     @require_auth
     def run_task():
-        if is_task_running():
-            return jsonify({"status": "error", "message": "已有任务在运行中"}), 400
-
-        set_task_running()
-
-        def task_wrapper():
-            try:
-                media_processor.stop_processing.clear()
-                media_processor.run_processor_with_callback(CONFIG_PATH, progress_callback)
-            except Exception as e:
-                progress_callback(0, 0, f"任务异常: {e}", "error")
-            finally:
-                reset_task_state()
-
-        threading.Thread(target=task_wrapper, daemon=False).start()
-        return jsonify({"status": "started"})
+        snapshot = g.request_config
+        task = task_state.launch_task('organize', snapshot,
+            lambda config, callback: media_processor.run_processor_with_callback(
+                config_path, callback, effective_config=config), thread_factory=threading.Thread)
+        if task is None:
+            return jsonify({"status":"error", "message":"已有写入任务运行或正在停止"}), 409
+        return jsonify({"status":"started", "task_id":task.task_id})
 
     @app.route('/api/stop', methods=['POST'])
     @require_auth
     def stop_task():
-        """
-        停止任务：
-        - 正常停止：设置停止请求标志，由任务循环自行检查并退出
-        - 强制重置：当 force=1 时，直接清理任务状态（用于任务卡死时）
-        """
-        force = request.args.get('force', '0') == '1'
-
-        if force or not is_task_running():
-            # 强制重置状态，清理残留
-            force_reset()
-            media_processor.stop_processing.set()  # 确保核心处理器也收到停止信号
-            progress_callback(0, 0, "任务状态已强制重置", "warning")
-            return jsonify({"status": "reset", "message": "任务状态已强制重置"})
-
-        # 正常停止流程
-        media_processor.stop_processing.set()
-        request_stop()
-        progress_callback(0, 0, "正在停止任务...", "warning")
-        return jsonify({"status": "stopping"})
+        identity = request.args.get('task_id')
+        observed_id = task_state.get_task_status()['task_id']
+        if identity and identity != observed_id:
+            return jsonify({'status':'error', 'message':'任务身份已过期'}), 409
+        stopping = task_state.request_stop(identity)
+        if request.args.get('force') == '1':
+            if not task_state.force_reset(identity or observed_id):
+                return jsonify({"status":"stopping", "message":"工作线程尚未退出，不能重置或启动新任务"}), 409
+            return jsonify({"status":"reset"})
+        return jsonify({"status":"stopping" if stopping else "idle"})
 
     @app.route('/api/status', methods=['GET'])
     def get_status():
-        return jsonify(get_task_status())
+        return jsonify(task_state.get_task_status())
 
     @app.route('/api/log', methods=['GET'])
     def get_full_log():
-        log_path = Path(LOG_FILE)
+        log_path = log_file()
         if not log_path.exists():
             return jsonify({"log": ""})
         try:

@@ -9,10 +9,15 @@ TMDB搜索与AI辅助选择
 - 代理支持：所有TMDB请求均传递proxy参数
 """
 
+from .json_store import CacheCorruptionError
+from .cancellation import ProcessingCancelled
+from .parse_identity import tmdb_scope
 import re
 import json
 import threading
 from pathlib import Path
+from .execution_mode import is_preview
+from .runtime_paths import cache_file
 from typing import Optional, List, Dict, Tuple, Callable
 
 from . import tmdb_client, ai_client
@@ -27,17 +32,28 @@ _ai_selection_cache_lock = threading.RLock()
 # 本地别名映射文件
 ALIAS_FILE = Path("tmdb_aliases.json")
 _alias_cache: Dict[str, Dict] = {}
+_alias_path = None
 
 
 def _load_aliases() -> Dict[str, Dict]:
-    global _alias_cache
-    if _alias_cache:
+    global _alias_cache, _alias_path
+    path = cache_file(ALIAS_FILE.name)
+    if path == _alias_path:
         return _alias_cache
-    if ALIAS_FILE.exists():
+    _alias_path = path
+    _alias_cache = {}
+    if path.exists():
         try:
-            with open(ALIAS_FILE, 'r', encoding='utf-8') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 _alias_cache = json.load(f)
                 _alias_cache = {k.lower(): v for k, v in _alias_cache.items()}
+        except OSError:
+            _alias_path = None
+            raise
+        except CacheCorruptionError:
+            raise
+        except ProcessingCancelled:
+            raise
         except Exception:
             _alias_cache = {}
     return _alias_cache
@@ -75,6 +91,10 @@ def original_search_tmdb(
             result = tmdb_client.search_tmdb(mtype, query, year, api_key, language, log_func, alt_titles, proxy=proxy)
             if result:
                 return result, mtype, 0
+        except CacheCorruptionError:
+            raise
+        except ProcessingCancelled:
+            raise
         except Exception:
             continue
 
@@ -83,6 +103,10 @@ def original_search_tmdb(
             result = tmdb_client.search_tmdb(secondary_type, query, year, api_key, language, log_func, alt_titles, proxy=proxy)
             if result:
                 return result, secondary_type, 0
+        except CacheCorruptionError:
+            raise
+        except ProcessingCancelled:
+            raise
         except Exception:
             continue
 
@@ -149,6 +173,10 @@ TMDB 搜索返回的部分候选结果（前5个）：
                     if log_func:
                         log_func(f"🔧 AI 修正剧名: {original_title} → {corrected_title}", LOG_SUCCESS)
                     return corrected_title
+    except CacheCorruptionError:
+        raise
+    except ProcessingCancelled:
+        raise
     except Exception as e:
         logger.warning(f"AI 标题验证失败: {e}")
         if log_func:
@@ -179,11 +207,12 @@ def ai_select_best_match(
     use_cache = (media_type != "movie") and (base_confidence >= effective_min_conf)
 
     folder_key = str(src.parent.resolve())
-    cache_key = (folder_key, search_title, media_type)
+    cache_key = (tmdb_scope(src.parent,config),search_title,media_type,tuple(item.get("id") for item in candidates))
 
     if use_cache:
         with _ai_selection_cache_lock:
-            cached_tmdb_id = _ai_selection_cache.get(cache_key)
+            frame = _ai_selection_cache.get(cache_key)
+            cached_tmdb_id = frame.get("id") if isinstance(frame,dict) and frame.get("media_type")==media_type else None
             if cached_tmdb_id:
                 for item in candidates:
                     if item.get("id") == cached_tmdb_id:
@@ -235,14 +264,18 @@ def ai_select_best_match(
                 if 0 <= idx < candidate_count:
                     selected = top_candidates[idx]
                     tmdb_id = selected.get("id")
-                    if tmdb_id and use_cache:
+                    if tmdb_id and use_cache and not is_preview():
                         with _ai_selection_cache_lock:
-                            _ai_selection_cache[cache_key] = tmdb_id
+                            _ai_selection_cache[cache_key] = {"id":tmdb_id,"media_type":media_type}
                     if log_func:
                         title = selected.get("title") or selected.get("name")
-                        cache_msg = " (已缓存)" if use_cache else " (未缓存-低置信度)"
+                        cache_msg = " (模拟，未缓存)" if is_preview() else (" (已缓存)" if use_cache else " (未缓存-低置信度)")
                         log_func(f"✅ AI 选择: {title}{cache_msg}", LOG_SUCCESS)
                     return selected
+    except CacheCorruptionError:
+        raise
+    except ProcessingCancelled:
+        raise
     except Exception as e:
         logger.warning(f"AI 辅助选择失败: {e}")
         if log_func:
@@ -315,6 +348,10 @@ def search_tmdb_with_fallback(
                     raw_results = tmdb_client.search_tmdb_multi(
                         mtype, candidate, search_year, api_key, lang, log_func, proxy=proxy
                     )
+                except CacheCorruptionError:
+                    raise
+                except ProcessingCancelled:
+                    raise
                 except Exception as e:
                     logger.warning(f"TMDB 搜索异常: {e}")
                     continue
@@ -395,7 +432,7 @@ def search_tmdb_with_fallback(
 
     # 5. TVmaze 备选
     if media_type == "tv" and config.get("ai_parser", {}).get("enabled"):
-        tmdb_id = search_enhancer.search_tvmaze(search_title)
+        tmdb_id = search_enhancer.search_tvmaze(search_title, config=config)
         if tmdb_id:
             if log_func:
                 log_func(f"📺 TVmaze 备选成功，找到 TMDB ID: {tmdb_id}", LOG_SUCCESS)

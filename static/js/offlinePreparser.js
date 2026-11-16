@@ -10,13 +10,13 @@ App.OfflinePreparser = (function(app) {
     // 更新状态显示
     async function updateStatus() {
         try {
-            const resp = await fetch('/api/offline/status');
+            const resp = await app.fetch('/api/offline/status');
             const data = await resp.json();
 
             // 更新显示
-            document.getElementById('offlineScanStatus').innerHTML =
+            document.getElementById('offlineScanStatus').textContent =
                 `📁 已扫描 ${data.total_folders || 0} 个文件夹，共 ${data.total_files || 0} 个视频文件`;
-            document.getElementById('offlineCacheStatus').innerHTML =
+            document.getElementById('offlineCacheStatus').textContent =
                 `🤖 已缓存 ${data.cached_folders || 0} 个文件夹的 AI 解析结果`;
 
             const scanBtn = document.getElementById('offlineScanBtn');
@@ -79,7 +79,7 @@ App.OfflinePreparser = (function(app) {
             if (btn.disabled) return;
 
             try {
-                const resp = await fetch('/api/offline/scan', { method: 'POST' });
+                const resp = await app.fetch('/api/offline/scan', { method: 'POST' });
                 const data = await resp.json();
                 if (data.status === 'success') {
                     app.showToast('扫描任务已启动', 'info', 1500);
@@ -99,7 +99,7 @@ App.OfflinePreparser = (function(app) {
             if (btn.disabled) return;
 
             try {
-                const resp = await fetch('/api/offline/parse', { method: 'POST' });
+                const resp = await app.fetch('/api/offline/parse', { method: 'POST' });
                 const data = await resp.json();
                 if (data.status === 'success') {
                     app.showToast('预解析任务已启动', 'info', 1500);

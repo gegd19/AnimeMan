@@ -11,11 +11,16 @@
 - processor_folder_ai.py：文件夹级AI批量解析
 """
 
+from .failure_policy import note_error
+from .parse_identity import tmdb_scope,with_identity_scope
+from .json_store import CacheCorruptionError
+from .cancellation import check_cancelled, ProcessingCancelled
 import re
 import time
 import threading
 import os
 from pathlib import Path
+from .execution_mode import execution_scope, is_preview
 from typing import Dict, Any, Optional, Callable, List, Tuple
 
 from . import cache_manager
@@ -41,7 +46,7 @@ from .logger import get_logger
 
 logger = get_logger(__name__)
 
-stop_processing = threading.Event()
+from .cancellation import stop_processing
 
 SEASON_INDICATORS = build_season_indicators(30)
 
@@ -50,6 +55,8 @@ _folder_tmdb_cache: Dict[Tuple[str, str], int] = {}
 _folder_tmdb_cache_lock = threading.RLock()
 
 
+@execution_scope
+@with_identity_scope
 def process_video(
     src: Path,
     config: Dict[str, Any],
@@ -58,10 +65,7 @@ def process_video(
 ) -> bool:
     wrapped_log = wrap_progress_callback(log_func)
 
-    if stop_processing.is_set():
-        if wrapped_log:
-            wrapped_log(f"⏹️ 收到停止信号，跳过: {src.name}", LOG_WARNING)
-        return False
+    check_cancelled()
 
     try:
         force_tmdb_id, force_media_type, force_season, force_episode = apply_special_mapping(src, config, wrapped_log)
@@ -78,11 +82,8 @@ def process_video(
             if not title or title == "Unknown" or media_type not in ("movie", "tv"):
                 return (False, None, None, None, None, None, confidence_start, current_info)
 
-            if media_type == "tv":
-                if current_info.get("season") is None:
-                    current_info["season"] = 1
-                if current_info.get("episode") is None:
-                    current_info["episode"] = 1
+            if media_type == "tv" and (current_info.get("season") is None or current_info.get("episode") is None):
+                return (False, None, None, None, None, None, confidence_start, current_info)
 
             confidence = confidence_start
             local_duration = video_info.get_video_duration(src)
@@ -117,12 +118,14 @@ def process_video(
             else:
                 # 文件夹级 TMDB 缓存
                 folder_key = str(src.parent.resolve())
-                cache_key = (folder_key, search_title)
+                cache_key = (tmdb_scope(src.parent,config),search_title,media_type,search_year,tuple(alt_titles),duration_hint)
                 with _folder_tmdb_cache_lock:
-                    cached_tmdb_id = _folder_tmdb_cache.get(cache_key)
+                    cached = _folder_tmdb_cache.get(cache_key)
+                    cached_tmdb_id = cached.get("id") if isinstance(cached,dict) and cached.get("media_type") in ("tv","movie") and type(cached.get("id")) is int else None
 
                 if cached_tmdb_id:
                     tmdb_result = {"id": cached_tmdb_id}
+                    media_type = cached["media_type"]
                     candidate_count = 0
                     if wrapped_log:
                         wrapped_log(f"📦 命中文件夹TMDB缓存: ID {cached_tmdb_id}", LOG_INFO)
@@ -134,9 +137,9 @@ def process_video(
                     )
                     if tmdb_result:
                         tmdb_id = tmdb_result.get("id")
-                        if tmdb_id:
+                        if type(tmdb_id) is int and tmdb_id>0 and media_type in ("tv","movie") and not is_preview():
                             with _folder_tmdb_cache_lock:
-                                _folder_tmdb_cache[cache_key] = tmdb_id
+                                _folder_tmdb_cache[cache_key] = {"id":tmdb_id,"media_type":media_type}
 
                 if not tmdb_result:
                     return (False, None, None, None, None, None, confidence, current_info)
@@ -244,7 +247,14 @@ def process_video(
         else:
             return process_tv_branch(src, config, cache_dict, wrapped_log, official_title, official_year, tmdb_id, details, final_info, confidence)
 
+    except ProcessingCancelled:
+
+        raise
+
+    except CacheCorruptionError:
+        raise
     except Exception as e:
+        note_error(e)
         logger.error(f"process_video 顶层异常 {src}: {e}", exc_info=True)
         save_failed_cache(src, f"未知异常: {e}", cache_dict, wrapped_log)
         return False

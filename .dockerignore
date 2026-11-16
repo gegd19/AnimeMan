@@ -1,0 +1,30 @@
+# Deny by default; reopening a directory also reopens children in Docker.
+# Re-exclude its children before admitting only the required extensions.
+**
+!Dockerfile
+!.dockerignore
+!requirements.lock
+!main.py
+!web_app.py
+!server_runtime.py
+!core/
+core/*
+!core/*.py
+!web/
+web/*
+!web/*.py
+!templates/
+templates/*
+!templates/*.html
+!templates/partials/
+templates/partials/*
+!templates/partials/*.html
+!templates/partials/modals/
+templates/partials/modals/*
+!templates/partials/modals/*.html
+!static/
+static/*
+!static/style.css
+!static/js/
+static/js/*
+!static/js/*.js

@@ -1,55 +1,35 @@
-FROM python:3.11-slim
+FROM python:3.12.15-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends gcc \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m venv /opt/venv
+COPY requirements.lock /tmp/requirements.lock
+RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock \
+    && /opt/venv/bin/pip check
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    TZ=Asia/Shanghai \
-    DEBIAN_FRONTEND=noninteractive
-
-# 1. 替换 Debian 官方源为阿里云镜像（加速 apt-get）
-RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources
-
-# 2. 安装系统依赖（包含编译工具）
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        ffmpeg \
-        curl \
-        tzdata \
-        gcc \
-        python3-dev \
-        libsndfile1 \
-    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
-    echo $TZ > /etc/timezone && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# 3. 创建非 root 用户
-RUN groupadd -r animeman && useradd -r -g animeman animeman
-
+FROM python:3.12.15-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70
+ENV PATH="/opt/venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    TZ=Asia/Shanghai CONFIG_PATH=/app/config/auto_config.json CACHE_PATH=/app/cache \
+    LOG_PATH=/app/logs ANIMEMAN_WORK_PATH=/app/work TMPDIR=/app/work \
+    ANIMEMAN_HOST=0.0.0.0 ANIMEMAN_PORT=8000 ANIMEMAN_THREADS=8
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl tzdata libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
-
-# 4. 配置 pip 国内镜像源（加速 Python 包下载）
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
-    pip config set global.trusted-host mirrors.aliyun.com
-
-# 5. 复制依赖文件并安装（增加超时和重试）
-COPY requirements.txt .
-RUN pip install --no-cache-dir \
-    --timeout 120 \
-    --retries 5 \
-    -r requirements.txt
-
-# 6. 复制项目代码
-COPY . .
-
-# 7. 创建必要目录并设置权限
-RUN mkdir -p /app/config /app/cache /app/logs && \
-    chown -R animeman:animeman /app
-
-USER animeman
-
+COPY core/ core/
+COPY web/ web/
+COPY templates/ templates/
+COPY static/ static/
+COPY main.py web_app.py server_runtime.py ./
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN test "$APP_UID" -gt 0 && test "$APP_GID" -gt 0 \
+    && (getent group "$APP_GID" >/dev/null || groupadd --gid "$APP_GID" animeman) \
+    && useradd --uid "$APP_UID" --non-unique --gid "$APP_GID" --create-home animeman \
+    && mkdir -p /app/config /app/cache /app/logs /app/work \
+    && chown "$APP_UID:$APP_GID" /app/config /app/cache /app/logs /app/work
+USER ${APP_UID}:${APP_GID}
 EXPOSE 8000
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/api/status || exit 1
-
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl --fail --silent http://127.0.0.1:8000/healthz || exit 1
 CMD ["python", "web_app.py"]

@@ -10,6 +10,9 @@ AI 统一客户端
 """
 
 import json
+from .cancellation import check_cancelled, ProcessingCancelled
+from .parse_contract import normalize_media,normalize_folder,file_id
+from .failure_policy import note_error
 import time
 import re
 from pathlib import Path
@@ -50,6 +53,7 @@ def call_ai_api_with_messages(
     ai_config: Dict[str, Any],
     log_func: Optional[Callable] = None
 ) -> Optional[str]:
+    check_cancelled()
     provider = ai_config.get("provider", "deepseek")
     api_key = ai_config.get("api_key")
     model = ai_config.get("model", "deepseek-flash")
@@ -89,11 +93,15 @@ def call_ai_api_with_messages(
         start = time.time()
         resp = session.post(url, headers=headers, json=payload, timeout=timeout)
         resp.raise_for_status()
+        check_cancelled()
         elapsed = time.time() - start
         if log_func:
             log_func(f"✅ AI 响应成功 ({elapsed:.2f}s)", LOG_SUCCESS)
         return resp.json()['choices'][0]['message']['content'].strip()
+    except ProcessingCancelled:
+        raise
     except Exception as e:
+        note_error(e)
         if log_func:
             log_func(f"❌ AI API 调用失败: {e}", LOG_ERROR)
         return None
@@ -111,7 +119,7 @@ SYSTEM_FOLDER_PARSE = """你是影视文件名解析专家。分析文件夹及�
 3. **关键**：如果文件名中的集号是绝对集号（如 1072），请根据上方 TMDB 结构信息，计算出正确的季号和季内集号。
    例如：第1季 61集，第2季 62集，则绝对集号 100 = 第2季第39集。
 4. OVA/特典/SP/剧场版 → season=0。
-5. 若文件数量与 TMDB 某季集数完全匹配，则直接认定为该季。
+5. 不凭文件数量认定季号；无法确定时返回 unknown，不补 season/episode=1。
 6. 语言标记（.chs/.cht）仅用于建议文件名。
 
 返回格式：
@@ -152,7 +160,7 @@ SYSTEM_FILE_PARSE = """你是影视文件名解析专家。分析文件路径，
   "corrected_season": null,
   "corrected_episode": null
 }
-只返回 JSON。"""
+无法确定的季/集号使用 null 或 unknown，不默认第一集。只返回 JSON。"""
 
 SYSTEM_LONG_SERIES = """你是一个专业的影视媒体分析专家。请分析以下超长剧集文件夹的宏观结构，无需处理每个具体文件。
 
@@ -176,80 +184,27 @@ SYSTEM_LONG_SERIES = """你是一个专业的影视媒体分析专家。请分�
 
 
 # ========== 增强版 JSON 解析函数 ==========
-def _parse_ai_json_response(resp: str, log_func=None) -> Optional[Dict]:
-    """增强的 AI JSON 响应解析，使用栈匹配提取完整 JSON 对象"""
-    if not resp:
+def _parse_ai_json_response(resp, log_func=None):
+    if not isinstance(resp,str):return None
+    text=resp.strip()
+    if text.startswith('```'):
+        text=re.sub(r'^```(?:json)?\s*','',text,flags=re.I)
+        text=re.sub(r'\s*```$','',text)
+    try:
+        def invalid_constant(value):raise ValueError(f'非有限 JSON 数字：{value}')
+        def unique_object(pairs):
+            result={}
+            for key,value in pairs:
+                if key in result:raise ValueError('重复 JSON 字段，拒绝猜测')
+                result[key]=value
+            return result
+        value=json.loads(text,parse_constant=invalid_constant,object_pairs_hook=unique_object)
+        return value if isinstance(value,dict) else None
+    except (ValueError,TypeError):
+        if log_func:log_func('AI 响应不是有效 JSON 对象，交给回退处理',LOG_WARNING)
         return None
 
-    def try_parse(text: str) -> Optional[Dict]:
-        # 1. 直接解析
-        try:
-            return json.loads(text)
-        except:
-            pass
 
-        # 2. 提取 markdown 代码块
-        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
-        if match:
-            try:
-                return json.loads(match.group(1))
-            except:
-                pass
-
-        # 3. 使用栈匹配提取第一个完整 JSON 对象
-        start = text.find('{')
-        if start != -1:
-            stack = 0
-            end = start
-            for i, ch in enumerate(text[start:], start):
-                if ch == '{':
-                    stack += 1
-                elif ch == '}':
-                    stack -= 1
-                    if stack == 0:
-                        end = i
-                        break
-            if end > start:
-                json_candidate = text[start:end+1]
-                try:
-                    return json.loads(json_candidate)
-                except json.JSONDecodeError as e:
-                    # 尝试修复常见问题：移除注释、尾部逗号
-                    cleaned = re.sub(r'//.*?\n|/\*.*?\*/', '', json_candidate, flags=re.S)
-                    cleaned = re.sub(r',\s*}', '}', cleaned)
-                    cleaned = re.sub(r',\s*]', ']', cleaned)
-                    try:
-                        return json.loads(cleaned)
-                    except:
-                        pass
-
-        # 4. 尝试 ast.literal_eval
-        try:
-            import ast
-            obj = ast.literal_eval(text)
-            if isinstance(obj, dict):
-                return obj
-        except:
-            pass
-
-        return None
-
-    data = try_parse(resp)
-    if data is None and log_func:
-        preview = resp[:300].replace('\n', ' ')
-        log_func(f"⚠️ AI 响应无法解析为 JSON，原始响应预览: {preview}...", LOG_WARNING)
-
-    # 标准化字段别名
-    if data and "files" in data:
-        for fname, info in data["files"].items():
-            if "ep" in info and "episode" not in info:
-                info["episode"] = info["ep"]
-            if "s" in info and "season" not in info:
-                info["season"] = info["s"]
-    return data
-
-
-# ========== 文件夹名清洗函数（改进版） ==========
 def _clean_folder_name_for_ai(raw_name: str) -> str:
     """
     清洗文件夹名，移除压制组、画质等干扰信息。
@@ -291,52 +246,28 @@ def parse_folder_with_ai(
     log_func: Optional[Callable] = None,
     tmdb_structure: str = ""
 ) -> Dict[str, Any]:
-    ai_cfg = config.get("ai_parser", {})
-    folder_name = folder_path.name
-    full_path = str(folder_path)
-
-    total = len(video_files)
-    sample = video_files[:30]
-
-    ep_nums = []
-    for f in video_files:
-        m = re.search(r'\b(\d{1,3})\b', f.stem)
-        if m:
-            ep_nums.append(int(m.group(1)))
-    ep_range = f" (推测集号范围: {min(ep_nums)}~{max(ep_nums)})" if ep_nums else ""
-
-    file_list_str = "\n".join([f"  - {f.name}" for f in sample])
-    if total > 30:
-        file_list_str += f"\n  ... 等共 {total} 个文件{ep_range}"
-        if log_func:
-            log_func(f"⚠️ 文件过多，AI 仅分析前 30 个文件名。完整集号范围: {ep_range}", "warning")
-
-    folder_name_cleaned = _clean_folder_name_for_ai(folder_name)
-    user_prompt = f"""文件夹路径：{full_path}
-文件夹名称（已清洗）：{folder_name_cleaned}
-原始文件夹名：{folder_name}
-包含的视频文件列表：
-{file_list_str}"""
-
-    system_prompt = SYSTEM_FOLDER_PARSE.format(tmdb_structure=tmdb_structure or "未提供，请根据文件名自行推断季和集数")
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
-
-    if log_func:
-        log_func(f"🤖 AI 批量解析文件夹: {folder_name} (共 {len(video_files)} 个文件)", LOG_INFO)
-
-    resp = call_ai_api_with_messages(messages, ai_cfg, log_func)
-    if not resp:
+    files=list(video_files)
+    combined={'folder_title':'','media_type':'unknown','files':{},'unparsed_files':[]}
+    try:
+        for offset in range(0,len(files),30):
+            check_cancelled()
+            batch=files[offset:offset+30]
+            identifiers=[file_id(folder_path,file) for file in batch]
+            prompt=SYSTEM_FOLDER_PARSE.replace('{tmdb_structure}',tmdb_structure or '未提供；不能确定时返回 unknown，不要补 E01')
+            prompt+='\n只使用本批 files 的原样标识作键，不返回绝对路径。无可靠季/集号的文件不要虚构字段。'
+            messages=[{'role':'system','content':prompt}, {'role':'user','content':json.dumps(
+                {'folder':folder_path.name,'files':identifiers},ensure_ascii=False)}]
+            raw=_parse_ai_json_response(call_ai_api_with_messages(messages,config.get('ai_parser',{}),log_func),log_func)
+            result=normalize_folder(raw,folder_path,batch)
+            if result:
+                combined['folder_title']=combined['folder_title'] or result['folder_title']
+                combined['files'].update(result['files'])
+        if not combined['files']:return {}
+        combined['unparsed_files']=sorted({file_id(folder_path,file) for file in files}-combined['files'].keys())
+        return combined
+    except ValueError:
+        if log_func:log_func('AI 文件标识不属于输入批次，拒绝使用',LOG_WARNING)
         return {}
-
-    data = _parse_ai_json_response(resp, log_func)
-    if not data:
-        if log_func:
-            log_func(f"❌ AI 响应无法解析为 JSON", LOG_ERROR)
-        return {}
-    return data
 
 
 def parse_filename_with_ai(
@@ -404,19 +335,12 @@ def parse_filename_with_ai(
             log_func(f"❌ AI 响应无法解析为 JSON", LOG_ERROR)
         return {"media_type": "unknown", "_ai_error": "JSON 解析失败"}
 
-    data.setdefault("alternative_titles", [])
-    data.setdefault("year_guess", None)
-    data.setdefault("corrected_season", None)
-    data.setdefault("corrected_episode", None)
-    data.setdefault("search_title", data.get("title"))
-    if data.get("title") is None:
-        data["title"] = ""
-    if data.get("season") is None and data.get("media_type") == "tv":
-        data["season"] = 1
-    if data.get("episode") is None and data.get("media_type") == "tv":
-        data["episode"] = 1
-    data["_from_ai"] = True
-    return data
+    result=normalize_media(data)
+    if not result:
+        note_error(ValueError('AI 元数据类型/标题/季集号无效'))
+        return {'media_type':'unknown','_ai_error':'元数据类型/标题/季集号无效'}
+    result['_from_ai']=True
+    return result
 
 
 def parse_long_running_series(
@@ -425,81 +349,8 @@ def parse_long_running_series(
     config: Dict[str, Any],
     log_func: Optional[Callable] = None
 ) -> Dict[str, Any]:
-    ai_cfg = config.get("ai_parser", {})
-    folder_name = folder_path.name
-
-    def extract_ep_number(filename: str) -> Optional[int]:
-        patterns = [
-            r'[Ss]\d{1,2}[Ee](\d{1,4})',
-            r'(\d{1,3})[xX](\d{1,3})',
-            r'第\s*(\d{1,4})\s*[集話话]',
-            r'#(\d{1,4})',
-            r'\b(\d{1,4})\b'
-        ]
-        for p in patterns:
-            m = re.search(p, filename)
-            if m:
-                num = int(m.group(1) if p != r'(\d{1,3})[xX](\d{1,3})' else m.group(2))
-                if 1 <= num <= 2000:
-                    return num
-        return None
-
-    ep_numbers = []
-    for f in all_files:
-        num = extract_ep_number(f.name)
-        if num is not None:
-            ep_numbers.append(num)
-
-    ep_min = min(ep_numbers) if ep_numbers else None
-    ep_max = max(ep_numbers) if ep_numbers else None
-
-    has_season_subdirs = False
-    season_subdirs = []
-    for item in folder_path.iterdir():
-        if item.is_dir() and re.search(r'Season\s*\d+', item.name, re.I):
-            has_season_subdirs = True
-            season_subdirs.append(item.name)
-
-    sample_files = [f.name for f in all_files[:3]] + ["..."] + [f.name for f in all_files[-3:]]
-    sample_str = "\n".join(sample_files)
-
-    user_prompt = f"""文件夹路径：{folder_path}
-文件夹名称：{folder_name}
-总视频文件数：{len(all_files)}
-提取到的集号范围：{ep_min} ~ {ep_max}
-是否存在季节子文件夹：{has_season_subdirs} {season_subdirs if season_subdirs else ''}
-文件名样例（首尾各三个）：
-{sample_str}"""
-
-    messages = [
-        {"role": "system", "content": SYSTEM_LONG_SERIES},
-        {"role": "user", "content": user_prompt}
-    ]
-
-    if log_func:
-        log_func(f"🤖 调用 AI 宏观分析长剧集: {folder_name}", "info")
-
-    resp = call_ai_api_with_messages(messages, ai_cfg, log_func)
-    if not resp:
-        return {}
-
-    try:
-        start = resp.find('{')
-        end = resp.rfind('}')
-        json_str = resp[start:end+1] if start != -1 else resp
-        data = json.loads(json_str)
-        data['_stats'] = {
-            'total_files': len(all_files),
-            'ep_min': ep_min,
-            'ep_max': ep_max,
-            'has_season_subdirs': has_season_subdirs,
-            'folder_name': folder_name
-        }
-        return data
-    except Exception as e:
-        if log_func:
-            log_func(f"❌ AI 宏观分析 JSON 解析失败: {e}", "error")
-        return {}
+    # Explicit bounded batches replace unsafe extrapolation from a handful of names.
+    return parse_folder_with_ai(folder_path,all_files,config,log_func)
 
 
 def enhance_plot(

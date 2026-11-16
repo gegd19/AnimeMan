@@ -1,117 +1,75 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""正则表达式文件名解析器（回退方案）"""
-
+"""Conservative filename fallback: complete tokens, no invented first episode."""
 import re
 from pathlib import Path
-from typing import Dict, Any
 from .parser_helpers import clean_parent_dir_name
 
 
-def parse_with_regex(filename: str, parent_dir: str = "") -> Dict[str, Any]:
-    """使用正则表达式解析文件名，支持日文/中文集号，并提取显式季数和总集数"""
+def chinese_number(value):
+    if value.isdigit():
+        return int(value)
+    digits = {'零':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9}
+    if value in digits:
+        return digits[value]
+    if value.count('十') == 1:
+        tens, units = value.split('十')
+        if (not tens or tens in digits) and (not units or units in digits):
+            return (digits[tens] if tens else 1)*10 + (digits[units] if units else 0)
+    return None
+
+
+def explicit_season_number(text):
+    match = re.search(r'第\s*([零一二两三四五六七八九十\d]+)\s*季',text)
+    if match:
+        return chinese_number(match[1])
+    match = re.search(r'(?<![A-Za-z0-9])(?:Season\s*|S)(\d{1,2})(?!\d)',text,re.I)
+    return int(match[1]) if match else None
+
+
+def parse_with_regex(filename, parent_dir=''):
     name = Path(filename).stem
-    name = re.sub(r'\.\.\w+$', '', name)
-    name = re.sub(r'^\[[^\]]+\]\s*', '', name)
-
-    year_match = re.search(r'\b(19|20)\d{2}\b', name)
-    year = year_match.group(0) if year_match else None
-
-    # 显式季数提取
-    explicit_season = 1
-    season_map = {'一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10}
-    combined = f"{name} {parent_dir}"
-    m = re.search(r'第\s*([一二三四五六七八九十\d]+)\s*季', combined)
-    if m:
-        num_str = m.group(1)
-        explicit_season = int(num_str) if num_str.isdigit() else season_map.get(num_str, 1)
-    m = re.search(r'[Ss]eason\s*(\d{1,2})', combined, re.I)
-    if m:
-        explicit_season = int(m.group(1))
-    m = re.search(r'[Ss](\d{1,2})(?![Ee])', combined)
-    if m:
-        explicit_season = int(m.group(1))
-
-    # 集数匹配
-    tv_patterns = [
-        r'[Ss](\d{1,2})[Ee](\d{1,2})',
-        r'(\d{1,2})[xX](\d{1,2})',
-        r'第\s*(\d{1,2})\s*季\s*第\s*(\d{1,2})\s*集',
-        r'第\s*(\d{1,3})\s*[話话]',
-        r'\[(\d{1,2})\]'
-    ]
-    season, episode = None, None
-    for p in tv_patterns:
-        m = re.search(p, name, re.I)
-        if m:
-            if p in [r'[Ss](\d{1,2})[Ee](\d{1,2})', r'(\d{1,2})[xX](\d{1,2})', r'第\s*(\d{1,2})\s*季\s*第\s*(\d{1,2})\s*集']:
-                season = int(m.group(1))
-                episode = int(m.group(2))
-            elif p == r'第\s*(\d{1,3})\s*[話话]':
-                season = explicit_season
-                episode = int(m.group(1))
-            else:
-                season = explicit_season
-                episode = int(m.group(1))
+    name = re.sub(r'^\[(?!\d+\])[^\]]+\]\s*','',name)
+    year_match = re.search(r'\b(?:19|20)\d{2}\b',name)
+    year = year_match[0] if year_match else None
+    explicit = explicit_season_number(name)
+    if explicit is None:
+        explicit = explicit_season_number(parent_dir)
+    season, episode = explicit, None
+    matched = None
+    for pattern in [r'(?<![A-Za-z0-9])S(\d{1,2})E(\d{1,4})(?!\d)',
+                    r'(?<!\d)(\d{1,2})x(\d{1,4})(?!\d)']:
+        matched = re.search(pattern,name,re.I)
+        if matched:
+            season,episode = int(matched[1]),int(matched[2])
             break
-
-    media_type = "tv" if episode is not None else "movie"
-
-    # 标题清洗
-    name = re.sub(r'[\[\]\(\)【】_,\.-]', ' ', name)
-    name = re.sub(r'\b(1080p|720p|4K|HDR|HEVC|x264|x265|AAC|WEB-DL|BluRay|BDRip)\b', '', name, flags=re.I)
-    name = re.sub(r'\s+', ' ', name).strip()
-    title = name if name else Path(filename).stem.split('.')[0]
-
-    # 标题无效时使用父目录名
-    if len(title) < 2 or title.isdigit() or title == "Unknown":
-        clean_parent = clean_parent_dir_name(parent_dir)
-        if clean_parent:
-            title = clean_parent
-
-    if not title:
-        title = "Unknown"
-
-    # 特辑处理
-    name_lower = name.lower()
-    special_keywords = ['ova', 'oad', 'sp', '特典', '特别篇', '番外', '剧场版']
-    if any(kw in name_lower for kw in special_keywords) and media_type == "tv":
+    if episode is None:
+        matched = re.search(r'第\s*(\d{1,4})\s*[集話话](?!\d)|\[(\d{1,4})\]|(?<!\w)(?:EP?|#)\s*(\d{1,4})(?!\d)',name,re.I)
+        if matched:
+            episode = int(next(v for v in matched.groups() if v is not None))
+            if str(episode) == year:
+                episode = None
+    special = re.search(r'(?<![A-Za-z0-9])(?:OVA|OAD|SP|SPECIAL)(?![A-Za-z0-9])|特典|特别篇|番外',name,re.I)
+    if special:
         season = 0
-        sp_match = re.search(r'(?:ova|oad|sp|特典|特别篇|番外|剧场版)\s*(\d{1,2})', name, re.I)
-        episode = int(sp_match.group(1)) if sp_match else 1
-
-    if media_type == "tv" and episode is None:
-        tail_num = re.search(r'\s+(\d{1,3})$', title)
-        if tail_num:
-            episode = int(tail_num.group(1))
-            title = re.sub(r'\s+\d{1,3}$', '', title).strip()
-
-    # 总集数检测
-    total_episode = None
-    if explicit_season > 1 and episode is not None:
-        m = re.search(r'第\s*(\d{1,4})\s*集', filename)
-        if m:
-            total_episode = int(m.group(1))
-        else:
-            m = re.search(r'#(\d{1,4})|(\d{1,4})\s*話', filename)
-            if m:
-                total_episode = int(m.group(1) or m.group(2))
-        if total_episode is not None:
-            episode = 1
-
-    return {
-        "media_type": media_type,
-        "title": title,
-        "search_title": title,
-        "year": year,
-        "season": season if season else 1,
-        "episode": episode if episode else 1,
-        "episode_title": "",
-        "alternative_titles": [],
-        "year_guess": None,
-        "corrected_season": None,
-        "corrected_episode": None,
-        "_parser": "regex",
-        "explicit_season": explicit_season,
-        "total_episode": total_episode
-    }
+        if episode is None:
+            marker = re.search(r'(?:OVA|OAD|SP|SPECIAL|特典|特别篇|番外)\s*(\d{1,4})(?!\d)',name,re.I)
+            if marker:
+                episode = int(marker[1])
+    if episode is not None and episode < 1:
+        episode = None
+    if episode is not None and season is None:
+        season = 1
+    title = name
+    if matched and episode is not None:
+        title = title[:matched.start()] + ' ' + title[matched.end():]
+    title = re.sub(r'第\s*[零一二两三四五六七八九十\d]+\s*季|(?<!\w)(?:Season\s*|S)\d{1,2}(?!\d)',' ',title,flags=re.I)
+    title = re.sub(r'\b(?:1080p|720p|2160p|4K|HDR|HEVC|x264|x265|AAC|WEB-DL|BluRay|BDRip)\b','',title,flags=re.I)
+    title = re.sub(r'[\[\]()【】_,.\-]',' ',title)
+    title = re.sub(r'\s+',' ',title).strip()
+    if len(title)<2 or title.isdigit():
+        title = clean_parent_dir_name(parent_dir) or 'Unknown'
+    return {'media_type':'tv' if episode is not None else 'unknown', 'title':title,'search_title':title,
+            'year':year,'season':season,'episode':episode,'episode_title':'','alternative_titles':[],
+            'year_guess':None,'corrected_season':None,'corrected_episode':None,'_parser':'regex',
+            'explicit_season':explicit if explicit is not None else season,'total_episode':None}

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 目录浏览 API 路由（安全增强版）
-限制可浏览的根目录为配置中的源/目标文件夹及其父级
+限制可浏览的根目录为显式配置的源、目标、字幕和浏览目录
 """
 
 import platform
@@ -14,81 +14,28 @@ CONFIG_PATH = "auto_config.json"
 
 
 def get_allowed_roots(config):
-    """从配置中提取允许浏览的根目录"""
-    roots = set()
-
-    # 源文件夹
-    for folder in config.get("source_folders", []):
-        p = Path(folder).resolve()
-        roots.add(p)
-        # 允许其父级（最多向上两级，方便导航到挂载点）
-        if p.parent != p:
-            roots.add(p.parent)
-        if p.parent.parent != p.parent:
-            roots.add(p.parent.parent)
-
-    # 剧集目标
-    tv_target = config.get("tv_target_folder", "")
-    if tv_target:
-        p = Path(tv_target).resolve()
-        roots.add(p)
-        if p.parent != p:
-            roots.add(p.parent)
-        if p.parent.parent != p.parent:
-            roots.add(p.parent.parent)
-
-    # 电影目标
-    movie_target = config.get("movie_target_folder", "")
-    if movie_target:
-        p = Path(movie_target).resolve()
-        roots.add(p)
-        if p.parent != p:
-            roots.add(p.parent)
-        if p.parent.parent != p.parent:
-            roots.add(p.parent.parent)
-
-    # 字幕默认文件夹
-    sub_center = config.get("subtitle_center", {})
-    sub_folder = sub_center.get("default_source_folder", "")
-    if sub_folder:
-        p = Path(sub_folder).resolve()
-        roots.add(p)
-        if p.parent != p:
-            roots.add(p.parent)
-        if p.parent.parent != p.parent:
-            roots.add(p.parent.parent)
-
-    return list(roots)
+    """Only explicit media/subtitle/browse roots grant access, never ancestors."""
+    values = list(config.get("source_folders", [])) + list(config.get("browse_roots", []))
+    values += [config.get("tv_target_folder"), config.get("movie_target_folder"),
+               config.get("subtitle_center", {}).get("default_source_folder")]
+    return sorted({Path(value).resolve() for value in values if isinstance(value, str) and value.strip()}, key=str)
 
 
 def is_path_allowed(request_path: str, allowed_roots: list) -> bool:
-    """检查请求的路径是否在允许的根目录范围内"""
     try:
-        req = Path(request_path).resolve()
-    except Exception:
+        path = Path(request_path).resolve()
+        return any(path == root or root in path.parents for root in allowed_roots)
+    except (OSError, ValueError, RuntimeError):
         return False
-
-    for root in allowed_roots:
-        try:
-            root_resolved = root.resolve()
-            # 检查请求路径是否等于根目录或是其子目录
-            if req == root_resolved or root_resolved in req.parents or req.parents == root_resolved.parents:
-                # 更精确的判断：req 以 root 开头
-                try:
-                    req.relative_to(root_resolved)
-                    return True
-                except ValueError:
-                    continue
-        except Exception:
-            continue
-    return False
 
 
 def register(app):
+    config_path = app.config.get("CONFIG_PATH", CONFIG_PATH)
+
     @app.route('/api/drives', methods=['GET'])
     def get_drives():
         """返回允许的根目录列表（替代系统盘符）"""
-        config = config_manager.load_config(CONFIG_PATH)
+        config = config_manager.load_config(config_path)
         allowed = get_allowed_roots(config)
         drives = []
         seen = set()
@@ -111,7 +58,7 @@ def register(app):
         except Exception:
             return jsonify([])
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = config_manager.load_config(config_path)
         allowed_roots = get_allowed_roots(config)
 
         if not is_path_allowed(str(base_path), allowed_roots):
@@ -128,7 +75,7 @@ def register(app):
         dirs = []
         try:
             for item in base_path.iterdir():
-                if item.is_dir() and not item.name.startswith('.'):
+                if item.is_dir() and not item.name.startswith('.') and is_path_allowed(str(item), allowed_roots):
                     dirs.append({"name": item.name, "path": str(item)})
         except PermissionError:
             pass

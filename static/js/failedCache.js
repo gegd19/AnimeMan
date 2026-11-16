@@ -18,195 +18,109 @@ App.FailedCache = (function(app) {
         document.getElementById(modalId).style.display = 'none';
     }
 
+    function _header(folder, files) {
+        const bar = app.el('div', {style: 'margin-bottom:10px;'},
+            app.button('🔙 返回聚类视图', () => _loadCache()),
+            app.el('span', {text: `📁 ${folder}`, style: 'margin-left:15px;'}));
+        if (files) bar.append(app.button('📦 批量修正全部', () => _openBatchWithAllFiles(folder), 'success'));
+        return bar;
+    }
+
+    function _correctionButton(file, label = '🔧 修正', className = 'warning') {
+        return app.button(label, () => App.Correction.openCorrectionModal(file.path, file.name), className);
+    }
+
+    function _error(error) {
+        document.getElementById(listDivId).textContent = `请求失败：${error.message}`;
+    }
+
     async function _loadCache() {
         try {
-            const resp = await fetch('/api/failed_cache/clusters');
+            const resp = await app.fetch('/api/failed_cache/clusters');
             const data = await resp.json();
             const listDiv = document.getElementById(listDivId);
-            const countSpan = document.getElementById(countSpanId);
             currentClusters = data.clusters || [];
-
-            const totalFiles = currentClusters.reduce((sum, c) => sum + c.count, 0);
-            countSpan.textContent = totalFiles;
-
-            if (currentClusters.length === 0) {
-                listDiv.innerHTML = '<div style="padding:20px;text-align:center;color:#28a745;">✅ 暂无失败缓存记录</div>';
+            document.getElementById(countSpanId).textContent = currentClusters.reduce((sum, c) => sum + c.count, 0);
+            if (!currentClusters.length) {
+                listDiv.textContent = '✅ 暂无失败缓存记录';
                 return;
             }
-
-            let html = '<div style="margin-bottom:10px;"><button onclick="App.FailedCache.switchToListView()" class="secondary">📋 切换为列表视图</button></div>';
-            html += '<table class="failed-table">';
-            html += '<tr><th>文件夹</th><th>失败数量</th><th>操作</th></tr>';
-
+            const table = app.el('table', {className: 'failed-table'},
+                app.el('tr', {}, ...['文件夹', '失败数量', '操作'].map(text => app.el('th', {text}))));
             for (const cluster of currentClusters) {
-                const folderEscaped = app.escapeHtml(cluster.folder);
-                // 将失败文件列表转为JSON字符串供批量修正使用
-                const filesJson = JSON.stringify(cluster.files).replace(/"/g, '&quot;');
-                html += `<tr>
-                    <td title="${folderEscaped}" style="max-width:400px; word-break:break-all;">${folderEscaped}</td>
-                    <td>${cluster.count}</td>
-                    <td>
-                        <button onclick="App.BatchCorrection.openModal('${folderEscaped}', ${filesJson})" class="success" style="padding:4px 8px;">📦 批量修正</button>
-                        <button onclick="App.FailedCache.showFilesInFolder('${folderEscaped}', ${filesJson})" class="secondary" style="padding:4px 8px;">📂 查看失败文件</button>
-                        <button onclick="App.FailedCache.showAllFilesInFolder('${folderEscaped}')" class="secondary" style="padding:4px 8px; margin-left:4px;">📋 查看所有文件</button>
-                    </td>
-                </tr>`;
+                table.append(app.el('tr', {},
+                    app.el('td', {title: cluster.folder, text: cluster.folder, style: 'max-width:400px;word-break:break-all;'}),
+                    app.el('td', {text: cluster.count}), app.el('td', {},
+                        app.button('📦 批量修正', () => App.BatchCorrection.openModal(cluster.folder, cluster.files), 'success'),
+                        app.button('📂 查看失败文件', () => _showFilesInFolder(cluster.folder, cluster.files)),
+                        app.button('📋 查看所有文件', () => _showAllFilesInFolder(cluster.folder)))));
             }
-            html += '</table>';
-            listDiv.innerHTML = html;
-        } catch (e) {
-            document.getElementById(listDivId).innerHTML = '<div style="padding:20px;color:#dc3545;">加载失败</div>';
+            listDiv.replaceChildren(app.el('div', {style: 'margin-bottom:10px;'},
+                app.button('📋 切换为列表视图', () => _switchToListView())), table);
+        } catch (error) { _error(error); }
+    }
+
+    function _showFilesInFolder(folder, files, withTime = false) {
+        const table = app.el('table', {className: 'failed-table'});
+        const columns = ['文件名', '失败原因', ...(withTime ? ['时间'] : []), '操作'];
+        table.append(app.el('tr', {}, ...columns.map(text => app.el('th', {text}))));
+        for (const file of files) {
+            const row = app.el('tr', {}, app.el('td', {title: file.path, text: file.name}),
+                app.el('td', {text: file.reason || '', style: 'color:#dc3545;'}));
+            if (withTime) row.append(app.el('td', {text: file.failed_time ? new Date(file.failed_time * 1000).toLocaleString() : '未知'}));
+            row.append(app.el('td', {}, _correctionButton(file)));
+            table.append(row);
         }
+        document.getElementById(listDivId).replaceChildren(_header(folder), table);
     }
 
-    // 显示文件夹内的失败文件列表（原有功能）
-    function _showFilesInFolder(folder, files) {
-        const listDiv = document.getElementById(listDivId);
-        let html = `<div style="margin-bottom:10px;">
-            <button onclick="App.FailedCache.loadFailedCache()" class="secondary">🔙 返回聚类视图</button>
-            <span style="margin-left:15px;">📁 ${app.escapeHtml(folder)}</span>
-        </div>`;
-        html += '<table class="failed-table"><tr><th>文件名</th><th>失败原因</th><th>操作</th></tr>';
-
-        files.forEach(file => {
-            const escapedPath = app.escapeHtml(file.path);
-            const escapedName = app.escapeHtml(file.name);
-            const escapedReason = app.escapeHtml(file.reason);
-            html += `<tr>
-                <td title="${escapedPath}">${escapedName}</td>
-                <td style="color:#dc3545;">${escapedReason}</td>
-                <td><button onclick="App.Correction.openCorrectionModal('${escapedPath}', '${escapedName}')" class="warning" style="padding:4px 8px;">🔧 单文件修正</button></td>
-            </tr>`;
-        });
-        html += '</table>';
-        listDiv.innerHTML = html;
-    }
-
-    // 切换回旧版列表视图（简单聚合所有文件）
     async function _switchToListView() {
         try {
-            const resp = await fetch('/api/failed_cache');
-            const data = await resp.json();
-            const listDiv = document.getElementById(listDivId);
-            const countSpan = document.getElementById(countSpanId);
-
-            if (!data.failed || data.failed.length === 0) {
-                listDiv.innerHTML = '<div style="padding:20px;text-align:center;color:#28a745;">✅ 暂无失败缓存记录</div>';
-                countSpan.textContent = '0';
+            const data = await (await app.fetch('/api/failed_cache')).json();
+            const files = data.failed || [];
+            document.getElementById(countSpanId).textContent = files.length;
+            if (!files.length) {
+                document.getElementById(listDivId).textContent = '✅ 暂无失败缓存记录';
                 return;
             }
-            countSpan.textContent = data.failed.length;
-
-            let html = '<div style="margin-bottom:10px;"><button onclick="App.FailedCache.loadFailedCache()" class="secondary">🔙 返回聚类视图</button></div>';
-            html += '<table class="failed-table"><tr><th>文件名</th><th>失败原因</th><th>时间</th><th>操作</th></tr>';
-            for (const item of data.failed) {
-                const timeStr = item.failed_time ? new Date(item.failed_time * 1000).toLocaleString() : '未知';
-                const escapedPath = app.escapeHtml(item.path);
-                const escapedName = app.escapeHtml(item.name);
-                const escapedReason = app.escapeHtml(item.reason);
-                html += `<tr>
-                    <td title="${escapedPath}">${escapedName}</td>
-                    <td style="color:#dc3545;">${escapedReason}</td>
-                    <td>${timeStr}</td>
-                    <td><button onclick="App.Correction.openCorrectionModal('${escapedPath}', '${escapedName}')" class="warning" style="padding:4px 8px;">🔧 修正</button></td>
-                </tr>`;
-            }
-            html += '</table>';
-            listDiv.innerHTML = html;
-        } catch (e) {
-            document.getElementById(listDivId).innerHTML = '<div style="padding:20px;color:#dc3545;">加载失败</div>';
-        }
+            _showFilesInFolder('失败缓存', files, true);
+        } catch (error) { _error(error); }
     }
 
-    // ---------- 新增：查看文件夹内所有视频文件（含成功与失败）----------
     async function _showAllFilesInFolder(folder) {
         const listDiv = document.getElementById(listDivId);
-        // 显示加载状态
-        listDiv.innerHTML = '<div style="padding:20px;text-align:center;">🔄 正在加载文件夹详情...</div>';
-
+        listDiv.textContent = '🔄 正在加载文件夹详情...';
+        window.__currentFolderAllFiles = [];
         try {
-            const resp = await fetch(`/api/failed_cache/folder_details?folder=${encodeURIComponent(folder)}`);
-            const data = await resp.json();
-            if (!data.files) {
-                listDiv.innerHTML = '<div style="padding:20px;color:#dc3545;">获取文件夹详情失败</div>';
-                return;
-            }
-
+            const data = await (await app.fetch(`/api/failed_cache/folder_details?folder=${encodeURIComponent(folder)}`)).json();
+            if (!data.files) throw new Error('获取文件夹详情失败');
             const files = data.files;
-            // 转换为批量修正需要的格式，并附带状态信息
-            const filesForBatch = files.map(f => ({
-                path: f.path,
-                name: f.name,
-                status: f.status,
-                title: f.title || '',
-                season: f.season,
-                episode: f.episode,
+            window.__currentFolderAllFiles = files.map(f => ({
+                path: f.path, name: f.name, status: f.status, title: f.title || '',
+                season: f.season, episode: f.episode,
                 reason: f.reason || (f.status === 'success' ? `已识别: ${f.title || '未知'}` : '未处理')
             }));
-
-            // 显示详情表格（可勾选，复用批量修正模块的样式逻辑，但这里我们直接展示一个简化的预览表格，并提供批量修正入口）
-            let html = `<div style="margin-bottom:10px;">
-                <button onclick="App.FailedCache.loadFailedCache()" class="secondary">🔙 返回聚类视图</button>
-                <span style="margin-left:15px;">📁 ${app.escapeHtml(folder)} (共 ${files.length} 个视频文件)</span>
-                <button onclick="App.FailedCache.openBatchWithAllFiles('${app.escapeHtml(folder).replace(/'/g, "\\'")}')" class="success" style="margin-left:15px;">📦 批量修正全部</button>
-            </div>`;
-
-            html += '<table class="failed-table"><tr><th>状态</th><th>文件名</th><th>识别信息</th><th>操作</th></tr>';
-
-            files.forEach(file => {
-                const escapedPath = app.escapeHtml(file.path);
-                const escapedName = app.escapeHtml(file.name);
-                let statusBadge, statusText;
-                if (file.status === 'success') {
-                    statusBadge = '✅';
-                    statusText = '成功';
-                } else if (file.status === 'failed') {
-                    statusBadge = '❌';
-                    statusText = '失败';
-                } else {
-                    statusBadge = '❓';
-                    statusText = '未处理';
-                }
-
-                let infoText = '';
-                if (file.status === 'success') {
-                    infoText = `${file.title || ''}`;
-                    if (file.media_type === 'tv' && file.season && file.episode) {
-                        infoText += ` S${String(file.season).padStart(2, '0')}E${String(file.episode).padStart(2, '0')}`;
+            const table = app.el('table', {className: 'failed-table'},
+                app.el('tr', {}, ...['状态', '文件名', '识别信息', '操作'].map(text => app.el('th', {text}))));
+            for (const file of files) {
+                const success = file.status === 'success';
+                const badge = success ? '✅' : file.status === 'failed' ? '❌' : '❓';
+                let info = success ? (file.title || '') : file.status === 'failed' ? `失败原因: ${file.reason || '未知'}` : '尚未处理';
+                if (success) {
+                    if (file.media_type === 'tv' && file.season != null && file.episode != null) {
+                        info += ` S${String(file.season).padStart(2, '0')}E${String(file.episode).padStart(2, '0')}`;
                     }
-                    infoText += ` (置信度: ${file.confidence || 0}%)`;
-                } else if (file.status === 'failed') {
-                    infoText = `失败原因: ${file.reason || '未知'}`;
-                } else {
-                    infoText = '尚未处理';
+                    info += file.confirmed_by_user ? ' (人工确认)' : file.confidence == null ? ' (未评分)' : ` (置信度: ${file.confidence}%)`;
                 }
-
-                html += `<tr>
-                    <td title="${statusText}">${statusBadge}</td>
-                    <td title="${escapedPath}">${escapedName}</td>
-                    <td style="font-size:12px;">${app.escapeHtml(infoText)}</td>
-                    <td>`;
-                if (file.status === 'failed' || file.status === 'unknown') {
-                    html += `<button onclick="App.Correction.openCorrectionModal('${escapedPath}', '${escapedName}')" class="warning" style="padding:4px 8px;">🔧 修正</button>`;
-                } else {
-                    html += `<button onclick="App.Correction.openCorrectionModal('${escapedPath}', '${escapedName}')" class="secondary" style="padding:4px 8px;">🔄 重处理</button>`;
-                }
-                html += `</td></tr>`;
-            });
-            html += '</table>';
-
-            // 底部操作：直接调用批量修正（勾选全部文件）
-            html += `<div style="margin-top:12px;">
-                <button onclick="App.FailedCache.openBatchWithAllFiles('${app.escapeHtml(folder).replace(/'/g, "\\'")}')" class="success">📦 批量修正此文件夹所有文件</button>
-                <span class="note" style="margin-left:10px;">💡 点击后将打开批量修正面板，可调整顺序并选择正确 TMDB 条目</span>
-            </div>`;
-
-            listDiv.innerHTML = html;
-            // 将文件数据暂存到全局，供批量修正调用
-            window.__currentFolderAllFiles = filesForBatch;
-        } catch (e) {
-            listDiv.innerHTML = '<div style="padding:20px;color:#dc3545;">请求失败: ' + e.message + '</div>';
-        }
+                table.append(app.el('tr', {}, app.el('td', {title: success ? '成功' : file.status === 'failed' ? '失败' : '未处理', text: badge}),
+                    app.el('td', {title: file.path, text: file.name}), app.el('td', {text: info, style: 'font-size:12px;'}),
+                    app.el('td', {}, _correctionButton(file, success ? '🔄 重处理' : '🔧 修正', success ? 'secondary' : 'warning'))));
+            }
+            listDiv.replaceChildren(_header(`${folder} (共 ${files.length} 个视频文件)`),
+                app.button('📦 批量修正全部', () => _openBatchWithAllFiles(folder), 'success'), table,
+                app.el('div', {style: 'margin-top:12px;'}, app.button('📦 批量修正此文件夹所有文件', () => _openBatchWithAllFiles(folder), 'success'),
+                    app.el('span', {className: 'note', text: '💡 点击后将打开批量修正面板，可调整顺序并选择正确 TMDB 条目'})));
+        } catch (error) { _error(error); }
     }
 
     // 打开批量修正，并传入当前文件夹所有文件
@@ -244,7 +158,7 @@ App.FailedCache = (function(app) {
 
         clearFailedCache: async function() {
             if (!confirm('确定要清空所有失败缓存记录吗？此操作不可撤销。')) return;
-            const resp = await fetch('/api/failed_cache/clear', { method: 'POST' });
+            const resp = await app.fetch('/api/failed_cache/clear', { method: 'POST' });
             const data = await resp.json();
             if (data.status === 'success') {
                 alert(`已清空 ${data.removed} 条`);

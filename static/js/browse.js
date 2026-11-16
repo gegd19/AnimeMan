@@ -18,14 +18,14 @@ App.Browse = (function(app) {
         }
         items.forEach(item => {
             const li = document.createElement('li');
-            li.innerHTML = `<span class="folder-icon">📁</span> ${app.escapeHtml(item.name)}`;
-            li.onclick = () => _browsePath(item.path);
+            li.append(app.el('span', {className: 'folder-icon', text: '📁'}), document.createTextNode(' ' + item.name));
+            li.addEventListener('click', () => _browsePath(item.path).catch(error => app.showToast(error.message, 'error')));
             list.appendChild(li);
         });
     }
 
     async function _loadDrives() {
-        const resp = await fetch('/api/drives');
+        const resp = await app.fetch('/api/drives');
         const drives = await resp.json();
         _renderDirList(drives);
         app.currentBrowsePath = '';
@@ -33,10 +33,12 @@ App.Browse = (function(app) {
     }
 
     async function _browsePath(path) {
-        const resp = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
-        if (resp.status === 403) {
-            alert('禁止访问此目录');
-            return;
+        let resp;
+        try {
+            resp = await app.fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+        } catch (error) {
+            if (error.status === 403) return; // The shared request helper shows why.
+            throw error;
         }
         const data = await resp.json();
         if (data.dirs) {
@@ -58,10 +60,12 @@ App.Browse = (function(app) {
             await _loadDrives();
             return;
         }
-        const resp = await fetch(`/api/browse?path=${encodeURIComponent(app.currentBrowsePath)}`);
-        if (resp.status === 403) {
-            await _loadDrives();
-            return;
+        let resp;
+        try {
+            resp = await app.fetch(`/api/browse?path=${encodeURIComponent(app.currentBrowsePath)}`);
+        } catch (error) {
+            if (error.status === 403) return _loadDrives();
+            throw error;
         }
         const data = await resp.json();
         if (data.parent) {

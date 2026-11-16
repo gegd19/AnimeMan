@@ -1,25 +1,26 @@
 <div class="config-grid">
     <div class="card">
         <h3>📁 路径设置</h3>
+        <div class="note" id="environmentPathNote"></div>
         <div class="field-row">
             <label>源文件夹</label>
             <div class="path-input-group">
                 <input type="text" id="sourceFoldersInput" placeholder="多个用逗号分隔">
-                <button type="button" class="browse" onclick="App.Browse.openBrowser('source')">浏览</button>
+                <button type="button" class="browse" id="sourceBrowseButton" onclick="App.Browse.openBrowser('source')">浏览</button>
             </div>
         </div>
         <div class="field-row">
             <label>剧集目标</label>
             <div class="path-input-group">
                 <input type="text" id="tvTargetFolderInput" placeholder="Emby 剧集库根目录">
-                <button type="button" class="browse" onclick="App.Browse.openBrowser('tv_target')">浏览</button>
+                <button type="button" class="browse" id="tvBrowseButton" onclick="App.Browse.openBrowser('tv_target')">浏览</button>
             </div>
         </div>
         <div class="field-row">
             <label>电影目标</label>
             <div class="path-input-group">
                 <input type="text" id="movieTargetFolderInput" placeholder="Emby 电影库根目录">
-                <button type="button" class="browse" onclick="App.Browse.openBrowser('movie_target')">浏览</button>
+                <button type="button" class="browse" id="movieBrowseButton" onclick="App.Browse.openBrowser('movie_target')">浏览</button>
             </div>
         </div>
         <div class="field-row">
@@ -88,6 +89,7 @@
                 <button type="button" id="testTmdbBtn" onclick="App.Config.testTmdbConnection()" class="secondary" style="white-space: nowrap;">🔌 测试连通性</button>
             </div>
         </div>
+        <label><input type="checkbox" id="clearTmdbKeyCheck"> 清除已保存的 TMDB Key</label>
         <!-- TMDB 代理配置 -->
         <div class="field-row">
             <label>TMDB 代理</label>
@@ -100,7 +102,8 @@
         </div>
         <!-- AI API Key -->
         <div class="field-row"><label>AI API Key</label><input type="password" id="aiKeyInput" placeholder="可选"></div>
-        <div class="note">AI Key 同时用于解析和润色</div>
+        <label><input type="checkbox" id="clearAiKeyCheck"> 清除已保存的 AI Key 并关闭 AI 功能</label>
+        <div class="note">输入新 AI Key 将更新解析和润色密钥；留空保留各自已保存的值。</div>
         <h3 style="margin-top:18px;">🌐 TMDB 语言</h3>
         <input type="text" id="tmdbLanguageInput" value="zh-CN" placeholder="zh-CN">
 
@@ -118,7 +121,8 @@
                 <label>密码</label>
                 <input type="password" id="authPasswordInput" placeholder="密码">
             </div>
-            <div class="note">⚠️ 密码明文存储，仅适用于内网环境。修改后需重启服务生效。</div>
+            <label><input type="checkbox" id="clearAuthPasswordCheck"> 清除已保存的密码（需同时关闭认证）</label>
+            <div class="note">认证修改立即生效，浏览器可能要求重新登录。密码仍保存在服务端配置文件中。</div>
         </div>
     </div>
 </div>

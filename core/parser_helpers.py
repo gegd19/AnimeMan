@@ -32,12 +32,8 @@ def get_ai_config_fingerprint(ai_cfg: Dict) -> str:
     return hashlib.md5("|".join(vals).encode()).hexdigest()[:8]
 
 def get_ai_parse_cache_key(file_path_str: str, config: Dict) -> str:
-    """生成 AI 解析缓存键"""
-    from .parser_helpers import get_ai_config_fingerprint
-    ai_cfg = config.get("ai_parser", {})
-    cfg_fp = get_ai_config_fingerprint(ai_cfg)
-    path_hash = hashlib.md5(file_path_str.encode()).hexdigest()[:12]
-    return f"{path_hash}|{cfg_fp}"
+    from .parse_identity import file_key
+    return file_key(file_path_str,config)
 def get_video_files_in_folder(folder: Path, video_extensions: list, max_depth: int = 2) -> list:
     """
     获取文件夹内所有视频文件，支持递归子目录（默认深度2，覆盖 Season 1/ 等常见结构）

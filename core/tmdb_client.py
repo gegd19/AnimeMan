@@ -5,15 +5,21 @@ TMDB API 客户端封装（完整代理支持）
 所有网络请求均支持可选的 HTTP/SOCKS5 代理，且不受系统环境变量代理干扰。
 """
 
+from .cancellation import check_cancelled, ProcessingCancelled
+from .cancellation import current_event
 import time
 import threading
 from pathlib import Path
+from .execution_mode import is_preview
 from typing import Optional, Dict, List, Any, Callable
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from .metadata_io import is_valid_image, write_metadata
+from .json_store import path_lock
+from .failure_policy import note_error
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -32,11 +38,13 @@ class RateLimiter:
         self.lock = threading.Lock()
 
     def wait(self):
+        check_cancelled()
         with self.lock:
             now = time.time()
             elapsed = now - self.last_request
             if elapsed < self.min_interval:
-                time.sleep(self.min_interval - elapsed)
+                current_event().wait(self.min_interval - elapsed)
+            check_cancelled()
             self.last_request = time.time()
 
 
@@ -128,13 +136,17 @@ def search_tmdb(
             if resp.status_code == 429:
                 if log_func:
                     log_func("⚠️ TMDB 速率限制，等待 2 秒后重试", LOG_WARNING)
-                time.sleep(2)
+                current_event().wait(2)
+                check_cancelled()
                 resp = session.get(url, params=params, timeout=15)
             resp.raise_for_status()
             results = resp.json().get("results", [])
             if results:
                 return results[0]
+        except ProcessingCancelled:
+            raise
         except Exception as e:
+            note_error(e)
             logger.warning(f"TMDB 请求失败: {e}")
             if log_func:
                 log_func(f"⚠️ TMDB 请求失败: {e}", LOG_WARNING)
@@ -193,11 +205,15 @@ def search_tmdb_multi(
     try:
         resp = session.get(url, params=params, timeout=15)
         if resp.status_code == 429:
-            time.sleep(2)
+            current_event().wait(2)
+            check_cancelled()
             resp = session.get(url, params=params, timeout=15)
         resp.raise_for_status()
         return resp.json().get("results", [])
+    except ProcessingCancelled:
+        raise
     except Exception as e:
+        note_error(e)
         if log_func:
             log_func(f"⚠️ TMDB 多结果搜索失败: {e}", LOG_WARNING)
         return []
@@ -226,11 +242,15 @@ def get_tmdb_details(
     try:
         resp = session.get(url, params=params, timeout=15)
         if resp.status_code == 429:
-            time.sleep(2)
+            current_event().wait(2)
+            check_cancelled()
             resp = session.get(url, params=params, timeout=15)
         resp.raise_for_status()
         return resp.json()
+    except ProcessingCancelled:
+        raise
     except Exception as e:
+        note_error(e)
         if log_func:
             log_func(f"❌ 获取 TMDB 详情失败: {e}", LOG_ERROR)
         return None
@@ -252,7 +272,8 @@ def get_tv_season_episodes(
     try:
         resp = session.get(url, params=params, timeout=15)
         if resp.status_code == 429:
-            time.sleep(2)
+            current_event().wait(2)
+            check_cancelled()
             resp = session.get(url, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
@@ -265,7 +286,10 @@ def get_tv_season_episodes(
                 "air_date": "", "still_path": None
             }]
         return episodes
+    except ProcessingCancelled:
+        raise
     except Exception as e:
+        note_error(e)
         if log_func:
             log_func(f"❌ 获取季 {season_num} 信息失败: {e}", LOG_ERROR)
         if season_num == 0:
@@ -290,22 +314,31 @@ def download_image(
     proxy: Optional[str] = None
 ) -> bool:
     """下载图片，支持代理"""
-    if save_path.exists():
-        return True
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        session = create_session(proxy)
-        resp = session.get(url, timeout=30)
-        resp.raise_for_status()
-        with open(save_path, 'wb') as f:
-            f.write(resp.content)
+    check_cancelled()
+    if is_preview():
         if log_func:
-            log_func(f"✅ 图片下载完成: {save_path.name}", LOG_SUCCESS)
+            log_func(f"🔍 [模拟] 图片: {save_path}", LOG_INFO)
         return True
-    except Exception as e:
-        if log_func:
-            log_func(f"❌ 图片下载失败 ({url}): {e}", LOG_ERROR)
-        return False
+    save_path = Path(save_path)
+    with path_lock(save_path):
+        if is_valid_image(save_path):
+            return True
+        try:
+            session = create_session(proxy)
+            resp = session.get(url, timeout=30)
+            resp.raise_for_status()
+            check_cancelled()
+            write_metadata(save_path, resp.content, is_valid_image)
+            if log_func:
+                log_func(f"✅ 图片下载完成: {save_path.name}", LOG_SUCCESS)
+            return True
+        except ProcessingCancelled:
+            raise
+        except Exception as e:
+            note_error(e)
+            if log_func:
+                log_func(f"❌ 图片下载失败 ({url}): {e}", LOG_ERROR)
+            return False
 
 
 def extract_all_titles(details: Dict[str, Any]) -> List[str]:

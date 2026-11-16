@@ -43,26 +43,11 @@ def validate_mapping_rule(rule: Dict[str, Any]) -> tuple:
     Returns:
         (是否有效, 错误信息)
     """
-    keyword = rule.get("keyword", "").strip()
-    if not keyword:
-        return False, "关键词不能为空"
-
-    tmdb_id = rule.get("tmdb_id")
-    if not tmdb_id or not str(tmdb_id).isdigit():
-        return False, "TMDB ID 必须为正整数"
-
-    media_type = rule.get("media_type")
-    if media_type not in ("movie", "tv"):
-        return False, "媒体类型必须为 movie 或 tv"
-
-    if media_type == "tv":
-        season = rule.get("season")
-        if season is None or not str(season).lstrip('-').isdigit():
-            return False, "剧集必须指定有效的季号"
-        episode = rule.get("episode")
-        if episode is None or not str(episode).lstrip('-').isdigit():
-            return False, "剧集必须指定有效的集号"
-
+    from .validation import validate_mapping, ValidationError
+    try:
+        validate_mapping(rule)
+    except ValidationError as error:
+        return False, str(error)
     return True, ""
 
 

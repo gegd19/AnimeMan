@@ -93,11 +93,11 @@ App.MediaManager = (function(app) {
             // 视图切换按钮
             const viewBar = document.createElement('div');
             viewBar.className = 'view-toggle-bar';
-            viewBar.innerHTML = `
-                <button class="view-btn ${viewMode === 'all' ? 'active' : ''}" data-action="switchView" data-view="all">📚 全部</button>
-                <button class="view-btn ${viewMode === 'movies' ? 'active' : ''}" data-action="switchView" data-view="movies">🎬 电影</button>
-                <button class="view-btn ${viewMode === 'tv' ? 'active' : ''}" data-action="switchView" data-view="tv">📺 剧集</button>
-            `;
+            for (const [mode, text] of [['all', '📚 全部'], ['movies', '🎬 电影'], ['tv', '📺 剧集']]) {
+                viewBar.append(app.el('button', {type: 'button', text,
+                    className: `view-btn ${viewMode === mode ? 'active' : ''}`,
+                    dataset: {action: 'switchView', view: mode}}));
+            }
             container.appendChild(viewBar);
 
             // 电影区域
@@ -137,178 +137,104 @@ App.MediaManager = (function(app) {
     }
 
     // ---------- 电影网格渲染 ----------
+    function actionButton(text, action, key, className = 'secondary') {
+        return app.el('button', {type: 'button', text, className, dataset: {action, key}});
+    }
+
     function renderMovieGrid(append = false) {
         const grid = document.getElementById('movieGrid');
         if (!grid) return;
-
-        const moviesToRender = getMovieSlice();
-        if (!append) grid.innerHTML = '';
-
-        if (moviesToRender.length === 0 && !append) {
-            grid.innerHTML = '<div style="text-align:center;padding:20px;color:#6c757d;">暂无电影</div>';
-            return;
+        const movies = getMovieSlice();
+        if (!append) grid.replaceChildren();
+        if (!movies.length && !append) { grid.textContent = '暂无电影'; return; }
+        for (const movie of movies) {
+            const checkbox = app.el('input', {type: 'checkbox', checked: selectedEpisodes.has(movie.cache_key),
+                dataset: {action: 'toggleSelect', type: 'movie', key: movie.cache_key}});
+            grid.append(app.el('div', {className: 'media-card movie-card', dataset: {movieKey: movie.cache_key}},
+                app.el('div', {className: 'media-card-poster'}, app.poster(app.mediaPosterUrl('movie', movie.tmdb_id)),
+                    app.el('div', {className: 'media-card-check'}, checkbox)),
+                app.el('div', {className: 'media-card-info'},
+                    app.el('div', {className: 'media-card-title', title: movie.title, text: cleanTitle(movie.title)}),
+                    app.el('div', {className: 'media-card-year', text: movie.year || ''})),
+                app.el('div', {className: 'media-card-actions'}, actionButton('🔧', 'correctSingle', movie.cache_key),
+                    actionButton('🗑️', 'deleteSingle', movie.cache_key, 'danger'))));
         }
-
-        let html = '';
-        moviesToRender.forEach(m => {
-            const checked = selectedEpisodes.has(m.cache_key) ? 'checked' : '';
-            const poster = `/media_poster/${m.tmdb_id}`;
-            html += `<div class="media-card movie-card" data-movie-key="${m.cache_key}">
-                <div class="media-card-poster">
-                    <img src="${poster}" onerror="this.style.display='none'">
-                    <div class="media-card-check">
-                        <input type="checkbox" ${checked} data-action="toggleSelect" data-type="movie" data-key="${m.cache_key}">
-                    </div>
-                </div>
-                <div class="media-card-info">
-                    <div class="media-card-title" title="${app.escapeHtml(m.title)}">${app.escapeHtml(cleanTitle(m.title))}</div>
-                    <div class="media-card-year">${m.year || ''}</div>
-                </div>
-                <div class="media-card-actions">
-                    <button class="secondary" data-action="correctSingle" data-key="${m.cache_key}">🔧</button>
-                    <button class="danger" data-action="deleteSingle" data-key="${m.cache_key}">🗑️</button>
-                </div>
-            </div>`;
-        });
-        grid.insertAdjacentHTML('beforeend', html);
     }
 
-    // ---------- 剧集网格渲染 ----------
     function renderShowGrid(append = false) {
         const grid = document.getElementById('showGrid');
         if (!grid) return;
-
-        const showsToRender = getShowSlice();
-        if (!append) grid.innerHTML = '';
-
-        if (showsToRender.length === 0 && !append) {
-            grid.innerHTML = '<div style="text-align:center;padding:20px;color:#6c757d;">暂无剧集</div>';
-            return;
+        const shows = getShowSlice();
+        if (!append) grid.replaceChildren();
+        if (!shows.length && !append) { grid.textContent = '暂无剧集'; return; }
+        for (const show of shows) {
+            const count = Object.keys(show.seasons || {}).length;
+            grid.append(app.el('div', {className: 'media-card tv-card', dataset: {showId: show.tmdb_id}},
+                app.el('div', {className: 'media-card-poster'}, app.poster(app.mediaPosterUrl('tv', show.tmdb_id))),
+                app.el('div', {className: 'media-card-info'},
+                    app.el('div', {className: 'media-card-title', title: show.title, text: cleanTitle(show.title)}),
+                    app.el('div', {className: 'media-card-year', text: show.year || ''})),
+                app.el('div', {className: 'media-card-seasons-toggle'}, app.el('button', {type: 'button', className: 'season-toggle-btn',
+                    text: `📋 ${count} 季 ${expandedShows[show.tmdb_id] ? '▲' : '▼'}`,
+                    dataset: {action: 'toggleShowSeasons', showId: show.tmdb_id}}))));
         }
-
-        let html = '';
-        showsToRender.forEach(show => {
-            const seasons = show.seasons || {};
-            const seasonCount = Object.keys(seasons).length;
-            const poster = show.poster_url || `/media_poster/${show.tmdb_id}`;
-            const showId = show.tmdb_id;
-            const isExpanded = expandedShows[showId] || false;
-
-            html += `<div class="media-card tv-card" data-show-id="${showId}">
-                <div class="media-card-poster">
-                    <img src="${poster}" onerror="this.style.display='none'">
-                </div>
-                <div class="media-card-info">
-                    <div class="media-card-title" title="${app.escapeHtml(show.title)}">${app.escapeHtml(cleanTitle(show.title))}</div>
-                    <div class="media-card-year">${show.year || ''}</div>
-                </div>
-                <div class="media-card-seasons-toggle">
-                    <button class="season-toggle-btn" data-action="toggleShowSeasons" data-show-id="${showId}">
-                        📋 ${seasonCount} 季 ${isExpanded ? '▲' : '▼'}
-                    </button>
-                </div>
-            </div>`;
-        });
-        grid.insertAdjacentHTML('beforeend', html);
     }
 
-    // ---------- 季面板渲染（仅追加，不重复创建）----------
     function renderExpandedSeasonsPanels(append = false) {
         const container = document.getElementById(containerId);
         if (!container) return;
-
-        // 清理已存在的面板（非追加模式已在初始渲染时清空）
-        if (!append) {
-            const oldPanels = container.querySelectorAll('.show-seasons-panel');
-            oldPanels.forEach(p => p.remove());
-        }
-
-        filteredShows.forEach(show => {
-            const showId = show.tmdb_id;
-            if (!expandedShows[showId]) return;
-
-            // 已存在面板则跳过
-            if (container.querySelector(`.show-seasons-panel[data-show-panel="${showId}"]`)) return;
-
+        if (!append) container.querySelectorAll('.show-seasons-panel').forEach(panel => panel.remove());
+        for (const show of filteredShows) {
+            const id = show.tmdb_id;
+            if (!expandedShows[id]) continue;
+            if (Array.from(container.querySelectorAll('.show-seasons-panel')).some(panel => panel.dataset.showPanel === String(id))) continue;
             const seasons = show.seasons || {};
-            const seasonNums = Object.keys(seasons).sort((a, b) => parseInt(a) - parseInt(b));
-            const showTitle = cleanTitle(show.title);
-
-            const panel = document.createElement('div');
-            panel.className = 'show-seasons-panel';
-            panel.setAttribute('data-show-panel', showId);
-
-            let panelHtml = `
-                <div class="show-seasons-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span>📁 ${showTitle} 季列表</span>
-                    <button class="secondary" data-action="toggleShowSeasons" data-show-id="${showId}" style="padding:2px 10px; font-size:12px;">✕ 收起</button>
-                </div>
-                <div class="season-list">
-            `;
-
-            seasonNums.forEach(sNum => {
-                const sData = seasons[sNum];
-                const epCount = (sData.episodes || []).length;
-                const seasonKey = `${showId}-${sNum}`;
-                const isExpanded = expandedSeasons[seasonKey] || false;
-
-                panelHtml += `<div class="season-row">
-                    <div class="season-row-header" style="display:flex; align-items:center; justify-content:space-between;">
-                        <span data-action="toggleSeasonEpisodes" data-season-key="${seasonKey}" style="cursor:pointer; flex:1;">
-                            📺 第 ${sNum} 季 (${epCount} 集) <span class="expand-arrow">${isExpanded ? '▼' : '▶'}</span>
-                        </span>
-                        <div style="display:flex; gap:4px;">
-                            <button class="secondary" style="padding:2px 8px; font-size:11px;" onclick="App.MediaManager.selectAllInSeason('${seasonKey}', true)">全选</button>
-                            <button class="secondary" style="padding:2px 8px; font-size:11px;" onclick="App.MediaManager.selectAllInSeason('${seasonKey}', false)">反选</button>
-                        </div>
-                    </div>
-                    <div class="episode-grid" id="episodes-${seasonKey}" style="display: ${isExpanded ? 'grid' : 'none'};"></div>
-                </div>`;
-            });
-
-            panelHtml += `</div>`;
-            panel.innerHTML = panelHtml;
-            container.appendChild(panel);
-
-            // 若季已展开，立即懒加载其集数
-            seasonNums.forEach(sNum => {
-                const seasonKey = `${showId}-${sNum}`;
-                if (expandedSeasons[seasonKey] && !renderedSeasons[seasonKey]) {
-                    lazyLoadEpisodes(showId, sNum, seasons[sNum]);
-                }
-            });
-        });
+            const numbers = Object.keys(seasons).sort((a,b) => parseInt(a) - parseInt(b));
+            const list = app.el('div', {className: 'season-list'});
+            const panel = app.el('div', {className: 'show-seasons-panel', dataset: {showPanel: id}},
+                app.el('div', {className: 'show-seasons-header', style: 'display:flex;justify-content:space-between;align-items:center;'},
+                    app.el('span', {text: `📁 ${cleanTitle(show.title)} 季列表`}),
+                    app.el('button', {type: 'button', className: 'secondary', text: '✕ 收起', dataset: {action: 'toggleShowSeasons', showId: id}})), list);
+            for (const number of numbers) {
+                const key = `${id}-${number}`;
+                const expanded = expandedSeasons[key] || false;
+                const count = (seasons[number].episodes || []).length;
+                list.append(app.el('div', {className: 'season-row'},
+                    app.el('div', {className: 'season-row-header', style: 'display:flex;align-items:center;justify-content:space-between;'},
+                        app.el('span', {style: 'cursor:pointer;flex:1;', dataset: {action: 'toggleSeasonEpisodes', seasonKey: key}},
+                            `📺 第 ${number} 季 (${count} 集) `, app.el('span', {className: 'expand-arrow', text: expanded ? '▼' : '▶'})),
+                        app.el('div', {style: 'display:flex;gap:4px;'},
+                            app.button('全选', () => App.MediaManager.selectAllInSeason(key, true)),
+                            app.button('反选', () => App.MediaManager.selectAllInSeason(key, false)))),
+                    app.el('div', {className: 'episode-grid', id: `episodes-${key}`, style: `display:${expanded ? 'grid' : 'none'};`})));
+            }
+            container.append(panel);
+            for (const number of numbers) {
+                const key = `${id}-${number}`;
+                if (expandedSeasons[key] && !renderedSeasons[key]) lazyLoadEpisodes(id, number, seasons[number]);
+            }
+        }
     }
 
-    // ---------- 懒加载集数 ----------
     function lazyLoadEpisodes(showId, seasonNum, seasonData) {
-        const seasonKey = `${showId}-${seasonNum}`;
-        const container = document.getElementById(`episodes-${seasonKey}`);
-        if (!container || renderedSeasons[seasonKey]) return;
-
-        const episodes = seasonData.episodes || [];
+        const key = `${showId}-${seasonNum}`;
+        const container = document.getElementById(`episodes-${key}`);
+        if (!container || renderedSeasons[key]) return;
         const show = filteredShows.find(s => s.tmdb_id == showId);
         if (!show) return;
-
-        let html = '';
-        episodes.forEach(ep => {
-            const checked = selectedEpisodes.has(ep.cache_key) ? 'checked' : '';
-            const epTitle = ep.title || `第 ${ep.episode} 集`;
-            html += `<div class="episode-item-card">
-                <input type="checkbox" ${checked} data-action="toggleSelect" data-type="episode" data-key="${ep.cache_key}">
-                <span class="episode-number">E${String(ep.episode).padStart(2, '0')}</span>
-                <span class="episode-title episode-title-clickable"
-                      style="cursor:pointer; text-decoration:underline dotted; font-size:12px;"
-                      onclick="App.MediaManager.showEpisodeDetail(event, '${ep.cache_key}', '${cleanTitle(show.title).replace(/'/g, "\\'")}', ${seasonNum})"
-                      title="${app.escapeHtml(epTitle)}&#10;点击查看源文件详情">${app.escapeHtml(epTitle)}</span>
-                <div class="episode-actions">
-                    <button class="secondary" data-action="correctSingle" data-key="${ep.cache_key}">🔧</button>
-                    <button class="danger" data-action="deleteSingle" data-key="${ep.cache_key}">🗑️</button>
-                </div>
-            </div>`;
-        });
-        container.innerHTML = html;
-        renderedSeasons[seasonKey] = true;
+        container.replaceChildren();
+        for (const episode of seasonData.episodes || []) {
+            const title = episode.title || `第 ${episode.episode} 集`;
+            const label = app.el('span', {className: 'episode-title episode-title-clickable',
+                style: 'cursor:pointer;text-decoration:underline dotted;font-size:12px;', title: title + '\n点击查看源文件详情', text: title});
+            label.addEventListener('click', event => App.MediaManager.showEpisodeDetail(event, episode.cache_key, cleanTitle(show.title), seasonNum));
+            container.append(app.el('div', {className: 'episode-item-card'},
+                app.el('input', {type: 'checkbox', checked: selectedEpisodes.has(episode.cache_key), dataset: {action: 'toggleSelect', type: 'episode', key: episode.cache_key}}),
+                app.el('span', {className: 'episode-number', text: `E${String(episode.episode).padStart(2, '0')}`}), label,
+                app.el('div', {className: 'episode-actions'}, actionButton('🔧', 'correctSingle', episode.cache_key),
+                    actionButton('🗑️', 'deleteSingle', episode.cache_key, 'danger'))));
+        }
+        renderedSeasons[key] = true;
     }
 
     // ---------- 无限滚动观察器 ----------
@@ -450,7 +376,7 @@ App.MediaManager = (function(app) {
         }).filter(p => p);
 
         try {
-            const resp = await fetch('/api/media/batch_delete', {
+            const resp = await app.fetch('/api/media/batch_delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ src_paths: paths, delete_source: false })
@@ -465,7 +391,7 @@ App.MediaManager = (function(app) {
                 app.showToast('批量删除失败', 'error');
             }
         } catch (e) {
-            app.showToast('请求失败', 'error');
+            app.showToast('请求失败：' + e.message, 'error');
         }
     }
     // ---------- 事件委托 ----------
@@ -497,7 +423,7 @@ App.MediaManager = (function(app) {
                     Object.keys(expandedSeasons).forEach(k => {
                         if (k.startsWith(showId + '-')) delete expandedSeasons[k];
                     });
-                    const panel = document.querySelector(`.show-seasons-panel[data-show-panel="${showId}"]`);
+                    const panel = Array.from(document.querySelectorAll('.show-seasons-panel')).find(node => node.dataset.showPanel === String(showId));
                     if (panel) panel.remove();
                 } else {
                     renderExpandedSeasonsPanels(true);
@@ -507,7 +433,7 @@ App.MediaManager = (function(app) {
                     const btn = card.querySelector('.season-toggle-btn');
                     const seasons = filteredShows.find(s => s.tmdb_id == showId)?.seasons || {};
                     const count = Object.keys(seasons).length;
-                    btn.innerHTML = `📋 ${count} 季 ${expandedShows[showId] ? '▲' : '▼'}`;
+                    btn.textContent = `📋 ${count} 季 ${expandedShows[showId] ? '▲' : '▼'}`;
                 }
                 break;
             }
@@ -553,7 +479,7 @@ App.MediaManager = (function(app) {
                 const entry = findEntryByCacheKey(key);
                 if (!entry) return;
                 const path = entry.type === 'movie' ? entry.data.cache_key : entry.data.cache_key;
-                fetch('/api/media/delete', {
+                app.fetch('/api/media/delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ src_path: path, delete_source: false })
@@ -565,7 +491,7 @@ App.MediaManager = (function(app) {
                     } else {
                         app.showToast('删除失败: ' + (data.message || ''), 'error');
                     }
-                }).catch(e => app.showToast('请求失败', 'error'));
+                }).catch(e => app.showToast('请求失败：' + e.message, 'error'));
                 break;
             }
             case 'correctShowBatch': {
@@ -606,7 +532,7 @@ App.MediaManager = (function(app) {
                 }
                 if (!confirm(`确定要删除《${cleanTitle(show.title)}》的全部 ${paths.length} 个媒体文件吗？\n\n此操作仅删除目标文件（链接），不会删除源文件。`)) return;
 
-                fetch('/api/media/batch_delete', {
+                app.fetch('/api/media/batch_delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ src_paths: paths, delete_source: false })
@@ -618,7 +544,7 @@ App.MediaManager = (function(app) {
                     } else {
                         app.showToast('删除失败: ' + (data.message || ''), 'error');
                     }
-                }).catch(e => app.showToast('请求失败', 'error'));
+                }).catch(e => app.showToast('请求失败：' + e.message, 'error'));
                 break;
             }
         }
@@ -627,7 +553,7 @@ App.MediaManager = (function(app) {
     // ---------- 加载数据 ----------
     async function loadLibrary() {
         try {
-            const resp = await fetch('/api/media/library');
+            const resp = await app.fetch('/api/media/library');
             const data = await resp.json();
             fullLibrary = data;
             filteredMovies = data.movies || [];
@@ -636,7 +562,7 @@ App.MediaManager = (function(app) {
             filterAndSort();
         } catch (e) {
             console.error('加载媒体库失败', e);
-            document.getElementById(containerId).innerHTML = '<div style="text-align:center;padding:20px;color:#dc3545;">加载失败</div>';
+            document.getElementById(containerId).textContent = '加载失败：' + e.message;
         }
     }
 
@@ -688,12 +614,6 @@ App.MediaManager = (function(app) {
             const fileName = pathParts.pop();
             const parentDir = pathParts.pop() || '';
             const grandparentDir = pathParts.pop() || '';
-            const info = `
-                <strong>📺 ${app.escapeHtml(showTitle)} S${String(seasonNum).padStart(2,'0')}E${String(epData.episode).padStart(2,'0')}</strong><br>
-                <span style="font-size:13px; color:#6c757d;">📁 ${app.escapeHtml(grandparentDir)}/${app.escapeHtml(parentDir)}</span><br>
-                <span style="font-size:12px; word-break:break-all;">📄 ${app.escapeHtml(fileName)}</span><br>
-                <span style="font-size:12px;">🕒 处理时间: ${epData.processed_time ? new Date(epData.processed_time * 1000).toLocaleString() : '未知'}</span>
-            `;
             let popup = document.getElementById('episodeDetailPopup');
             if (!popup) {
                 popup = document.createElement('div');
@@ -709,7 +629,11 @@ App.MediaManager = (function(app) {
                     }
                 });
             }
-            popup.innerHTML = info;
+            popup.replaceChildren(
+                app.el('strong', {text: `📺 ${showTitle} S${String(seasonNum).padStart(2,'0')}E${String(epData.episode).padStart(2,'0')}`}), app.el('br'),
+                app.el('span', {style: 'font-size:13px;color:#6c757d;', text: `📁 ${grandparentDir}/${parentDir}`}), app.el('br'),
+                app.el('span', {style: 'font-size:12px;word-break:break-all;', text: `📄 ${fileName}`}), app.el('br'),
+                app.el('span', {style: 'font-size:12px;', text: `🕒 处理时间: ${epData.processed_time ? new Date(epData.processed_time * 1000).toLocaleString() : '未知'}`}));
             popup.style.display = 'block';
             const rect = event.currentTarget.getBoundingClientRect();
             popup.style.left = rect.left + 'px';

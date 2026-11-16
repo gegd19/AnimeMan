@@ -10,23 +10,20 @@
 """
 
 import threading
+from core.cancellation import ProcessingCancelled
 from pathlib import Path
 from flask import request, jsonify
-from core import cache_manager, config_manager
+from .task_state import request_config
+from . import task_state
+from core.path_safety import UnsafePathError, source_roots
+from core.library_transaction import reprocess_safely
+from core import cache_manager
 from core.tmdb_client import search_tmdb_multi, build_image_url, get_tmdb_details, get_tv_season_episodes
 from core.media_processor import (
-    cleanup_previous_artifacts,
     process_video_with_manual_correction,
     process_video
 )
-from .task_state import (
-    progress_callback,
-    is_task_running,
-    set_task_running,
-    reset_task_state,
-    should_stop,
-    clear_stop_flag
-)
+from .task_state import progress_callback
 
 CONFIG_PATH = "auto_config.json"
 
@@ -45,6 +42,8 @@ def _wrap_callback(cb):
 
 
 def register(app):
+    config_path = app.config.get("CONFIG_PATH", CONFIG_PATH)
+
     @app.route('/api/failed_cache', methods=['GET'])
     def get_failed_cache():
         """获取所有处理失败的文件记录"""
@@ -58,10 +57,13 @@ def register(app):
                         "path": src_str,
                         "name": path.name,
                         "reason": entry.get("failed_reason", "未知原因"),
-                        "failed_time": entry.get("failed_time", 0)
+                        "failed_time": entry.get("failed_time", 0),
+                        **{field:entry.get(field) for field in ("failure_category", "attempt_count", "last_error", "retry_after", "no_retry")}
                     })
             failed_items.sort(key=lambda x: x.get("failed_time", 0), reverse=True)
             return jsonify({"failed": failed_items})
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             return jsonify({"failed": [], "error": str(e)}), 500
 
@@ -96,6 +98,8 @@ def register(app):
 
             cluster_list.sort(key=lambda x: x["count"], reverse=True)
             return jsonify({"clusters": cluster_list})
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             return jsonify({"clusters": [], "error": str(e)}), 500
 
@@ -110,6 +114,8 @@ def register(app):
                     del cache[k]
                 cache_manager.save_cache(cache)
             return jsonify({"status": "success", "removed": len(keys_to_remove)})
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -127,20 +133,24 @@ def register(app):
         if not folder.exists():
             return jsonify({"status": "error", "message": "文件夹不存在"}), 404
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         video_exts = {ext.lower() for ext in config.get("video_extensions", [])}
+        allowed_sources = source_roots({"source_folders": config.get("source_folders", [])})
+
+        def allowed(path):
+            return any(path.resolve().is_relative_to(root) for root in allowed_sources)
 
         # 1. 扫描文件夹内所有视频文件（含一级子目录）
         all_video_files = []
         for ext in video_exts:
             for f in folder.glob(f"*{ext}"):
-                if f.is_file():
+                if allowed(f) and f.is_file():
                     all_video_files.append(f)
             # 同时扫描一级子目录（如 Season 1/ 等）
             for sub_dir in folder.iterdir():
-                if sub_dir.is_dir() and not sub_dir.name.startswith('.'):
+                if allowed(sub_dir) and sub_dir.is_dir() and not sub_dir.name.startswith('.'):
                     for f in sub_dir.glob(f"*{ext}"):
-                        if f.is_file():
+                        if allowed(f) and f.is_file():
                             all_video_files.append(f)
 
         # 去重（基于解析后的绝对路径）
@@ -173,6 +183,7 @@ def register(app):
                     "episode": entry.get("episode"),
                     "year": entry.get("year"),
                     "confidence": entry.get("confidence", 0),
+                    "confirmed_by_user": entry.get("confirmed_by_user", False),
                     "target": target,
                     "target_exists": Path(target).exists() if target else False,
                     "processed_time": entry.get("processed_time", 0)
@@ -222,7 +233,7 @@ def register(app):
         if cached_data is not None:
             return jsonify(cached_data)
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         api_key = config["tmdb_api"]["api_key"]
         language = config["tmdb_api"].get("language", "zh-CN")
         base_url = config["image_base_url"]
@@ -238,6 +249,8 @@ def register(app):
                 media_type, query, year, api_key, language, log_func=None, proxy=proxy
             )
             request_success = True  # API 调用成功，无网络异常
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             error_msg = f"TMDB 请求失败: {str(e)}"
             return jsonify({"results": [], "error": error_msg}), 500
@@ -294,6 +307,8 @@ def register(app):
                         result_item["seasons_count"] = None
                         result_item["episodes_count"] = None
                         result_item["seasons_detail"] = []
+                except ProcessingCancelled:
+                    raise
                 except Exception:
                     result_item["seasons_count"] = None
                     result_item["episodes_count"] = None
@@ -331,26 +346,19 @@ def register(app):
             if not src.exists():
                 return jsonify({"status": "error", "message": "源文件不存在"}), 404
 
-            config = config_manager.load_config(CONFIG_PATH)
-            cleanup_previous_artifacts(src, config)
-
-            with cache_manager.cache_lock:
-                cache = cache_manager.load_cache()
-                if src_path in cache:
-                    del cache[src_path]
-
-            wrapped_progress = _wrap_callback(progress_callback)
-            success = process_video_with_manual_correction(
-                src, config, cache, tmdb_id, media_type, season, episode, wrapped_progress
-            )
-
+            config = request_config(config_path)
+            success, code = reprocess_safely(
+                src, config, lambda effective, result: process_video_with_manual_correction(
+                    src, effective, result, tmdb_id, media_type, season, episode, progress_callback))
             if success:
-                with cache_manager.cache_lock:
-                    cache_manager.save_cache(cache)
-                return jsonify({"status": "success"})
-            else:
-                return jsonify({"status": "error", "message": "重新处理失败，请查看日志"}), 500
+                return jsonify({"status": "success", "dry_run": bool(config.get("dry_run"))})
+            return jsonify({"status": "error", "code": code, "message": "重新处理失败，旧产物已保留"}), 409 if code == "target_conflict" else 500
 
+        except UnsafePathError as exc:
+            return jsonify({"status": "error", "code": "needs_reindex", "message": str(exc)}), 409
+
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -374,138 +382,127 @@ def register(app):
             if not src_paths or not tmdb_id:
                 return jsonify({"status": "error", "message": "缺少必要参数"}), 400
 
-            if is_task_running():
-                return jsonify({
-                    "status": "error",
-                    "message": "已有任务在运行中。如果确定没有任务，请双击「停止任务」强制重置。"
-                }), 409
+            snapshot = request_config(config_path)
 
-            set_task_running()
-            clear_stop_flag()
-            progress_callback(0, len(src_paths), "开始批量手动修正...", "info")
+            def batch_task(config, progress_callback):
+                api_key = config["tmdb_api"]["api_key"]
+                language = config["tmdb_api"].get("language", "zh-CN")
+                proxy = config.get("tmdb_api", {}).get("proxy")
+                wrapped_progress = _wrap_callback(progress_callback)
 
-            def batch_task():
-                try:
-                    config = config_manager.load_config(CONFIG_PATH)
-                    api_key = config["tmdb_api"]["api_key"]
-                    language = config["tmdb_api"].get("language", "zh-CN")
-                    proxy = config.get("tmdb_api", {}).get("proxy")
-                    wrapped_progress = _wrap_callback(progress_callback)
+                # 自动跨季换算模式：获取 TMDB 季结构
+                season_episode_counts = {}
+                cumulative_map = {}
+                auto_mode = (media_type == 'tv' and season is None)
 
-                    # 自动跨季换算模式：获取 TMDB 季结构
-                    season_episode_counts = {}
-                    cumulative_map = {}
-                    auto_mode = (media_type == 'tv' and season is None)
+                # 初始化固定季号变量（如果自动模式失败将回退）
+                fixed_season = 1
 
-                    # 初始化固定季号变量（如果自动模式失败将回退）
-                    fixed_season = 1
-
-                    if auto_mode:
-                        try:
-                            details = get_tmdb_details(
-                                "tv", tmdb_id, api_key, language,
-                                include_alternative_titles=False, proxy=proxy
-                            )
-                            if details:
-                                regular_seasons = [s for s in details.get("seasons", [])
-                                                   if s.get("season_number", 0) > 0]
-                                cumulative = 0
-                                for s in sorted(regular_seasons, key=lambda x: x["season_number"]):
-                                    sn = s["season_number"]
-                                    ep_count = s.get("episode_count", 0)
-                                    if ep_count > 0:
-                                        season_episode_counts[sn] = ep_count
-                                        cumulative_map[cumulative + 1] = (sn, cumulative)
-                                        cumulative += ep_count
-                                progress_callback(0, len(src_paths),
-                                                  f"📊 已获取剧集季结构: {season_episode_counts}", "info")
-                        except Exception as e:
-                            progress_callback(0, len(src_paths),
-                                              f"⚠️ 获取季结构失败，将使用固定季号 (S01): {e}", "warning")
-                            auto_mode = False
-                            fixed_season = 1
-
-                    success_count = 0
-                    current_absolute_ep = start_episode
-
-                    with cache_manager.cache_lock:
-                        cache = cache_manager.load_cache()
-
-                    for idx, src_path in enumerate(src_paths):
-                        # 检查是否请求停止
-                        if should_stop():
-                            progress_callback(idx, len(src_paths), "⏹️ 用户停止了批量修正任务", "warning")
-                            break
-
-                        src = Path(src_path)
-                        if not src.exists():
-                            progress_callback(idx + 1, len(src_paths), f"⚠️ 文件不存在: {src.name}", "warning")
-                            continue
-
-                        # 确定当前文件的季和集
-                        if auto_mode:
-                            target_abs = current_absolute_ep
-                            found_season = None
-                            found_episode = None
-                            for start_abs, (sn, cum_base) in sorted(cumulative_map.items()):
-                                if target_abs >= start_abs:
-                                    ep_count = season_episode_counts.get(sn, 0)
-                                    if target_abs <= cum_base + ep_count:
-                                        found_season = sn
-                                        found_episode = target_abs - cum_base
-                                        break
-                            if found_season is None:
-                                progress_callback(idx + 1, len(src_paths),
-                                                  f"⚠️ 绝对集号 {target_abs} 超出范围，跳过: {src.name}", "warning")
-                                continue
-                            current_season = found_season
-                            current_episode = found_episode
-                            progress_callback(idx + 1, len(src_paths),
-                                              f"🔄 绝对集号 {target_abs} → S{current_season:02d}E{current_episode:02d}: {src.name}", "info")
-                            current_absolute_ep += episode_increment
-                        else:
-                            current_season = season if season is not None else fixed_season
-                            current_episode = start_episode + idx * episode_increment
-
-                        progress_callback(idx + 1, len(src_paths), f"🔄 处理: {src.name}", "info")
-
-                        cleanup_previous_artifacts(src, config)
-
-                        with cache_manager.cache_lock:
-                            if src_path in cache:
-                                del cache[src_path]
-
-                        success = process_video_with_manual_correction(
-                            src, config, cache, tmdb_id, media_type,
-                            current_season, current_episode, wrapped_progress
+                if auto_mode:
+                    try:
+                        details = get_tmdb_details(
+                            "tv", tmdb_id, api_key, language,
+                            include_alternative_titles=False, proxy=proxy
                         )
-                        if success:
-                            success_count += 1
-                            progress_callback(idx + 1, len(src_paths), f"✅ 成功: {src.name}", "success")
-                        else:
-                            progress_callback(idx + 1, len(src_paths), f"❌ 失败: {src.name}", "error")
+                        if details:
+                            regular_seasons = [s for s in details.get("seasons", [])
+                                               if s.get("season_number", 0) > 0]
+                            cumulative = 0
+                            for s in sorted(regular_seasons, key=lambda x: x["season_number"]):
+                                sn = s["season_number"]
+                                ep_count = s.get("episode_count", 0)
+                                if ep_count > 0:
+                                    season_episode_counts[sn] = ep_count
+                                    cumulative_map[cumulative + 1] = (sn, cumulative)
+                                    cumulative += ep_count
+                            progress_callback(0, len(src_paths),
+                                              f"📊 已获取剧集季结构: {season_episode_counts}", "info")
+                    except ProcessingCancelled:
+                        raise
+                    except Exception as e:
+                        progress_callback(0, len(src_paths),
+                                          f"⚠️ 获取季结构失败，将使用固定季号 (S01): {e}", "warning")
+                        auto_mode = False
+                        fixed_season = 1
 
-                    with cache_manager.cache_lock:
-                        cache_manager.save_cache(cache)
+                success_count = failed_count = 0
+                current_absolute_ep = start_episode
 
-                    if should_stop():
-                        progress_callback(len(src_paths), len(src_paths),
-                                         f"批量修正已中止，成功处理 {success_count}/{len(src_paths)}", "warning")
+                for idx, src_path in enumerate(src_paths):
+                    # 检查是否请求停止
+                    if task_state.should_stop():
+                        progress_callback(idx, len(src_paths), "⏹️ 用户停止了批量修正任务", "warning")
+                        break
+
+                    src = Path(src_path)
+                    if not src.exists():
+                        failed_count += 1
+                        progress_callback(idx + 1, len(src_paths), f"⚠️ 文件不存在: {src.name}", "warning")
+                        continue
+
+                    # 确定当前文件的季和集
+                    if media_type == 'movie':
+                        current_season = current_episode = None
+                    elif auto_mode:
+                        target_abs = current_absolute_ep
+                        found_season = None
+                        found_episode = None
+                        for start_abs, (sn, cum_base) in sorted(cumulative_map.items()):
+                            if target_abs >= start_abs:
+                                ep_count = season_episode_counts.get(sn, 0)
+                                if target_abs <= cum_base + ep_count:
+                                    found_season = sn
+                                    found_episode = target_abs - cum_base
+                                    break
+                        if found_season is None:
+                            failed_count += 1
+                            progress_callback(idx + 1, len(src_paths),
+                                              f"⚠️ 绝对集号 {target_abs} 超出范围，跳过: {src.name}", "warning")
+                            continue
+                        current_season = found_season
+                        current_episode = found_episode
+                        progress_callback(idx + 1, len(src_paths),
+                                          f"🔄 绝对集号 {target_abs} → S{current_season:02d}E{current_episode:02d}: {src.name}", "info")
+                        current_absolute_ep += episode_increment
                     else:
-                        progress_callback(len(src_paths), len(src_paths),
-                                         f"批量修正完成！成功 {success_count}/{len(src_paths)}", "success")
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
-                    progress_callback(0, len(src_paths), f"❌ 批量修正任务异常: {e}", "error")
-                finally:
-                    # 确保无论成功、失败、停止，都重置任务状态
-                    reset_task_state()
-                    clear_stop_flag()
+                        current_season = season if season is not None else fixed_season
+                        current_episode = start_episode + idx * episode_increment
 
-            threading.Thread(target=batch_task, daemon=True).start()
-            return jsonify({"status": "started", "total": len(src_paths)})
+                    progress_callback(idx + 1, len(src_paths), f"🔄 处理: {src.name}", "info")
 
+                    try:
+                        success, code = reprocess_safely(
+                            src, config, lambda effective, result: process_video_with_manual_correction(
+                                src, effective, result, tmdb_id, media_type,
+                                current_season, current_episode, progress_callback))
+                    except ProcessingCancelled:
+                        break
+                    except UnsafePathError as exc:
+                        failed_count += 1
+                        progress_callback(idx + 1, len(src_paths), str(exc), "warning")
+                        continue
+                    if success:
+                        success_count += 1
+                        progress_callback(idx + 1, len(src_paths), f"{'🔍 [模拟] 可纠正' if config.get('dry_run') else '✅ 成功'}: {src.name}", "success")
+                    else:
+                        failed_count += 1
+                        progress_callback(idx + 1, len(src_paths), f"❌ 失败: {src.name}", "error")
+
+                if task_state.should_stop():
+                    progress_callback(len(src_paths), len(src_paths),
+                                     f"批量修正已中止，成功处理 {success_count}/{len(src_paths)}", "warning")
+                else:
+                    progress_callback(len(src_paths), len(src_paths),
+                                     f"{'模拟批量修正完成，可纠正' if config.get('dry_run') else '批量修正完成，成功'} {success_count}/{len(src_paths)}", "success")
+                return {"success":success_count, "failed":failed_count, "completed":success_count+failed_count, "total":len(src_paths), "cancelled":task_state.should_stop()}
+
+            task = task_state.launch_task('batch_correct', snapshot, batch_task, thread_factory=threading.Thread)
+            if task is None:
+                return jsonify({"status":"error", "message":"已有写入任务运行或正在停止"}), 409
+            return jsonify({"status":"started", "task_id":task.task_id, "total":len(src_paths)})
+
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -533,6 +530,7 @@ def register(app):
                 "season": entry.get("season"),
                 "episode": entry.get("episode"),
                 "confidence": entry.get("confidence", 0),
+                "confirmed_by_user": entry.get("confirmed_by_user", False),
                 "processed_time": entry.get("processed_time", 0)
             }
             history.append(item)
@@ -559,28 +557,18 @@ def register(app):
             if not src.exists():
                 return jsonify({"status": "error", "message": "源文件不存在"}), 404
 
-            config = config_manager.load_config(CONFIG_PATH)
-            cleanup_previous_artifacts(src, config)
-
-            with cache_manager.cache_lock:
-                cache = cache_manager.load_cache()
-                if src_path in cache:
-                    del cache[src_path]
-                    cache_manager.save_cache(cache)
-
-            wrapped_progress = _wrap_callback(progress_callback)
-            temp_cache = {}
-            success = process_video(src, config, temp_cache, wrapped_progress)
-
+            config = request_config(config_path)
+            success, code = reprocess_safely(
+                src, config, lambda effective, result: process_video(src, effective, result, progress_callback))
             if success:
-                with cache_manager.cache_lock:
-                    cache = cache_manager.load_cache()
-                    cache.update(temp_cache)
-                    cache_manager.save_cache(cache)
-                return jsonify({"status": "success"})
-            else:
-                return jsonify({"status": "error", "message": "重新处理失败，请查看日志"}), 500
+                return jsonify({"status": "success", "dry_run": bool(config.get("dry_run"))})
+            return jsonify({"status": "error", "code": code, "message": "重新处理失败，旧产物已保留"}), 409 if code == "target_conflict" else 500
 
+        except UnsafePathError as exc:
+            return jsonify({"status": "error", "code": "needs_reindex", "message": str(exc)}), 409
+
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             import traceback
             traceback.print_exc()

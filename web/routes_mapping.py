@@ -13,89 +13,54 @@ CONFIG_PATH = "auto_config.json"
 
 
 def register(app):
+    from flask import g
+    from werkzeug.exceptions import NotFound, Conflict
+    config_path = app.config.get('CONFIG_PATH', CONFIG_PATH)
+
     @app.route('/api/special_mappings', methods=['GET'])
     def get_mappings():
-        config = config_manager.load_config(CONFIG_PATH)
-        mappings = config.get("special_mappings", [])
-        return jsonify({"mappings": mappings})
+        return jsonify({'mappings': config_manager.load_config(config_path)['special_mappings']})
 
     @app.route('/api/special_mappings', methods=['POST'])
     @require_auth
     def add_mapping():
-        data = request.json
-        rule = data.get("rule", {})
-
-        valid, error = validate_mapping_rule(rule)
-        if not valid:
-            return jsonify({"status": "error", "message": error}), 400
-
-        normalized = normalize_mapping_rule(rule)
-
-        config = config_manager.load_config(CONFIG_PATH)
-        mappings = config.get("special_mappings", [])
-
-        for existing in mappings:
-            if existing.get("keyword", "").lower() == normalized["keyword"].lower():
-                return jsonify({"status": "error", "message": "该关键词已存在"}), 400
-
-        mappings.append(normalized)
-        config["special_mappings"] = mappings
-        config_manager.save_config(config, CONFIG_PATH)
-
-        return jsonify({"status": "success", "rule": normalized})
+        normalized = normalize_mapping_rule(request.json['rule'])
+        def mutate(config):
+            mappings = config['special_mappings']
+            if any(rule['keyword'].lower() == normalized['keyword'].lower() for rule in mappings):
+                raise Conflict('该关键词已存在')
+            mappings.append(normalized)
+            return config
+        config_manager.update_config(mutate, config_path)
+        return jsonify({'status': 'success', 'rule': normalized})
 
     @app.route('/api/special_mappings', methods=['PUT'])
     @require_auth
     def update_mapping():
-        data = request.json
-        index = data.get("index")
-        rule = data.get("rule", {})
-
-        if index is None:
-            return jsonify({"status": "error", "message": "缺少索引"}), 400
-
-        valid, error = validate_mapping_rule(rule)
-        if not valid:
-            return jsonify({"status": "error", "message": error}), 400
-
-        normalized = normalize_mapping_rule(rule)
-
-        config = config_manager.load_config(CONFIG_PATH)
-        mappings = config.get("special_mappings", [])
-
-        if index < 0 or index >= len(mappings):
-            return jsonify({"status": "error", "message": "索引越界"}), 400
-
-        for i, existing in enumerate(mappings):
-            if i != index and existing.get("keyword", "").lower() == normalized["keyword"].lower():
-                return jsonify({"status": "error", "message": "该关键词已存在"}), 400
-
-        mappings[index] = normalized
-        config["special_mappings"] = mappings
-        config_manager.save_config(config, CONFIG_PATH)
-
-        return jsonify({"status": "success", "rule": normalized})
+        index = request.json['index']
+        normalized = normalize_mapping_rule(request.json['rule'])
+        def mutate(config):
+            mappings = config['special_mappings']
+            if index >= len(mappings):
+                raise NotFound('记录不存在')
+            if any(i != index and rule['keyword'].lower() == normalized['keyword'].lower()
+                   for i, rule in enumerate(mappings)):
+                raise Conflict('该关键词已存在')
+            mappings[index] = normalized
+            return config
+        config_manager.update_config(mutate, config_path)
+        return jsonify({'status': 'success', 'rule': normalized})
 
     @app.route('/api/special_mappings', methods=['DELETE'])
     @require_auth
     def delete_mapping():
-        index = request.args.get("index")
-        if index is None:
-            return jsonify({"status": "error", "message": "缺少索引"}), 400
-
-        try:
-            index = int(index)
-        except ValueError:
-            return jsonify({"status": "error", "message": "索引无效"}), 400
-
-        config = config_manager.load_config(CONFIG_PATH)
-        mappings = config.get("special_mappings", [])
-
-        if index < 0 or index >= len(mappings):
-            return jsonify({"status": "error", "message": "索引越界"}), 400
-
-        removed = mappings.pop(index)
-        config["special_mappings"] = mappings
-        config_manager.save_config(config, CONFIG_PATH)
-
-        return jsonify({"status": "success", "removed": removed})
+        index = g.validated_query['index']
+        removed = []
+        def mutate(config):
+            mappings = config['special_mappings']
+            if index >= len(mappings):
+                raise NotFound('记录不存在')
+            removed.append(mappings.pop(index))
+            return config
+        config_manager.update_config(mutate, config_path)
+        return jsonify({'status': 'success', 'removed': removed[0]})

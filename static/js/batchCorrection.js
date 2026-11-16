@@ -87,44 +87,34 @@ App.BatchCorrection = (function(app) {
         const increment = parseInt(document.getElementById('batchEpisodeIncrement').value) || 1;
         const mediaType = selectedMediaType || 'tv';
 
-        let html = '<table style="width:100%; border-collapse:collapse; font-size:13px;">';
-        html += '<tr><th style="width:30px;"><input type="checkbox" id="batchSelectAll" onchange="App.BatchCorrection.toggleSelectAll(this.checked)"></th>';
-        html += '<th>顺序</th><th>文件名</th>';
-        if (mediaType === 'tv') html += '<th>预览集号</th>';
-        html += '<th style="width:80px;">操作</th></tr>';
-
+        const table = app.el('table', {style: 'width:100%;border-collapse:collapse;font-size:13px;'});
+        const selectAll = app.el('input', {type: 'checkbox', id: 'batchSelectAll'});
+        selectAll.addEventListener('change', () => App.BatchCorrection.toggleSelectAll(selectAll.checked));
+        const header = app.el('tr', {}, app.el('th', {}, selectAll), app.el('th', {text: '顺序'}), app.el('th', {text: '文件名'}));
+        if (mediaType === 'tv') header.append(app.el('th', {text: '预览集号'}));
+        header.append(app.el('th', {text: '操作'}));
+        table.append(header);
         let epCounter = startEp;
         displayFiles.forEach((file, idx) => {
-            const checked = file.selected ? 'checked' : '';
-            const previewEp = (file.selected && mediaType === 'tv') ? epCounter : '—';
+            const previewEp = file.selected && mediaType === 'tv' ? epCounter : '—';
             if (file.selected && mediaType === 'tv') epCounter += increment;
-            const specialBadge = isSpecialLike(file.name) ? ' 🎬' : '';
-
-            // 状态标记
-            const statusBadge = file.status === 'success' ? '✅' : (file.status === 'failed' ? '❌' : (file.status === 'unknown' ? '❓' : ''));
+            const statusBadge = file.status === 'success' ? '✅' : file.status === 'failed' ? '❌' : file.status === 'unknown' ? '❓' : '';
             const titleInfo = file.title ? ` (${file.title}${file.season ? ` S${String(file.season).padStart(2,'0')}E${String(file.episode).padStart(2,'0')}` : ''})` : '';
-
-            html += `<tr>
-                <td><input type="checkbox" data-index="${idx}" ${checked} onchange="App.BatchCorrection.toggleFile(${idx}, this.checked)"></td>
-                <td>${idx+1}</td>
-                <td title="${app.escapeHtml(file.path)}" style="max-width: 300px; word-break: break-word;">
-                    <strong>${statusBadge} ${app.escapeHtml(file.name)}${specialBadge}</strong>
-                    ${titleInfo ? `<br><span style="font-size:11px; color:#495057;">${app.escapeHtml(titleInfo)}</span>` : ''}
-                </td>`;
-            if (mediaType === 'tv') html += `<td style="font-weight:bold;">${previewEp}</td>`;
-            html += `<td>
-                    <button onclick="App.BatchCorrection.moveUp(${idx})" ${idx===0?'disabled':''} style="padding:2px 6px; font-size:12px;">↑</button>
-                    <button onclick="App.BatchCorrection.moveDown(${idx})" ${idx===displayFiles.length-1?'disabled':''} style="padding:2px 6px; font-size:12px;">↓</button>
-                </td>
-            </tr>`;
+            const checkbox = app.el('input', {type: 'checkbox', checked: !!file.selected, dataset: {index: idx}});
+            checkbox.addEventListener('change', () => App.BatchCorrection.toggleFile(idx, checkbox.checked));
+            const name = app.el('td', {title: file.path, style: 'max-width:300px;word-break:break-word;'},
+                app.el('strong', {text: `${statusBadge} ${file.name}${isSpecialLike(file.name) ? ' 🎬' : ''}`}));
+            if (titleInfo) name.append(app.el('br'), app.el('span', {text: titleInfo, style: 'font-size:11px;color:#495057;'}));
+            const row = app.el('tr', {}, app.el('td', {}, checkbox), app.el('td', {text: idx + 1}), name);
+            if (mediaType === 'tv') row.append(app.el('td', {text: previewEp, style: 'font-weight:bold;'}));
+            row.append(app.el('td', {}, app.button('↑', () => App.BatchCorrection.moveUp(idx), 'secondary', {disabled: idx === 0}),
+                app.button('↓', () => App.BatchCorrection.moveDown(idx), 'secondary', {disabled: idx === displayFiles.length - 1})));
+            table.append(row);
         });
-        html += '</table>';
-        html += '<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">';
-        html += '<button type="button" onclick="App.BatchCorrection.smartSort()" class="secondary" style="padding:4px 10px;">🧠 智能排序（按集号）</button>';
-        html += '<button type="button" onclick="App.BatchCorrection.autoExtractStartEpisode()" class="secondary" style="padding:4px 10px;">🔢 提取起始集号</button>';
-        html += '<button type="button" onclick="App.BatchCorrection.resetOrder()" class="secondary" style="padding:4px 10px;">🔄 重置顺序</button>';
-        html += '</div>';
-        container.innerHTML = html;
+        container.replaceChildren(table, app.el('div', {style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;'},
+            app.button('🧠 智能排序（按集号）', () => App.BatchCorrection.smartSort()),
+            app.button('🔢 提取起始集号', () => App.BatchCorrection.autoExtractStartEpisode()),
+            app.button('🔄 重置顺序', () => App.BatchCorrection.resetOrder())));
 
         const allChecked = displayFiles.length > 0 && displayFiles.every(f => f.selected);
         const selectAllCheck = document.getElementById('batchSelectAll');
@@ -273,7 +263,7 @@ App.BatchCorrection = (function(app) {
             const timeoutId = setTimeout(() => controller.abort(), 25000);
 
             try {
-                const resp = await fetch(`/api/tmdb/search_proxy?query=${encodeURIComponent(query)}&media_type=${mediaType}`, {
+                const resp = await app.fetch(`/api/tmdb/search_proxy?query=${encodeURIComponent(query)}&media_type=${mediaType}`, {
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
@@ -287,36 +277,12 @@ App.BatchCorrection = (function(app) {
                     return;
                 }
 
-                let html = '<table class="failed-table"><tr><th>海报</th><th>标题</th><th>年份</th><th>季详情</th><th>操作</th></tr>';
-                data.results.forEach(item => {
-                    const posterHtml = item.poster_url
-                        ? `<img src="${item.poster_url}" style="width:40px; height:60px; object-fit:cover; border-radius:4px;">`
-                        : '<div style="width:40px;height:60px;background:#e9ecef;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#6c757d;font-size:10px;">无图</div>';
-
-                    let seasonInfo = '';
-                    if (item.media_type === 'tv' && item.seasons_detail && item.seasons_detail.length > 0) {
-                        const parts = item.seasons_detail.map(s => `S${s.season_number}(${s.episode_count}集)`);
-                        seasonInfo = parts.join(', ');
-                        const fullNames = item.seasons_detail.map(s => `S${s.season_number}: ${s.name} (${s.episode_count}集)`).join('\n');
-                        seasonInfo = `<span title="${app.escapeHtml(fullNames)}" style="cursor:help; border-bottom:1px dashed #6c757d;">${app.escapeHtml(seasonInfo)}</span>`;
-                    } else {
-                        seasonInfo = '-';
-                    }
-
-                    html += `<tr>
-                        <td style="padding:4px;">${posterHtml}</td>
-                        <td>${app.escapeHtml(item.title)}</td>
-                        <td>${item.year || ''}</td>
-                        <td>${seasonInfo}</td>
-                        <td><button type="button" onclick="App.BatchCorrection.selectTmdb(${item.id}, '${app.escapeHtml(item.title).replace(/'/g, "\\'")}', '${mediaType}')" class="secondary">选择</button></td>
-                    </tr>`;
-                });
-                html += '</table>';
-                resultsDiv.innerHTML = html;
+                app.renderTmdbResults(resultsDiv, data.results, mediaType,
+                    (id, title, type) => App.BatchCorrection.selectTmdb(id, title, type));
             } catch (e) {
                 clearTimeout(timeoutId);
                 let errMsg = e.message || '网络错误';
-                resultsDiv.innerHTML = `<div style="text-align:center; padding:10px; color:#dc3545;">❌ ${app.escapeHtml(errMsg)}</div>`;
+                resultsDiv.textContent = '❌ ' + errMsg;
                 app.showToast(errMsg, 'error');
             }
         },
@@ -378,7 +344,7 @@ App.BatchCorrection = (function(app) {
             if (stopBtn) stopBtn.disabled = false;
 
             try {
-                const resp = await fetch('/api/failed_cache/batch_correct', {
+                const resp = await app.fetch('/api/failed_cache/batch_correct', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)

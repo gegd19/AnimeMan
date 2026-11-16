@@ -7,8 +7,8 @@
 
 **🤖 AI 驱动的动漫媒体库全自动整理神器 · 专为 NAS 用户与二次元收藏家设计**
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-2.3+-green.svg)](https://flask.palletsprojects.com/)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.1.3-green.svg)](https://flask.palletsprojects.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://hub.docker.com/)
 
@@ -210,25 +210,20 @@ AnimeMan 将这个过程简化为 **「所见即所得」的批量操作**：
 ### 方式一：Docker Compose（推荐）
 
 ```bash
-# 下载项目
 git clone https://github.com/gegd19/AnimeMan.git
 cd AnimeMan
-
-# 修改 docker-compose.yml 中的挂载路径（将 /path/to/... 替换为你 NAS 上的实际路径）
-vim docker-compose.yml
-
-# 准备配置文件
-#### 通过 Web 界面填写（推荐，最简单）
-1. 启动容器后，浏览器访问 `http://你的NAS_IP:8000`。
-2. 在「配置面板」→「API 密钥」中粘贴你的 TMDB API Key，点击「保存配置」即可生效。
-> **无需手动编辑任何文件**，所有路径也可在 Web 界面中通过「浏览」按钮选择。
-
-
-# 启动！
-docker compose up -d
+# 设置 UID/GID、媒体绝对路径和随机 SECRET_KEY，按 DEPLOYMENT.md 准备目录与认证
+cp .env.example .env
+vim .env
+# 完成 DEPLOYMENT.md 的目录权限与配置步骤后启动
+docker compose up -d --build
 ```
 
-浏览器访问 `http://你的NAS_IP:8000`，开始配置。
+默认仅发布到 `http://127.0.0.1:8000`。远程使用前按 [部署说明](DEPLOYMENT.md) 启用认证并配置访问方式，填写 TMDB/AI Key 后保存。已有密钥不会回显，留空会保留；清除需使用对应复选框。
+
+Compose 将配置、缓存、日志和字幕临时工作目录分别保存在 `./config`、`./cache`、`./logs`、`./work`，默认以 UID/GID 1000:1000 运行。示例中的 `SOURCE_FOLDERS`、`TV_TARGET_FOLDER`、`MOVIE_TARGET_FOLDER` 环境变量优先于配置文件，这三个路径会在界面中只读显示。若希望通过 Web 管理媒体路径，请移除这三项环境变量。
+
+**升级已有容器前请先备份旧容器工作目录，勿直接删除旧容器。** 旧版本写在 `/app` 根目录的数据不会自动出现在挂载卷中。路径优先级、源目录数组格式、显式迁移和回滚步骤见 [运行数据与迁移说明](T04-NOTES.md)。健康检查使用不含业务数据的 `/healthz`。
 
 ### 方式二：源码运行（含虚拟环境教程）
 
@@ -237,8 +232,8 @@ docker compose up -d
 git clone https://github.com/gegd19/AnimeMan.git
 cd AnimeMan
 
-# 创建虚拟环境
-python3 -m venv venv
+# 使用 Python 3.12 创建虚拟环境
+python3.12 -m venv venv
 
 # 激活虚拟环境 (Linux/macOS)
 source venv/bin/activate
@@ -253,7 +248,7 @@ venv\Scripts\activate.bat
 
 #### 2. 安装依赖
 ```bash
-pip install -r requirements.txt
+python -m pip install --require-hashes -r requirements.lock
 ```
 
 #### 3. 配置文件
@@ -266,9 +261,22 @@ vim auto_config.json  # 填写 TMDB API Key 和路径
 ```bash
 python web_app.py
 ```
-访问 `http://127.0.0.1:8000`。
+访问 `http://127.0.0.1:8000`。入口使用单进程 Waitress；不要使用多 worker。停机、目录权限、锁定依赖和回滚见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 ---
+
+## 🔍 命令行预览与全量处理
+
+```bash
+# 模拟：只读取和生成计划，不写配置、缓存、媒体、元数据或字幕
+python main.py --config /绝对路径/auto_config.json --dry-run
+# 强制重新处理所有扫描到的文件，保留未扫描项目历史并保存本次结果
+python main.py --config /绝对路径/auto_config.json --force-full
+# 模拟修复已有库缺失的元数据
+python main.py --config /绝对路径/auto_config.json --dry-run --force-full --repair
+```
+
+CLI 覆盖值只影响本次运行，不改写配置文件。模拟仍可能查询 AI/TMDB 等外部 API，也会输出日志，因此不代表离线运行。目标冲突和不安全旧记录仍会被拒绝。Web 中开启模拟模式后，整理、纠错和字幕整理返回计划；配置保存、显式缓存管理及离线缓存扫描是独立操作。[完整契约与测试记录](T05-NOTES.md)。
 
 ## ⚙️ 配置核心项速览
 
@@ -327,6 +335,82 @@ python web_app.py
 | 元数据 | TMDB API v3 |
 | 字幕同步 | ffsubsync, pysubs2 |
 | 部署 | Docker, Docker Compose |
+
+---
+
+## 任务运行与停止
+
+同一服务进程一次接受一个写任务，覆盖整理、纠错、删除、字幕写入及离线扫描/解析。运行或停止过程中发起其他写任务会收到 HTTP 409；仍可读取状态和保存配置，保存的新配置用于下一任务。
+
+点击停止后会显示“正在停止”，直到工作线程退出才可启动新任务。正在执行的网络请求或字幕子进程可能需要等待现有超时。界面保留最终成功/失败计数和日志；双击停止不再强制清空活任务状态。API 客户端可在 `/api/stop?task_id=...` 携带启动时返回的 ID，避免停止过期任务。`force=1` 仅能清理无活线程的残留状态。
+
+该互斥只在单进程内有效；请由一个写进程管理同一媒体库。验证与回滚见 [T06-NOTES.md](T06-NOTES.md)。
+
+---
+
+## 缓存与失败重试
+
+缓存采用同目录临时文件与原子替换，内部按记录更新。已有缓存损坏时保留原文件、创建 `.corrupt-*.bak` 并报错，不自动清空；旧失败项首次重新评估前创建 `.t07-*.bak` 完整备份。
+
+默认增量运行对临时网络失败最多尝试 3 次，后续任务在 60/120 秒退避到期后重试。无匹配、无效输入和冲突在文件/相关配置不变时不自动重试。`--force-full` 可主动重新评估；`no_retry=true` 的人工保留项继续跳过。人工纠错显示“人工确认”，不再以 100% 代表未知算法评分。
+
+新增字段、可选策略、测试与恢复步骤见 [T07-NOTES.md](T07-NOTES.md)。
+
+---
+
+## NFO 与元数据修复
+
+单集 NFO 与实际视频同名，自动整理、人工纠错和 repair 共用路径规则。repair 可补齐电影、剧集、季和每一集的 NFO，以及图片；可先运行 `python main.py --config /path/to/auto_config.json --repair --dry-run` 查看计划，再执行实际修复。
+
+NFO 和图片经过解析/解码验证并原子写入。显式修复替换无效旧文件前创建 `.t08-*.bak`；可解析的自定义 NFO 保持原样。普通整理发现同名无效元数据时会提示先修复。源路径、同 inode 冲突和缺少季/集信息会报告问题，不猜测或覆盖视频。
+
+新增 Pillow 依赖，请重新安装 requirements.txt。完整测试、兼容与恢复说明见 [T08-NOTES.md](T08-NOTES.md)。
+
+---
+
+## 特典扫描与未知集号
+
+`scan_policy.include_specials=true` 可开启默认特典扫描；启用的明确映射也可放行匹配文件。`scan_policy.exclude_patterns` 与文件名 `ignore_patterns` 优先，菜单/CD 等其他无关目录仍跳过。主扫描和离线扫描采用同一规则。未确定的集号保留 unknown，不默认整理为第一集。完整规则见 [T09-NOTES.md](T09-NOTES.md)。
+
+---
+
+## AI 解析与缓存
+
+AI 返回值经过类型、季集号和输入文件标识校验；未知信息交给回退，不默认第一集。文件夹每批最多 30 个实际文件，未覆盖项单独列出，部分结果不计完整成功。同目录同配置请求共享结果，缓存随文件、解析配置及规则版本变化失效；旧解析缓存更新前创建 `.t10-*.bak`。
+
+新长剧结果使用 `files/unparsed_files`，不再把少量样本宏观推断当作全目录解析完成。完整验证、迁移与回滚说明见 [T10-NOTES.md](T10-NOTES.md)。
+
+---
+
+## 字幕处理安全
+
+调轴在独立临时目录中处理副本，保留源字幕和语言后缀；同步结果在临时目录清理前复制到媒体库。覆盖字幕会原子替换目标目录项，避免写穿旧硬链接或软链接。字幕发现按字面文件名前缀匹配，支持带 `[Group]` 的文件名。
+
+批量改名先校验整批，限定配置的源目录及字幕扩展名；重复源/目标、已有目标、源符号链接、依赖及循环改名均拒绝，并返回逐项原因。跨文件系统改名失败时保留源文件。完整契约、测试和回滚说明见 [T11-NOTES.md](T11-NOTES.md)。
+
+---
+
+## 前端渲染与请求错误
+
+文件路径、标题、失败原因和 AI 文本通过 DOM 文本/属性显示；动态操作使用事件监听器及闭包或 dataset 传递原值，避免引号、反斜杠和 HTML 实体改变路径。HTTP 401 提示重新认证，409 提示冲突，500 显示服务器错误，失败响应不会进入正常成功分支。
+
+新增真实 Chromium 回归，页面 API 全部拦截为 mock，不连接真实媒体库。运行方式见 [TESTING.md](TESTING.md)，本卡范围、验证与回滚见 [T12-NOTES.md](T12-NOTES.md)。
+
+---
+
+## 输入与配置校验
+
+接口先检查 JSON 对象、数组规模、路径字符串、数值范围及真正的布尔值，再进行业务处理；不把 `"false"` 当作布尔值。分页 `page` 从 1 开始，`per_page` 为 1–200，批量数组最多 1000 项，请求体上限 4 MiB。非法参数返回 JSON 400，超大请求 413，缺记录 404，任务或关键词冲突 409。
+
+配置加载使用独立的深复制默认值。损坏 JSON、重复字段、错误配置类型或悬空配置链接会阻止业务访问，不自动回退为关闭认证的默认配置；可读取的损坏原件保留并生成私有 `.t13-invalid-*.bak`。配置与映射更新在同一锁内验证后原子写入，失败保留旧配置。完整范围、兼容变化和恢复方式见 [T13-NOTES.md](T13-NOTES.md)。
+
+---
+
+## 媒体身份与派生缓存
+
+海报地址按媒体类型区分，例如 `/media_poster/movie/7` 与 `/media_poster/tv/7`。旧数字地址仅在当前处理记录中无类型歧义时兼容，否则返回 409。电影与 TV 不再因相同数字 ID 共用海报。
+
+媒体库和海报索引以处理缓存为准，成功提交记录后标记过期；刷新完成后才原子发布完整新快照。旧派生缓存升级前生成 `.t14-*.bak`，预览不写派生文件。明确删除记录会移出索引；暂时缺失的目标仍保留离线信息并标记 `target_exists=false`。完整验证和回滚说明见 [T14-NOTES.md](T14-NOTES.md)。
 
 ---
 

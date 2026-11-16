@@ -6,14 +6,24 @@ window.App = window.App || {};
 App.Config = (function(app) {
     'use strict';
 
-    // 记录原始密码，用于判断是否被修改
-    let originalPassword = '';
-
     // ---------- 表单填充 ----------
     function populateForm(cfg) {
         document.getElementById('sourceFoldersInput').value = (cfg.source_folders || []).join(', ');
         document.getElementById('tvTargetFolderInput').value = cfg.tv_target_folder || '';
         document.getElementById('movieTargetFolderInput').value = cfg.movie_target_folder || '';
+        const managed = cfg.environment_managed || [];
+        const pathFields = [
+            ['source_folders', 'sourceFoldersInput', 'sourceBrowseButton', '源文件夹'],
+            ['tv_target_folder', 'tvTargetFolderInput', 'tvBrowseButton', '剧集目标'],
+            ['movie_target_folder', 'movieTargetFolderInput', 'movieBrowseButton', '电影目标'],
+        ];
+        pathFields.forEach(([field, input, button]) => {
+            document.getElementById(input).readOnly = managed.includes(field);
+            document.getElementById(button).disabled = managed.includes(field);
+        });
+        document.getElementById('environmentPathNote').textContent = managed.length
+            ? pathFields.filter(([field]) => managed.includes(field)).map(item => item[3]).join('、') + '由环境变量管理；修改部署环境变量并重启服务后生效。'
+            : '';
         document.getElementById('linkTypeSelect').value = cfg.link_type || 'hard';
         document.getElementById('dryRunCheck').checked = !!cfg.dry_run;
         document.getElementById('incrementalCheck').checked = cfg.incremental !== false;
@@ -24,7 +34,12 @@ App.Config = (function(app) {
         document.getElementById('minFileSizeInput').value = cfg.min_file_size_mb || 0;
         document.getElementById('videoExtInput').value = (cfg.video_extensions || ['.mkv','.mp4']).join(', ');
         document.getElementById('ignorePatternsInput').value = (cfg.ignore_patterns || []).join(', ');
-        document.getElementById('tmdbKeyInput').value = cfg.tmdb_api?.api_key || '';
+        const tmdbKeyInput = document.getElementById('tmdbKeyInput');
+        tmdbKeyInput.value = '';
+        tmdbKeyInput.placeholder = cfg.tmdb_api?.api_key_configured ? '已配置，留空保留' : '必填';
+        document.getElementById('clearTmdbKeyCheck').checked = false;
+        document.getElementById('clearAiKeyCheck').checked = false;
+        document.getElementById('clearAuthPasswordCheck').checked = false;
         document.getElementById('tmdbLanguageInput').value = cfg.tmdb_api?.language || 'zh-CN';
         // 代理字段填充（注意：显示原始值，不自动添加协议，但用户保存时会自动补全）
         document.getElementById('tmdbProxyInput').value = cfg.tmdb_api?.proxy || '';
@@ -41,7 +56,8 @@ App.Config = (function(app) {
         document.getElementById('aiProviderSelect').value = aiParser.provider || 'deepseek';
         document.getElementById('aiModelInput').value = aiParser.model || 'deepseek-flash';
         document.getElementById('aiBaseUrlInput').value = aiParser.base_url || 'https://api.deepseek.com';
-        document.getElementById('aiKeyInput').value = aiParser.api_key || '';
+        document.getElementById('aiKeyInput').value = '';
+        document.getElementById('aiKeyInput').placeholder = aiParser.api_key_configured ? '已配置，留空保留' : '可选';
 
         const aiPlot = cfg.ai_plot_enhance || {};
         document.getElementById('aiPlotEnhanceCheck').checked = !!aiPlot.enabled;
@@ -71,14 +87,9 @@ App.Config = (function(app) {
         document.getElementById('authUsernameInput').value = auth.username || 'admin';
         const pwdInput = document.getElementById('authPasswordInput');
         if (pwdInput) {
-            const pwd = auth.password || '';
-            if (pwd === '******') {
-                pwdInput.value = '';
-                originalPassword = '';
-            } else {
-                pwdInput.value = pwd;
-                originalPassword = pwd;
-            }
+            pwdInput.value = '';
+            pwdInput.placeholder = auth.password_configured ? '已配置，留空保留' : '密码';
+
         }
     }
 
@@ -87,7 +98,7 @@ App.Config = (function(app) {
         const checkbox = e.target;
         if (checkbox.checked) {
             const aiKey = document.getElementById('aiKeyInput').value.trim();
-            if (!aiKey) {
+            if (!aiKey && !app.configCache.ai_parser?.api_key_configured) {
                 const msg = '🤖 AI 解析需调用大模型 API，可能产生少量费用（新用户通常有免费额度）。\n\n请先填写有效的 API Key 再启用。';
                 app.showToast(msg, 'info', 6000);
                 checkbox.checked = false;
@@ -133,7 +144,7 @@ App.Config = (function(app) {
         cfg.ai_parser = cfg.ai_parser || {};
         cfg.ai_parser.enabled = document.getElementById('aiParserEnabledCheck').checked;
         // 如果启用了 AI 但没有 Key，强制禁用
-        if (cfg.ai_parser.enabled && !aiKey) {
+        if (cfg.ai_parser.enabled && !aiKey && !app.configCache.ai_parser?.api_key_configured) {
             cfg.ai_parser.enabled = false;
             app.showToast('⚠️ AI 解析已自动禁用：未填写 API Key', 'warning', 3000);
         }
@@ -145,6 +156,9 @@ App.Config = (function(app) {
 
         cfg.ai_plot_enhance = cfg.ai_plot_enhance || {};
         cfg.ai_plot_enhance.enabled = document.getElementById('aiPlotEnhanceCheck').checked;
+        if (cfg.ai_plot_enhance.enabled && !aiKey && !app.configCache.ai_plot_enhance?.api_key_configured && !document.getElementById('clearAiKeyCheck').checked) {
+            throw new Error('首次启用简介润色请填写 AI Key；已保存的解析密钥会保留');
+        }
         cfg.ai_plot_enhance.temperature = parseFloat(document.getElementById('plotTempInput').value) || 0.7;
         cfg.ai_plot_enhance.max_tokens = parseInt(document.getElementById('plotTokensInput').value) || 500;
         cfg.ai_plot_enhance.api_key = aiKey;
@@ -169,15 +183,16 @@ App.Config = (function(app) {
         cfg.auth.enabled = document.getElementById('authEnabledCheck').checked;
         cfg.auth.username = document.getElementById('authUsernameInput').value.trim();
         const pwdInput = document.getElementById('authPasswordInput');
-        const newPassword = pwdInput.value;
-        if (newPassword === '') {
-            if (originalPassword === '******' || !originalPassword) {
-                cfg.auth.password = '';
-            }
-        } else {
-            cfg.auth.password = newPassword;
-        }
+        cfg.auth.password = pwdInput.value;
 
+        cfg.clear_secrets = [];
+        if (document.getElementById('clearTmdbKeyCheck').checked) cfg.clear_secrets.push('tmdb_api.api_key');
+        if (document.getElementById('clearAiKeyCheck').checked) {
+            cfg.clear_secrets.push('ai_parser.api_key', 'ai_plot_enhance.api_key');
+            cfg.ai_parser.enabled = false;
+            cfg.ai_plot_enhance.enabled = false;
+        }
+        if (document.getElementById('clearAuthPasswordCheck').checked) cfg.clear_secrets.push('auth.password');
         return cfg;
     }
 
@@ -207,7 +222,7 @@ App.Config = (function(app) {
 
         const cfg = app.configCache;
         const missing = [];
-        if (!cfg.tmdb_api?.api_key) missing.push('TMDB API Key');
+        if (!cfg.tmdb_api?.api_key_configured) missing.push('TMDB API Key');
         if ((cfg.source_folders || []).length === 0) missing.push('源文件夹');
         if (!cfg.tv_target_folder) missing.push('剧集目标文件夹');
         if (!cfg.movie_target_folder) missing.push('电影目标文件夹');
@@ -218,7 +233,7 @@ App.Config = (function(app) {
         if (missing.length > 0) {
             const msg = banner.querySelector('#onboardingMessage');
             if (msg) {
-                msg.innerHTML = `检测到尚未配置：<strong>${missing.join('、')}</strong>。`;
+                msg.replaceChildren(document.createTextNode('检测到尚未配置：'), app.el('strong', {text: missing.join('、')}), document.createTextNode('。'));
             }
             banner.style.display = 'block';
         } else {
@@ -230,7 +245,8 @@ App.Config = (function(app) {
     return {
         loadConfig: async function() {
             try {
-                const resp = await fetch('/api/config');
+                const resp = await app.fetch('/api/config');
+                if (!resp.ok) throw new Error('配置读取失败');
                 app.configCache = await resp.json();
                 app.configCache.auth = app.configCache.auth || { enabled: false, username: 'admin', password: '' };
                 populateForm(app.configCache);
@@ -238,14 +254,14 @@ App.Config = (function(app) {
                 if (typeof App.MediaManager !== 'undefined') App.MediaManager.refreshLibrary();
                 checkOnboarding();
             } catch (e) {
-                alert('加载配置失败');
+                alert('加载配置失败：' + e.message);
             }
         },
 
         saveConfig: async function() {
             try {
                 const cfg = collectConfigFromForm();
-                const resp = await fetch('/api/config', {
+                const resp = await app.fetch('/api/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(cfg)
@@ -276,7 +292,7 @@ App.Config = (function(app) {
             btn.textContent = '⏳ 测试中...';
 
             try {
-                const resp = await fetch('/api/tmdb/test');
+                const resp = await app.fetch('/api/tmdb/test');
                 const data = await resp.json();
                 if (data.status === 'success') {
                     app.showToast(`✅ TMDB 连接正常！图片服务器: ${data.images_base_url || '默认'}`, 'success', 5000);
@@ -301,7 +317,7 @@ App.Config = (function(app) {
         onAiEnabledChange: handleAiEnabledChange,
         validateAiKey: function() {
             const aiKey = document.getElementById('aiKeyInput').value.trim();
-            if (!aiKey) {
+            if (!aiKey && !app.configCache.ai_parser?.api_key_configured) {
                 app.showToast('❌ 请先填写 AI API Key，或关闭 AI 解析功能', 'warning', 4000);
                 return false;
             }

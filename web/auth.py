@@ -1,64 +1,59 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-HTTP Basic 认证中间件
-"""
+"""One authentication policy for the global hook and legacy decorators."""
 
 from functools import wraps
-from flask import request, Response
+import hmac
+
+from flask import current_app, g, has_app_context, request, Response, jsonify
 from core import config_manager
+from core.runtime_paths import config_file
 
 CONFIG_PATH = "auto_config.json"
+PUBLIC_ENDPOINTS = frozenset({"healthz", "static"})
 
-# 不需要认证的公开端点（前缀匹配）
-PUBLIC_ENDPOINTS = [
-    '/static/',
-    '/api/status',
-    '/api/log',
-    '/api/drives',
-    '/api/browse',
-    '/media_poster/',
-]
+
+def _config_path():
+    return current_app.config.get("CONFIG_PATH", CONFIG_PATH) if has_app_context() else str(config_file())
+
+
+def _load_checked_config():
+    return config_manager.load_config(_config_path())
 
 
 def check_auth(username, password):
-    """验证用户名密码是否正确"""
-    config = config_manager.load_config(CONFIG_PATH)
-    auth_cfg = config.get("auth", {})
-    if not auth_cfg.get("enabled", False):
+    config = g.request_config if has_app_context() and hasattr(g, "request_config") else _load_checked_config()
+    auth = config.get("auth", {})
+    if not auth.get("enabled", False):
         return True
-    return username == auth_cfg.get("username") and password == auth_cfg.get("password")
+    return (isinstance(username, str) and isinstance(password, str)
+            and hmac.compare_digest(username.encode(), str(auth.get("username", "")).encode())
+            and hmac.compare_digest(password.encode(), str(auth.get("password", "")).encode()))
 
 
 def authenticate():
-    """发送 401 响应，要求浏览器弹出登录框"""
-    return Response(
-        '需要认证。请提供有效的用户名和密码。',
-        401,
-        {'WWW-Authenticate': 'Basic realm="Emby Auto Processor"'}
-    )
+    return Response('需要认证。请提供有效的用户名和密码。', 401,
+                    {'WWW-Authenticate': 'Basic realm="AnimeMan", charset="UTF-8"'})
 
 
-def require_auth(f):
-    """装饰器：要求 HTTP Basic 认证"""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        config = config_manager.load_config(CONFIG_PATH)
-        auth_cfg = config.get("auth", {})
-        if not auth_cfg.get("enabled", False):
-            return f(*args, **kwargs)
-
-        path = request.path
-        for public in PUBLIC_ENDPOINTS:
-            if path.startswith(public):
-                return f(*args, **kwargs)
-
-        # /api/config GET 公开，POST 需要认证（通过装饰器单独控制）
-        if path == '/api/config' and request.method == 'GET':
-            return f(*args, **kwargs)
-
+def enforce_auth():
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    if getattr(g, "auth_checked", False):
+        return None
+    try:
+        g.request_config = _load_checked_config()
+    except (OSError, ValueError, TypeError):
+        return jsonify({"error": "配置无法读取，服务已拒绝业务访问，请修复配置"}), 503
+    if g.request_config.get("auth", {}).get("enabled", False):
         auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
+        if auth is None or auth.type.lower() != "basic" or not check_auth(auth.username, auth.password):
             return authenticate()
-        return f(*args, **kwargs)
-    return decorated
+    g.auth_checked = True
+    return None
+
+
+def require_auth(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        denied = enforce_auth()
+        return denied if denied is not None else function(*args, **kwargs)
+    return wrapped

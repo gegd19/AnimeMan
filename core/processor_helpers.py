@@ -10,6 +10,8 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Optional, Tuple, List, Any
 
+from .cancellation import ProcessingCancelled
+from .json_store import CacheCorruptionError
 from .special_mapping import match_special_mapping
 from . import parser_manager
 from .logger import get_logger
@@ -51,11 +53,8 @@ def get_ai_config_fingerprint(ai_cfg: Dict) -> str:
 
 
 def get_ai_parse_cache_key(file_path_str: str, config: Dict) -> str:
-    """生成 AI 解析缓存键"""
-    ai_cfg = config.get("ai_parser", {})
-    cfg_fp = get_ai_config_fingerprint(ai_cfg)
-    path_hash = hashlib.md5(file_path_str.encode()).hexdigest()[:12]
-    return f"{path_hash}|{cfg_fp}"
+    from .parse_identity import file_key
+    return file_key(file_path_str,config)
 
 
 def get_video_files_in_folder(folder: Path, video_extensions: list, max_depth: int = 2) -> list:
@@ -160,6 +159,8 @@ def parse_filename_info(src: Path, config: dict, log_func,
                         force_season=None, force_episode=None) -> Dict[str, Any]:
     try:
         info = parser_manager.parse_filename(src, config, log_func)
+    except (ProcessingCancelled,CacheCorruptionError,OSError):
+        raise
     except Exception as e:
         logger.error(f"文件名解析失败 {src}: {e}", exc_info=True)
         info = {"media_type": "unknown"}

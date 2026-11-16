@@ -7,7 +7,14 @@
 """
 
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
+from .execution_mode import execution_scope, is_preview
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+from copy import deepcopy
+from .cancellation import ProcessingCancelled
+from .json_store import CacheCorruptionError
+from .parse_identity import with_identity_scope
+from .failure_policy import failure_scope, should_retry, make_failure, note_error
 from typing import Callable, List
 
 from . import config_manager
@@ -24,11 +31,6 @@ LOG_INFO = "info"
 LOG_SUCCESS = "success"
 LOG_WARNING = "warning"
 
-# 将停止标志绑定到核心模块
-import core.processor_core as processor_core
-processor_core.stop_processing = core_stop
-
-
 def _scan_video_files(root: Path, config: dict) -> List[Path]:
     """
     递归扫描视频文件，自动跳过特典/无关目录
@@ -38,12 +40,14 @@ def _scan_video_files(root: Path, config: dict) -> List[Path]:
     def _walk(current: Path):
         try:
             for item in current.iterdir():
+                if core_stop.is_set():
+                    return
                 if item.name.startswith('.'):
                     continue
                 if item.is_symlink():
                     continue
 
-                if should_skip_path(item, root):
+                if should_skip_path(item, root, config):
                     continue
 
                 if item.is_dir():
@@ -67,30 +71,43 @@ def _scan_video_files(root: Path, config: dict) -> List[Path]:
 def run_processor_with_callback(
     config_path: str,
     progress_callback: Callable,
-    repair_mode: bool = False
-) -> None:
+    repair_mode: bool = False,
+    *, config_overrides=None, effective_config=None
+):
     """处理器批量运行入口（供命令行和 Web 调用）"""
     try:
-        config = config_manager.load_config(config_path)
+        overrides = dict(config_overrides or {})
+        config = deepcopy(effective_config) if effective_config is not None else config_manager.load_config(config_path, create_if_missing=not overrides.get("dry_run", False))
+        config.update(overrides)
     except Exception as e:
         logger.error(f"加载配置失败: {e}", exc_info=True)
         raise
 
+    return _run_with_config(config, progress_callback, repair_mode)
+
+
+@execution_scope
+@with_identity_scope
+def _run_with_config(config, progress_callback, repair_mode):
+    if is_preview(config):
+        config = dict(config, dry_run=True)
     tmdb_client._tmdb_limiter = tmdb_client.RateLimiter(min_interval=config.get("tmdb_rate_limit", 0.05))
 
     with cache_manager.cache_lock:
-        cache = cache_manager.load_cache() if config.get("incremental") else {}
-    new_cache = cache.copy()
+        cache = cache_manager.load_cache()
+    new_cache = deepcopy(cache)
+    persisted = deepcopy(cache)
 
     wrapped_log = wrap_progress_callback(progress_callback)
 
     if repair_mode:
-        repair_missing_metadata(config, cache, wrapped_log)
-        return
+        return repair_missing_metadata(config, cache, wrapped_log)
 
     # 扫描视频文件
     video_files = []
     for folder in config["source_folders"]:
+        if core_stop.is_set():
+            break
         p = Path(folder)
         if p.exists():
             try:
@@ -105,7 +122,14 @@ def run_processor_with_callback(
     # 增量过滤
     to_process = []
     for src in video_files:
+        if core_stop.is_set():
+            break
         src_str = str(src.resolve())
+        entry = cache.get(src_str, {})
+        prior_failure = entry if entry.get("media_type") == "failed" else entry.get("last_failure", {})
+        if prior_failure.get("no_retry") is True:
+            wrapped_log(f"🚫 保留人工禁止重试项: {src.name}", LOG_WARNING)
+            continue
         if config.get("incremental") and src_str in cache:
             with cache_manager.cache_lock:
                 entry = cache.get(src_str)
@@ -113,45 +137,130 @@ def run_processor_with_callback(
                     if cache_manager.is_already_processed(src, entry, config):
                         wrapped_log(f"⏭️ 跳过已处理: {src.name}", LOG_INFO)
                         continue
-                if entry and entry.get("media_type") == "failed":
+                    if entry.get("last_failure") and not should_retry(src, entry["last_failure"], config):
+                        wrapped_log(f"🚫 保留旧产物，暂不重试上次失败: {src.name}", LOG_WARNING)
+                        continue
+                if entry and entry.get("media_type") == "failed" and not should_retry(src, entry, config):
                     wrapped_log(f"🚫 跳过失败缓存: {src.name}", LOG_WARNING)
                     continue
         to_process.append(src)
 
+    cache_manager.backup_legacy_failures(to_process)
     total = len(to_process)
     wrapped_log(f"📝 待处理 {total} 个文件", LOG_INFO)
 
-    success = 0
-    SAVE_INTERVAL = 10  # 每成功处理 10 个文件保存一次缓存
-    core_stop.clear()
+    success = failed = completed = 0
+    errors = []
+    workers = max(1, int(config.get("max_workers", 3)))
+    pending = {}
+    remaining = iter(to_process)
+    executor = ThreadPoolExecutor(max_workers=workers)
 
-    with ThreadPoolExecutor(max_workers=config.get("max_workers", 3)) as executor:
-        futures = {executor.submit(process_video, src, config, new_cache, wrapped_log): src for src in to_process}
-        for i, future in enumerate(as_completed(futures), 1):
-            if core_stop.is_set():
-                for f in futures:
-                    f.cancel()
-                wrapped_log("⏹️ 收到停止信号，正在保存缓存...", LOG_WARNING)
-                break
-            try:
-                if future.result():
-                    success += 1
-                    # 每 SAVE_INTERVAL 个成功或最后一个任务时保存缓存
-                    if config.get("incremental") and not config.get("dry_run"):
-                        if success % SAVE_INTERVAL == 0 or i == total:
-                            with cache_manager.cache_lock:
-                                cache_manager.save_cache(new_cache)
-            except Exception as e:
-                src = futures[future]
-                logger.error(f"处理文件异常 {src}: {e}", exc_info=True)
-                wrapped_log(f"任务异常: {e}", "error")
-            if progress_callback:
-                progress_callback(i, total, f"进度 {i}/{total}", "progress")
-
-    # 最终保存缓存，确保所有成功记录落盘
-    if config.get("incremental") and not config.get("dry_run"):
+    def flush_changes(keys=None):
+        if is_preview(config):
+            return
         with cache_manager.cache_lock:
-            cache_manager.save_cache(new_cache)
-        wrapped_log(f"💾 最终缓存已保存，共 {len(new_cache)} 条", LOG_SUCCESS)
+            candidates = new_cache if keys is None else keys
+            changes = {key:deepcopy(new_cache[key]) for key in candidates if key in new_cache
+                       and (key not in persisted or new_cache[key] != persisted[key])}
+            if changes:
+                cache_manager.update_records(changes)
+                persisted.update(deepcopy(changes))
 
-    wrapped_log(f"🎉 全部完成！成功处理 {success}/{total} 个文件", LOG_SUCCESS)
+    def process_one(src):
+        key = str(src.resolve())
+        previous = deepcopy(cache.get(key, {}))
+        previous_failure = previous.get("last_failure", previous)
+        with failure_scope(config, previous_failure) as failure:
+            effective = dict(config)
+            if not is_preview(config):
+                # A publication is not successful until its record is durable.
+                effective['_commit_entry'] = lambda entry: cache_manager.update_records({key:entry})
+            try:
+                success = process_video(src, effective, new_cache, wrapped_log)
+            except (ProcessingCancelled, CacheCorruptionError):
+                raise
+            except Exception as exc:
+                note_error(exc)
+                success = False
+                reason = str(exc)
+                logger.error(f"处理文件异常 {src}: {exc}", exc_info=True)
+            else:
+                observed = new_cache.get(key, {})
+                reason = observed.get('failed_reason', '未找到匹配结果') if observed != previous else '未找到匹配结果'
+            if not success and not is_preview(config):
+                with cache_manager.cache_lock:
+                    entry = new_cache.get(key, {})
+                    observed = entry if entry != previous else {}
+                    replacement = make_failure(src, reason, config, previous=previous_failure,
+                        category=observed.get('failure_category') or failure.category,
+                        error=failure.error or observed.get('last_error'))
+                    if observed.get('error_code'):
+                        replacement['error_code'] = observed['error_code']
+                    if entry.get('target') and entry.get('media_type') != 'failed':
+                        new_cache[key] = dict(entry, last_failure=replacement)
+                    else:
+                        new_cache[key] = replacement
+            return success
+
+    def fill_window():
+        while len(pending) < workers * 2 and not core_stop.is_set():
+            src = next(remaining, None)
+            if src is None:
+                break
+            pending[executor.submit(copy_context().run, process_one, src)] = src
+
+    def consume(future):
+        nonlocal success, failed, completed
+        src = pending.pop(future)
+        if future.cancelled():
+            return
+        try:
+            if future.result():
+                success += 1
+            else:
+                failed += 1
+                if len(errors) < 10:
+                    entry = new_cache.get(str(src), {})
+                    diagnostic = entry.get("last_failure", entry)
+                    errors.append({"file":src.name, "error":diagnostic.get("last_error", diagnostic.get("failed_reason", "整理失败"))})
+        except CacheCorruptionError:
+            raise
+        except ProcessingCancelled:
+            pass
+        except Exception as exc:
+            failed += 1
+            if len(errors) < 10:
+                errors.append({"file":src.name, "error":str(exc)})
+            logger.error(f"处理文件异常 {src}: {exc}", exc_info=True)
+            wrapped_log(f"任务异常: {exc}", "error")
+        completed += 1
+        flush_changes([str(src.resolve())])
+        if progress_callback:
+            progress_callback(completed, total, f"进度 {completed}/{total}", "progress")
+
+    try:
+        fill_window()
+        while pending:
+            if core_stop.is_set():
+                for future in pending:
+                    future.cancel()
+            done, _ = wait(pending, timeout=0.1, return_when=FIRST_COMPLETED)
+            for future in done:
+                consume(future)
+            fill_window()
+    except KeyboardInterrupt:
+        core_stop.set()
+        for future in pending:
+            future.cancel()
+    finally:
+        # Drain every started worker before the last cache save or lease release.
+        executor.shutdown(wait=True, cancel_futures=True)
+        for future in list(pending):
+            consume(future)
+        flush_changes()
+
+    cancelled = core_stop.is_set()
+    message = "任务已取消" if cancelled else "模拟完成" if config.get("dry_run") else "任务完成"
+    wrapped_log(f"{message}：成功 {success}/{total}，失败 {failed}", LOG_WARNING if cancelled else LOG_INFO)
+    return {"success":success, "failed":failed, "completed":completed, "total":total, "cancelled":cancelled, "errors":errors}

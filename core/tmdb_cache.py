@@ -4,11 +4,14 @@
 TMDB 搜索缓存管理
 """
 
+from .json_store import read_json, write_json, update_json, CacheCorruptionError
 import json
 import hashlib
 import time
 import threading
 from pathlib import Path
+from .execution_mode import skip_preview_write
+from .runtime_paths import cache_file, writable
 from typing import Optional, Dict, Any
 
 CACHE_FILE = "tmdb_search_cache.json"
@@ -16,26 +19,20 @@ DEFAULT_TTL = 7 * 24 * 3600  # 7天
 
 _cache_lock = threading.RLock()
 _cache: Dict[str, Dict[str, Any]] = {}
+_cache_path = None
 
 
 def _load_cache() -> Dict[str, Dict[str, Any]]:
-    global _cache
-    path = Path(CACHE_FILE)
-    if not path.exists():
-        return {}
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            _cache = json.load(f)
-    except Exception:
-        _cache = {}
+    global _cache, _cache_path
+    path = cache_file(CACHE_FILE)
+    data = read_json(path)
+    _cache, _cache_path = data, path
     return _cache
 
 
+@skip_preview_write
 def _save_cache(cache_data: Dict[str, Dict[str, Any]]) -> None:
-    temp_file = CACHE_FILE + ".tmp"
-    with open(temp_file, 'w', encoding='utf-8') as f:
-        json.dump(cache_data, f, ensure_ascii=False, indent=2)
-    Path(temp_file).replace(CACHE_FILE)
+    write_json(cache_file(CACHE_FILE), cache_data)
 
 
 def _make_cache_key(query: str, media_type: str, year: str = "") -> str:
@@ -45,8 +42,7 @@ def _make_cache_key(query: str, media_type: str, year: str = "") -> str:
 
 def get_cached_result(query: str, media_type: str, year: str = "", ttl: int = DEFAULT_TTL) -> Optional[Dict[str, Any]]:
     with _cache_lock:
-        if not _cache:
-            _load_cache()
+        _load_cache()
         key = _make_cache_key(query, media_type, year)
         entry = _cache.get(key)
         if not entry:
@@ -61,10 +57,10 @@ def get_cached_result(query: str, media_type: str, year: str = "", ttl: int = DE
         return entry.get('data')
 
 
+@skip_preview_write
 def set_cached_result(query: str, media_type: str, year: str, data: Dict[str, Any], ttl: int = DEFAULT_TTL) -> None:
     with _cache_lock:
-        if not _cache:
-            _load_cache()
+        _load_cache()
         key = _make_cache_key(query, media_type, year)
         now = time.time()
         _cache[key] = {

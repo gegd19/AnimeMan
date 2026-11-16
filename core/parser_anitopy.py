@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 from .parser_helpers import extract_first_number, clean_parent_dir_name
+from .parser_regex import explicit_season_number, chinese_number
 
 try:
     import anitopy
@@ -73,7 +74,7 @@ def parse_with_anitopy(
                     season = int(num_str)
                 else:
                     season_map = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10}
-                    season = season_map.get(num_str, 1)
+                    season = chinese_number(num_str) if chinese_number(num_str) is not None else 1
 
         if log_func:
             log_func(f"📁 纯数字文件名，从父目录提取: 标题={title}, S{season:02d}E{episode:02d}", LOG_INFO)
@@ -163,7 +164,9 @@ def parse_with_anitopy(
         if log_func and title:
             log_func(f"📁 从父目录提取标题: {title}", LOG_INFO)
 
-    season = extract_first_number(parsed.get('anime_season')) or 1
+    season = extract_first_number(parsed.get('anime_season'))
+    if season is None:
+        season = 1
     episode = extract_first_number(parsed.get('episode_number'))
     year = parsed.get('anime_year')
     release_group = parsed.get('release_group', '')
@@ -193,13 +196,19 @@ def parse_with_anitopy(
     m = re.search(r'第\s*([一二三四五六七八九十\d]+)\s*季', combined)
     if m:
         num_str = m.group(1)
-        explicit_season = int(num_str) if num_str.isdigit() else season_map.get(num_str, season)
+        explicit_season = int(num_str) if num_str.isdigit() else chinese_number(num_str) if chinese_number(num_str) is not None else season
     m = re.search(r'[Ss]eason\s*(\d{1,2})', combined, re.I)
     if m:
         explicit_season = int(m.group(1))
     m = re.search(r'[Ss](\d{1,2})(?![Ee])', combined)
     if m:
         explicit_season = int(m.group(1))
+
+    detected = explicit_season_number(filename)
+    if detected is None:
+        detected = explicit_season_number(parent_dir)
+    if detected is not None:
+        season = explicit_season = detected
 
     # 总集数检测
     total_episode = None
@@ -212,7 +221,6 @@ def parse_with_anitopy(
             if m:
                 total_episode = int(m.group(1) or m.group(2))
         if total_episode is not None:
-            episode = 1
             if log_func:
                 log_func(f"🔍 检测到总集数模式: 第{total_episode}集 (显式季数={explicit_season})", LOG_INFO)
 
@@ -221,7 +229,7 @@ def parse_with_anitopy(
         "search_title": title or "",
         "year": year,
         "season": season,
-        "episode": episode or 1,
+        "episode": episode,
         "episode_title": episode_title,
         "alternative_titles": [],
         "year_guess": year,

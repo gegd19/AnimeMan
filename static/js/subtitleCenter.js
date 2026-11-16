@@ -210,15 +210,7 @@ App.SubtitleCenter = (function(app) {
         const container = document.getElementById('subtitlePagination');
         if (!container) return;
         const totalPages = Math.ceil(totalItems / PAGE_SIZE);
-        if (totalPages <= 1) { container.innerHTML = ''; return; }
-        let html = '<div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">';
-        html += `<button onclick="App.SubtitleCenter.goToPage(1)" ${currentPage === 1 ? 'disabled' : ''} style="padding:4px 10px;">⏮️</button>`;
-        html += `<button onclick="App.SubtitleCenter.goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} style="padding:4px 10px;">◀</button>`;
-        html += `<span style="padding:4px 12px; background:#f0f4ff; border-radius:6px;">第 ${currentPage} / ${totalPages} 页</span>`;
-        html += `<button onclick="App.SubtitleCenter.goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} style="padding:4px 10px;">▶</button>`;
-        html += `<button onclick="App.SubtitleCenter.goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''} style="padding:4px 10px;">⏭️</button>`;
-        html += '</div>';
-        container.innerHTML = html;
+        app.pagination(container, currentPage, totalPages, page => App.SubtitleCenter.goToPage(page));
     }
 
     function updateSelectionUI(total, selected) {
@@ -296,7 +288,8 @@ App.SubtitleCenter = (function(app) {
                 const display = info.media_type === 'tv'
                     ? `${info.title} S${(info.season || '').toString().padStart(2, '0')}E${(info.episode || '').toString().padStart(2, '0')}`
                     : `${info.title} (${info.year || ''})`;
-                tdMatch.innerHTML = `<span style="color:#28a745;">✅ 已匹配</span><br><span style="font-size:12px;">${app.escapeHtml(display)}</span>`;
+                tdMatch.replaceChildren(app.el('span', {text: '✅ 已匹配', style: 'color:#28a745;'}),
+                    app.el('br'), app.el('span', {text: display, style: 'font-size:12px;'}));
             } else {
                 tdMatch.textContent = '无匹配';
                 tdMatch.style.color = '#dc3545';
@@ -316,7 +309,7 @@ App.SubtitleCenter = (function(app) {
                 execBtn.textContent = '执行';
                 execBtn.className = 'success';
                 execBtn.style.padding = '4px 10px';
-                execBtn.onclick = () => executeSingle(globalIdx, best, processed);
+                execBtn.addEventListener('click', () => executeSingle(globalIdx, best, processed).catch(error => app.showToast(error.message, 'error')));
                 tdAction.appendChild(execBtn);
             }
             const manSelectBtn = document.createElement('button');
@@ -324,9 +317,9 @@ App.SubtitleCenter = (function(app) {
             manSelectBtn.className = 'secondary';
             manSelectBtn.style.padding = '4px 10px';
             manSelectBtn.style.marginLeft = '5px';
-            manSelectBtn.onclick = () => {
+            manSelectBtn.addEventListener('click', () => {
                 if (typeof App.MediaLibrary !== 'undefined') App.MediaLibrary.showManualSelect(globalIdx);
-            };
+            });
             tdAction.appendChild(manSelectBtn);
             tr.appendChild(tdAction);
 
@@ -375,13 +368,13 @@ App.SubtitleCenter = (function(app) {
             target_media: targetMedia,
             auto_sync: document.getElementById('subtitleCenterAutoSyncCheck').checked
         };
-        const resp = await fetch('/api/subtitle/execute', {
+        const resp = await app.fetch('/api/subtitle/execute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items: [item] })
         });
         const data = await resp.json();
-        app.showToast(`执行完成: ${data.processed}/${data.total}`, 'success');
+        app.showToast(data.dry_run ? `模拟完成：计划整理 ${data.planned}/${data.total}，未写入文件` : `执行完成: ${data.processed}/${data.total}`, 'success');
         await scanSubtitleFolder(); // 刷新列表
     }
 
@@ -389,7 +382,7 @@ App.SubtitleCenter = (function(app) {
     async function scanSubtitleFolder() {
         const folder = document.getElementById('subSourceFolderInput').value.trim();
         if (!folder) return app.showToast('请填写字幕文件夹路径', 'warning');
-        const resp = await fetch('/api/subtitle/scan', {
+        const resp = await app.fetch('/api/subtitle/scan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ folder })
@@ -419,7 +412,7 @@ App.SubtitleCenter = (function(app) {
         const tbody = document.getElementById('subtitleMatchBody');
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">🔄 正在智能匹配字幕...</td></tr>';
         try {
-            const resp = await fetch('/api/subtitle/match', {
+            const resp = await app.fetch('/api/subtitle/match', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ subtitles: app.scannedSubtitles, threshold })
@@ -501,13 +494,13 @@ App.SubtitleCenter = (function(app) {
             }
         }
         if (!items.length) return app.showToast('没有可执行的项目', 'warning');
-        const resp = await fetch('/api/subtitle/execute', {
+        const resp = await app.fetch('/api/subtitle/execute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items })
         });
         const data = await resp.json();
-        app.showToast(`批量执行完成: ${data.processed}/${data.total}`, 'success');
+        app.showToast(data.dry_run ? `模拟完成：计划整理 ${data.planned}/${data.total}，未写入文件` : `批量执行完成: ${data.processed}/${data.total}`, 'success');
         await scanSubtitleFolder();
     }
 
@@ -541,7 +534,7 @@ App.SubtitleCenter = (function(app) {
             let aiSeason = group.season;
             const rep = group.subs[0];
             try {
-                const aiResp = await fetch('/api/subtitle/ai_parse', {
+                const aiResp = await app.fetch('/api/subtitle/ai_parse', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ files: [{ path: rep.path, name: rep.name, parent_dir: rep.parent_dir, grandparent_dir: rep.grandparent_dir }] })
@@ -556,7 +549,7 @@ App.SubtitleCenter = (function(app) {
 
             for (const sub of group.subs) {
                 try {
-                    const matchResp = await fetch('/api/subtitle/match_single', {
+                    const matchResp = await app.fetch('/api/subtitle/match_single', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ subtitle: sub, threshold: 60, force_title: aiTitle })
@@ -620,11 +613,11 @@ App.SubtitleCenter = (function(app) {
                 if (span) {
                     if (target.type === 'movie') {
                         const m = target.data;
-                        span.innerHTML = `🎬 ${app.escapeHtml(cleanTitle(m.title))}${m.year ? ' ('+m.year+')' : ''}`;
+                        span.textContent = `🎬 ${cleanTitle(m.title)}${m.year ? ' ('+m.year+')' : ''}`;
                     } else {
                         const show = target.data.showInfo;
                         const season = target.data.selectedSeason;
-                        span.innerHTML = `📺 ${app.escapeHtml(cleanTitle(show.title))}${show.year ? ' ('+show.year+')' : ''} - 第 ${season} 季`;
+                        span.textContent = `📺 ${cleanTitle(show.title)}${show.year ? ' ('+show.year+')' : ''} - 第 ${season} 季`;
                     }
                 }
                 app.showToast(`已选择${target.type==='movie'?'电影':'剧集'}`, 'success');
@@ -642,7 +635,7 @@ App.SubtitleCenter = (function(app) {
                     const clean = cleanTitle(showInfo.title || '');
                     selectedShowInfo = showInfo;
                     selectedShowInfo.title = clean;
-                    document.getElementById('selectedShowDisplay').innerHTML = `📺 ${clean} (${showInfo.year||''})`;
+                    document.getElementById('selectedShowDisplay').textContent = `📺 ${clean} (${showInfo.year||''})`;
                     app.showToast(`已选择剧集: ${clean}`, 'success');
                 });
             } else app.showToast('媒体库模块未加载', 'error');
@@ -688,17 +681,20 @@ App.SubtitleCenter = (function(app) {
             btn.textContent = '⏳ 处理中...';
 
             try {
-                const r1 = await fetch('/api/subtitle/batch_rename', {
+                const r1 = await app.fetch('/api/subtitle/batch_rename', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ renames })
                 });
                 const d1 = await r1.json();
+                if (d1.dry_run) {
+                    return app.showToast(`模拟完成：计划重命名 ${d1.planned} 个，未改名或入库`, 'info');
+                }
                 if (d1.success === 0) return app.showToast('重命名失败', 'error');
 
                 let msg = '';
                 if (items.length) {
-                    const r2 = await fetch('/api/subtitle/execute', {
+                    const r2 = await app.fetch('/api/subtitle/execute', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ items })

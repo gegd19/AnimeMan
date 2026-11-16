@@ -6,18 +6,23 @@
 - 代理支持：所有 TMDB 请求（含图片下载）均传递 proxy 参数
 """
 
+from .failure_policy import note_error
+from .json_store import CacheCorruptionError
+from .cancellation import check_cancelled, ProcessingCancelled
 import os
 import time
 import json
 from pathlib import Path
+from .path_safety import absolute_link_path, validate_target_path
 from typing import Dict, Optional, Callable
 
 from . import cache_manager, tmdb_client, nfo_writer, file_linker, subtitle_handler, ai_client
 from .processor_helpers import extract_all_alternative_titles
-from .processor_utils import sanitize_filename
+from .media_paths import episode_video_path
 from .processor_cache_ops import save_failed_cache
 from .constants import MIN_FINAL_CONFIDENCE
 from .logger import get_logger
+from .library_transaction import transactional_media, preview_target
 
 logger = get_logger(__name__)
 
@@ -27,6 +32,7 @@ LOG_WARNING = "warning"
 LOG_ERROR = "error"
 
 
+@transactional_media
 def process_tv_branch(
     src: Path,
     config: dict,
@@ -236,7 +242,12 @@ TMDB 搜索结果：
                     else:
                         if log_func:
                             log_func(f"❌ AI 修正后仍无匹配 (S{new_season:02d}E{new_episode:02d})", LOG_ERROR)
+                except ProcessingCancelled:
+                    raise
+                except CacheCorruptionError:
+                    raise
                 except Exception as e:
+                    note_error(e)
                     logger.warning(f"AI 修正响应解析失败: {e}")
                     if log_func:
                         log_func(f"❌ AI 修正响应解析失败: {e}", LOG_WARNING)
@@ -247,11 +258,16 @@ TMDB 搜索结果：
 
         confidence = min(confidence + 5, 100)
 
-        safe_title = sanitize_filename(official_title)
-        folder_name = f"{safe_title} ({official_year})" if config.get("add_year_to_folder") and official_year else safe_title
-        target_root = Path(config["tv_target_folder"])
-        show_dir = target_root / folder_name
-        season_dir = show_dir / f"Season {season:02d}"
+        target_path = episode_video_path(src, config, official_title, official_year,
+                                         season, episode, ep_data.get("name"))
+        season_dir = target_path.parent
+        show_dir = season_dir.parent
+
+        if config.get("dry_run"):
+            target_path = preview_target(src, target_path, config, "tv")
+            if log_func:
+                log_func(f"🔍 [模拟] -> {target_path}", LOG_INFO)
+            return True
 
         nfo_writer.write_tvshow_nfo(show_dir, official_title, tmdb_id, details.get("overview", ""), official_year, len(regular_seasons), config, log_func)
         if config.get("download_images"):
@@ -271,45 +287,19 @@ TMDB 搜索结果：
                 )
 
         nfo_writer.write_season_nfo(season_dir, season, tmdb_id, log_func)
-        nfo_writer.write_episode_nfo(season_dir, ep_data, safe_title, season, episode, tmdb_id, config, log_func)
+        nfo_writer.write_episode_nfo(season_dir, ep_data, official_title, season, episode, tmdb_id, config, log_func, video_path=target_path)
 
-        target_name = f"{folder_name} - S{season:02d}E{episode:02d}"
-        if ep_data.get("name"):
-            target_name += f" - {sanitize_filename(ep_data['name'])}"
-        target_path = season_dir / (target_name + src.suffix)
+        target_path = validate_target_path(src, target_path, config, "tv")
 
-        if config.get("dry_run"):
-            if log_func:
-                log_func(f"🔍 [模拟] -> {target_path}", LOG_INFO)
-            return True
-
-        if target_path.exists():
-            try:
-                src_str = str(src).replace('\\\\?\\', '')
-                tgt_str = str(target_path).replace('\\\\?\\', '')
-                if os.path.samefile(src_str, tgt_str):
-                    if log_func:
-                        log_func(f"🔗 目标已存在且指向同一文件，跳过链接创建", LOG_INFO)
-                else:
-                    target_path.unlink()
-                    if log_func:
-                        log_func(f"🗑️ 已删除已存在的不同目标文件: {target_path.name}", LOG_WARNING)
-            except Exception as e:
-                logger.error(f"处理已存在目标文件失败 {target_path}: {e}")
-                save_failed_cache(src, f"处理已存在目标文件失败: {e}", cache_dict, log_func)
-                return False
-
-        if not target_path.exists():
-            if not file_linker.create_link(src, target_path, config["link_type"], log_func):
-                save_failed_cache(src, "链接创建失败", cache_dict, log_func)
-                return False
-
+        if not file_linker.create_link(src, target_path, config["link_type"], log_func):
+            return False
         src_str = str(src.resolve())
         alt_titles = extract_all_alternative_titles(details, official_title)
 
         with cache_manager.cache_lock:
             cache_dict[src_str] = {
-                "target": str(target_path.resolve()),
+                "target": str(absolute_link_path(target_path)),
+                "source_path": src_str,
                 "fingerprint": cache_manager.get_file_fingerprint(src),
                 "fingerprint_strong": cache_manager.get_file_fingerprint_strong(src),
                 "media_type": "tv",
@@ -329,7 +319,12 @@ TMDB 搜索结果：
         if log_func:
             log_func(f"💾 缓存已保存 (准确率: {confidence}%)", LOG_SUCCESS)
         return True
+    except ProcessingCancelled:
+        raise
+    except CacheCorruptionError:
+        raise
     except Exception as e:
+        note_error(e)
         logger.error(f"剧集分支处理失败 {src}: {e}", exc_info=True)
         save_failed_cache(src, f"处理异常: {e}", cache_dict, log_func)
         return False

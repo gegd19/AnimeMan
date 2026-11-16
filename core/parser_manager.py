@@ -1,284 +1,180 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""统一解析入口，管理各种解析器的调用顺序和缓存（含并发锁）"""
-
-import re
-import threading
+"""Validated parser fallbacks and a shared folder request/result per task."""
+from copy import deepcopy,copy
+from dataclasses import dataclass,field
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+import threading
 
-from . import cache_manager
-from . import ai_client
-from . import folder_ai_cache
-from .cache_manager import ai_parse_cache_lock
-from .parser_helpers import (
-    get_ai_parse_cache_key,
-    get_video_files_in_folder,
-    clean_parent_dir_name
-)
-from .parser_anitopy import parse_with_anitopy, ANITOPY_AVAILABLE
+from . import ai_client,cache_manager,folder_ai_cache,parse_identity
+from .cancellation import check_cancelled,wait_for,ProcessingCancelled
+from .execution_mode import skip_preview_write
+from .json_store import CacheCorruptionError
+from .parse_cache import update_record
+from .parse_contract import normalize_media,normalize_folder,file_id
+from .parser_helpers import get_ai_parse_cache_key
+from .parser_anitopy import parse_with_anitopy,ANITOPY_AVAILABLE
 from .parser_regex import parse_with_regex
-from .offline_ai_preparser import (
-    load_ai_preparse_cache,
-    parse_folder_on_demand,
-    load_raw_cache
-)
+from .runtime_paths import cache_file
 
-LOG_INFO = "info"
-LOG_SUCCESS = "success"
-
-# 内存缓存
-AI_CACHE: Dict[str, Dict] = {}
-_ai_parse_persistent_cache = cache_manager.load_ai_parse_cache()
-
-# ========== 优化项13：并发请求锁 ==========
-_ongoing_folder_parses = {}
-_ongoing_lock = threading.Lock()
+AI_CACHE={}
+_ai_parse_persistent_cache={}
+_persistent_cache_path=None
+_persistent_signature=None
+ai_parse_cache_lock=cache_manager.ai_parse_cache_lock
+_ongoing_folder_parses={}
+_ongoing_lock=threading.RLock()
 
 
-def _save_parse_result(cache_key: str, result: Dict[str, Any]):
+@dataclass
+class FolderFlight:
+    event: object=field(default_factory=threading.Event)
+    result: object=None
+    error: object=None
+
+
+def _ensure_persistent_cache():
+    global _ai_parse_persistent_cache,_persistent_cache_path,_persistent_signature
     with ai_parse_cache_lock:
-        AI_CACHE[cache_key] = result.copy()
-        _ai_parse_persistent_cache[cache_key] = result.copy()
-        cache_manager.save_ai_parse_cache(_ai_parse_persistent_cache)
+        path=cache_file(cache_manager.AI_PARSE_CACHE_FILE)
+        stat=path.stat() if path.exists() else None
+        signature=(stat.st_mtime_ns,stat.st_size,stat.st_ino) if stat else None
+        if path!=_persistent_cache_path or signature!=_persistent_signature:
+            _ai_parse_persistent_cache=cache_manager.load_ai_parse_cache()
+            AI_CACHE.clear();_persistent_cache_path=path;_persistent_signature=signature
 
 
-def _generate_episode_info_from_macro_rules(
-    file_path: Path,
-    rules: Dict[str, Any],
-    stats: Dict[str, Any],
-    log_func: Optional[Callable] = None
-) -> Optional[Dict[str, Any]]:
-    """根据宏观规则为单个文件生成本地解析信息"""
-    filename = file_path.name
-
-    ep_num = None
-    match = re.search(r'第\s*(\d{1,4})\s*[集話话]', filename)
-    if match:
-        ep_num = int(match.group(1))
-    else:
-        match = re.search(r'[Ss]\d{1,2}[Ee](\d{1,4})|(\d{1,3})[xX](\d{1,3})', filename)
-        if match:
-            ep_num = int(match.group(1) or match.group(3))
-        else:
-            match = re.search(r'\b(\d{1,4})\b', Path(filename).stem)
-            if match:
-                num = int(match.group(1))
-                if 1 <= num <= 2000:
-                    ep_num = num
-    if ep_num is None:
-        return None
-
-    media_type = "tv"
-    title = rules.get("folder_title") or stats.get("folder_name", "")
-    year = rules.get("year")
-
-    episode_numbering = rules.get("episode_numbering", "absolute")
-    season = 1
-    episode = ep_num
-
-    if episode_numbering == "season_based" and "season_mapping" in rules:
-        for sea_str, rng in rules["season_mapping"].items():
-            s = int(sea_str)
-            if rng["start_ep"] <= ep_num <= rng["end_ep"]:
-                season = s
-                episode = ep_num - rng["start_ep"] + 1
-                break
-
-    return {
-        "media_type": media_type,
-        "title": title,
-        "search_title": title,
-        "year": year,
-        "season": season,
-        "episode": episode,
-        "episode_title": "",
-        "alternative_titles": [],
-        "year_guess": year,
-        "corrected_season": None,
-        "corrected_episode": None,
-        "_parser": "offline_ai_macro",
-        "explicit_season": season,
-        "total_episode": ep_num if episode_numbering == "absolute" else None
-    }
+@skip_preview_write
+def _save_parse_result(cache_key,result):
+    global _persistent_signature
+    validated=normalize_media(result,trusted=True)
+    if not validated:return False
+    with ai_parse_cache_lock:
+        _ensure_persistent_cache()
+        frame={'_schema':parse_identity.RULE_VERSION,'identity':cache_key,'result':validated}
+        current=update_record(cache_file(cache_manager.AI_PARSE_CACHE_FILE),cache_key,frame)
+        _ai_parse_persistent_cache.clear();_ai_parse_persistent_cache.update(current)
+        AI_CACHE[cache_key]=deepcopy(frame)
+        stat=cache_file(cache_manager.AI_PARSE_CACHE_FILE).stat()
+        _persistent_signature=(stat.st_mtime_ns,stat.st_size,stat.st_ino)
+    return True
 
 
-def _extract_file_info_from_offline_cache(file_path: Path, parse_result: Dict, log_func=None) -> Optional[Dict]:
-    """从离线预解析缓存中提取当前文件的信息"""
-    filename = file_path.name
-
-    if "files" in parse_result:
-        if filename in parse_result["files"]:
-            info = parse_result["files"][filename].copy()
-            if log_func:
-                log_func(f"📦 命中离线精确缓存: {filename}", "info")
-            return info
-
-    if "_stats" in parse_result:
-        return _generate_episode_info_from_macro_rules(
-            file_path, parse_result, parse_result["_stats"], log_func
-        )
-    return None
+def _cached_file_result(key):
+    with ai_parse_cache_lock:
+        frame=AI_CACHE.get(key,_ai_parse_persistent_cache.get(key))
+        if not isinstance(frame,dict) or frame.get('_schema')!=parse_identity.RULE_VERSION or frame.get('identity')!=key:return None
+        return normalize_media(frame.get('result'),trusted=True)
 
 
-def _get_or_wait_folder_parse(folder_path: Path, config: Dict, log_func) -> Optional[Dict]:
-    """获取文件夹解析结果，若已有线程在处理则等待其完成（最多60秒）"""
-    folder_key = str(folder_path.resolve())
-    event = None
+def _extract_file_info_from_offline_cache(file_path,parse_result,log_func=None):
+    if not isinstance(parse_result,dict) or not isinstance(parse_result.get('files'),dict):return None
+    return normalize_media(parse_result['files'].get(Path(file_path).name))
 
+
+@parse_identity.with_identity_scope
+def _get_or_wait_folder_parse(folder_path,config,log_func=None,tmdb_structure=''):
+    check_cancelled()
+    folder_path=Path(folder_path);config=deepcopy(config)
+    if tmdb_structure:
+        config['parse_context']=dict(config.get('parse_context',{}),tmdb_structure=tmdb_structure)
+    legacy_key=str(folder_path.resolve())
+    key=(str(cache_file(folder_ai_cache.CACHE_FILE)),legacy_key,parse_identity.policy_key(config),tmdb_structure)
+    memo=parse_identity.current_memo()
     with _ongoing_lock:
-        if folder_key in _ongoing_folder_parses:
-            event = _ongoing_folder_parses[folder_key]
-
-    if event:
-        if event.wait(timeout=60):
-            return folder_ai_cache.get_cached_folder_parse(folder_path, config)
+        # Compatibility with a previously registered Event; never remove its owner.
+        legacy=_ongoing_folder_parses.get(legacy_key)
+        if legacy is not None:
+            flight=None;owner=False
+        elif key in memo.completed:
+            completed=memo.completed[key]
+            if completed.error:raise copy(completed.error)
+            return deepcopy(completed.result)
         else:
-            if log_func:
-                log_func(f"⚠️ 等待文件夹 AI 解析超时，使用本地回退", "warning")
+            flight=_ongoing_folder_parses.get(key)
+            owner=flight is None
+            if owner:
+                flight=FolderFlight();_ongoing_folder_parses[key]=flight
+    if legacy is not None:
+        return folder_ai_cache.get_cached_folder_parse(folder_path,config) if wait_for(legacy,60) else None
+    if not owner:
+        timeout=config.get('ai_parser',{}).get('folder_wait_timeout',60)
+        if not wait_for(flight.event,timeout):
+            if log_func:log_func('等待文件夹解析超时，交给本地回退；未启动重复请求','warning')
             return None
-
-    event = threading.Event()
-    with _ongoing_lock:
-        _ongoing_folder_parses[folder_key] = event
-
+        if flight.error:raise copy(flight.error)
+        return deepcopy(flight.result)
     try:
-        video_files = get_video_files_in_folder(folder_path, config["video_extensions"])
-        result = ai_client.parse_folder_with_ai(folder_path, video_files, config, log_func)
-        if result:
-            folder_ai_cache.save_folder_parse_result(folder_path, result, config)
-        return result
-    except Exception as e:
-        if log_func:
-            log_func(f"❌ 文件夹 AI 解析异常: {e}", "error")
-        return None
+        result=folder_ai_cache.get_cached_folder_parse(folder_path,config)
+        if result is None:
+            _,files=parse_identity.folder_snapshot(folder_path,config)
+            result=normalize_folder(ai_client.parse_folder_with_ai(folder_path,files,config,log_func,tmdb_structure=tmdb_structure),folder_path,files)
+            if result:
+                parse_identity.assert_snapshot_current(folder_path,config)
+                folder_ai_cache.save_folder_parse_result(folder_path,result,config)
+        flight.result=result or None
+        return deepcopy(flight.result)
+    except BaseException as exc:
+        flight.error=exc
+        raise
     finally:
         with _ongoing_lock:
-            if folder_key in _ongoing_folder_parses:
-                del _ongoing_folder_parses[folder_key]
-        event.set()
+            memo.completed[key]=flight
+            flight.event.set()
+            if _ongoing_folder_parses.get(key) is flight:del _ongoing_folder_parses[key]
 
 
-def parse_filename(
-    file_path: Path,
-    config: Dict[str, Any],
-    log_func: Optional[Callable] = None
-) -> Dict[str, Any]:
-    folder = file_path.parent
-    parent_dir = folder.name
-    ai_cfg = config.get("ai_parser", {})
+def _tag(raw,source):
+    result=normalize_media(raw,trusted=True)
+    if result:
+        result['_parser']=source
+        if source in {'ai_file','ai_folder','offline_ai'}:result['_from_ai']=True
+    return result
 
-    cache_key = get_ai_parse_cache_key(str(file_path), config)
 
-    # 优先检查离线预解析缓存
-    if ai_cfg.get("enabled"):
-        offline_cache = load_ai_preparse_cache()
-        folder_key = str(folder.resolve())
-        if folder_key in offline_cache:
-            cached_entry = offline_cache[folder_key]
-            parse_result = cached_entry.get("parse_result", {})
-            file_info = _extract_file_info_from_offline_cache(file_path, parse_result, log_func)
-            if file_info:
-                file_info.setdefault("search_title", file_info.get("title"))
-                file_info.setdefault("alternative_titles", [])
-                file_info.setdefault("year_guess", file_info.get("year"))
-                file_info["_from_offline_ai"] = True
-                _save_parse_result(cache_key, file_info)
-                if log_func:
-                    log_func(f"📦 命中离线预解析缓存: {file_path.name}", LOG_INFO)
-                return file_info
-
-    # 1. 实时文件夹批量缓存
-    if ai_cfg.get("enabled"):
-        cached_folder = folder_ai_cache.get_cached_folder_parse(folder, config)
-        if cached_folder and "files" in cached_folder:
-            file_info = cached_folder["files"].get(file_path.name)
-            if file_info:
-                result = file_info.copy()
-                result.setdefault("search_title", result.get("title"))
-                result.setdefault("alternative_titles", [])
-                result.setdefault("year_guess", result.get("year"))
-                result.setdefault("corrected_season", None)
-                result.setdefault("corrected_episode", None)
-                result.setdefault("explicit_season", result.get("season", 1))
-                result.setdefault("total_episode", None)
-                result["_from_folder_cache"] = True
-                if log_func:
-                    log_func(f"📁 使用文件夹缓存解析: {file_path.name} -> {result.get('title')} S{result.get('season', 1):02d}E{result.get('episode', 1):02d}", LOG_INFO)
-                return result
-
-    # 2. 单文件 AI 缓存
-    with ai_parse_cache_lock:
-        if cache_key in AI_CACHE:
-            return AI_CACHE[cache_key].copy()
-        if cache_key in _ai_parse_persistent_cache:
-            result = _ai_parse_persistent_cache[cache_key].copy()
-            AI_CACHE[cache_key] = result
-            return result
-
-    # 3. 实时批量 AI（使用并发锁）
-    if ai_cfg.get("enabled") and ai_cfg.get("batch_folder_enabled", True):
-        video_files = get_video_files_in_folder(folder, config["video_extensions"])
-        if len(video_files) >= 2:
-            if log_func:
-                log_func(f"🤖 触发实时批量 AI 解析: {parent_dir}", LOG_INFO)
-            folder_result = _get_or_wait_folder_parse(folder, config, log_func)
-            if folder_result:
-                file_info = folder_result.get("files", {}).get(file_path.name)
-                if file_info:
-                    result = file_info.copy()
-                    result.setdefault("search_title", result.get("title"))
-                    result.setdefault("alternative_titles", [])
-                    result.setdefault("year_guess", result.get("year"))
-                    result.setdefault("corrected_season", None)
-                    result.setdefault("corrected_episode", None)
-                    result.setdefault("explicit_season", result.get("season", 1))
-                    result.setdefault("total_episode", None)
-                    result["_from_folder_cache"] = True
-                    _save_parse_result(cache_key, result)
-                    return result
-
-    # 4. anitopy
-    anime_result = None
-    if config.get("anime_parser", {}).get("enabled") and ANITOPY_AVAILABLE:
-        anime_result = parse_with_anitopy(file_path.name, parent_dir, log_func)
-        if anime_result.get("_anitopy_success"):
-            _save_parse_result(cache_key, anime_result)
-            return anime_result
-        elif not config.get("anime_parser", {}).get("fallback_to_regex", True):
-            return {"media_type": "unknown"}
-
-    # 5. 按需离线 AI 预解析缓存
-    if ai_cfg.get("enabled"):
-        raw_data = load_raw_cache()
-        folder_key = str(folder.resolve())
-        if folder_key in raw_data:
-            if log_func:
-                log_func(f"💡 anitopy 失败，触发按需 AI 解析: {parent_dir}", LOG_INFO)
-            parse_result = parse_folder_on_demand(folder, config, log_func=log_func)
-            if parse_result:
-                file_info = _extract_file_info_from_offline_cache(file_path, parse_result, log_func)
-                if file_info:
-                    file_info.setdefault("search_title", file_info.get("title"))
-                    file_info.setdefault("alternative_titles", [])
-                    file_info.setdefault("year_guess", file_info.get("year"))
-                    file_info["_from_offline_ai"] = True
-                    _save_parse_result(cache_key, file_info)
-                    if log_func:
-                        log_func(f"📦 离线 AI 按需解析成功: {file_path.name}", LOG_INFO)
-                    return file_info
-
-    # 6. 单文件 AI 解析
-    if ai_cfg.get("enabled"):
-        ai_result = ai_client.parse_filename_with_ai(
-            file_path, config, log_func,
-            anitopy_hint=anime_result
-        )
-        if ai_result.get("media_type") in ("movie", "tv"):
-            _save_parse_result(cache_key, ai_result)
-            return ai_result
-
-    # 7. 正则回退
-    regex_result = parse_with_regex(file_path.name, parent_dir)
-    _save_parse_result(cache_key, regex_result)
-    return regex_result
+@parse_identity.with_identity_scope
+def parse_filename(file_path,config,log_func=None):
+    from .offline_ai_preparser import get_cached_preparse,parse_folder_on_demand,load_raw_cache
+    _ensure_persistent_cache();check_cancelled()
+    file_path=Path(file_path);folder=file_path.parent
+    key=get_ai_parse_cache_key(str(file_path),config)
+    enabled=config.get('ai_parser',{}).get('enabled',False)
+    if enabled:
+        for source,result in [('offline_ai',get_cached_preparse(folder,config)),
+                              ('ai_folder',folder_ai_cache.get_cached_folder_parse(folder,config))]:
+            info=_extract_file_info_from_offline_cache(file_path,result)
+            if info:
+                info=_tag(info,source);parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+    cached=_cached_file_result(key)
+    if cached:return cached
+    if enabled and config.get('ai_parser',{}).get('batch_folder_enabled',True):
+        _,files=parse_identity.folder_snapshot(folder,config)
+        if len(files)>=2:
+            try:batch=_get_or_wait_folder_parse(folder,config,log_func)
+            except (ProcessingCancelled,CacheCorruptionError,OSError):raise
+            except Exception as exc:
+                if log_func:log_func(f'文件夹解析异常，交给回退：{exc}','warning')
+                batch=None
+            info=_extract_file_info_from_offline_cache(file_path,batch)
+            if info:
+                info=_tag(info,'ai_folder');parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+    anime=None
+    if config.get('anime_parser',{}).get('enabled') and ANITOPY_AVAILABLE:
+        anime=parse_with_anitopy(file_path.name,folder.name,log_func)
+        info=_tag(anime,'anitopy')
+        if info and anime.get('_anitopy_success'):
+            parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+        if not config.get('anime_parser',{}).get('fallback_to_regex',True):return {'media_type':'unknown'}
+    if enabled and str(folder.resolve()) in load_raw_cache():
+        result=parse_folder_on_demand(folder,config,log_func=log_func)
+        info=_extract_file_info_from_offline_cache(file_path,result)
+        if info:
+            info=_tag(info,'offline_ai');parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+    if enabled:
+        info=_tag(ai_client.parse_filename_with_ai(file_path,config,log_func,anitopy_hint=anime),'ai_file')
+        if info:
+            parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+    result=parse_with_regex(file_path.name,folder.name)
+    info=_tag(result,'regex')
+    if info:parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+    return result

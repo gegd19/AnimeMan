@@ -13,9 +13,13 @@
 - 代理支持：所有 TMDB 请求均传递 proxy 参数
 """
 
+from .json_store import CacheCorruptionError
+from .cancellation import ProcessingCancelled
+from .parse_identity import tmdb_scope
 import re
 import json
 from pathlib import Path
+from .execution_mode import is_preview
 from typing import Dict, Any, Optional, Callable, List, Tuple
 
 from . import folder_ai_cache, ai_client, tmdb_client
@@ -57,6 +61,10 @@ def _search_tmdb_for_folder(
                 log_func(f"⚠️ TMDB 搜索无结果: {clean_name}", "warning")
             return None
         return results
+    except ProcessingCancelled:
+        raise
+    except CacheCorruptionError:
+        raise
     except Exception as e:
         logger.warning(f"TMDB 搜索失败: {e}")
         if log_func:
@@ -121,6 +129,10 @@ def _ai_select_tmdb_series(
                         title = selected.get("name") or selected.get("title")
                         log_func(f"✅ AI 选择剧集: {title} (ID: {selected.get('id')})", "success")
                     return selected
+    except ProcessingCancelled:
+        raise
+    except CacheCorruptionError:
+        raise
     except Exception as e:
         logger.warning(f"AI 选择 TMDB 剧集失败: {e}")
         if log_func:
@@ -164,6 +176,10 @@ def _get_tmdb_structure(
         structure_text = f"剧集: {title}\n" + "\n".join(structure_lines) + f"\n总计: {len(structure_lines)}季, {total_episodes}集"
         return structure_text
 
+    except ProcessingCancelled:
+        raise
+    except CacheCorruptionError:
+        raise
     except Exception as e:
         logger.warning(f"获取 TMDB 结构失败: {e}")
         if log_func:
@@ -210,14 +226,14 @@ def _get_tmdb_info_for_folder(
     如果 info 提供且标题疑似缩写，强制触发 TMDB 搜索。
     返回 (tmdb_id, structure_text)，失败返回 (None, None)。
     """
-    folder_key = str(folder_path.resolve())
+    folder_key = tmdb_scope(folder_path,config)
 
     # 检查缓存
     if folder_key in _tmdb_search_cache:
         cached = _tmdb_search_cache[folder_key]
         if log_func:
-            log_func(f"📦 命中 TMDB 选择缓存: {cached.get('title')} (ID: {cached.get('tmdb_id')})", "info")
-        return cached.get("tmdb_id"), cached.get("structure_text")
+            log_func(f"📦 命中 TMDB 选择缓存: {cached.get('title')} (ID: {cached.get('id')})", "info")
+        return cached.get("id"), cached.get("structure_text")
 
     # 决定是否搜索
     should_search = True
@@ -253,11 +269,13 @@ def _get_tmdb_info_for_folder(
     structure_text = _get_tmdb_structure(tmdb_id, config, log_func)
 
     # 写入缓存
-    _tmdb_search_cache[folder_key] = {
-        "tmdb_id": tmdb_id,
-        "title": title,
-        "structure_text": structure_text
-    }
+    if not is_preview():
+        _tmdb_search_cache[folder_key] = {
+            "id": tmdb_id,
+            "media_type":"tv",
+            "title": title,
+            "structure_text": structure_text
+        }
 
     return tmdb_id, structure_text
 
@@ -318,43 +336,16 @@ def try_folder_ai_batch(
         if log_func:
             log_func(f"📦 命中文件夹 AI 批量解析缓存: {folder_path.name}", "success")
     else:
-        video_files = []
-        for ext in config.get("video_extensions", [".mkv", ".mp4"]):
-            for f in folder_path.glob(f"*{ext}"):
-                if f.is_file():
-                    video_files.append(f)
-        if video_files:
-            if log_func:
-                log_func(f"🤖 调用 AI 批量解析文件夹: {folder_path.name} (共 {len(video_files)} 个文件)", "info")
-
-            try:
-                batch_result = ai_client.parse_folder_with_ai(
-                    folder_path, video_files, config, log_func,
-                    tmdb_structure=tmdb_structure or ""
-                )
-                if batch_result:
-                    folder_ai_cache.save_folder_parse_result(folder_path, batch_result, config)
-                else:
-                    if log_func:
-                        log_func(f"⚠️ AI 批量解析返回空结果", "warning")
-            except Exception as e:
-                logger.warning(f"AI 批量解析异常: {e}")
-                if log_func:
-                    log_func(f"⚠️ AI 批量解析异常: {e}", "warning")
-        else:
-            if log_func:
-                log_func(f"⚠️ 文件夹内无视频文件，跳过批量解析", "warning")
+        from .parser_manager import _get_or_wait_folder_parse
+        batch_result = _get_or_wait_folder_parse(folder_path,config,log_func,tmdb_structure or '')
 
     # 尝试从批量结果中获取当前文件信息
     if batch_result and "files" in batch_result:
         file_info = batch_result["files"].get(src.name)
         if file_info:
-            info["season"] = file_info.get("season", info["season"])
-            info["episode"] = file_info.get("episode", info["episode"])
-            info["title"] = file_info.get("title") or batch_result.get("folder_title") or info["title"]
-            info["_from_folder_ai_batch"] = True
-            if log_func:
-                log_func(f"✅ 从批量解析中获取集数: S{info['season']:02d}E{info['episode']:02d}", "success")
+            info.update(file_info)
+            info['_from_folder_ai_batch'] = True
+            if log_func:log_func(f'✅ 批量解析命中 {src.name}: {info.get("title")} ({info.get("media_type")})','success')
             return info
 
     # 批量解析失败或未覆盖当前文件，尝试单文件 AI 解析作为兜底
@@ -368,6 +359,10 @@ def try_folder_ai_batch(
             if log_func:
                 log_func(f"✅ 单文件 AI 解析成功", "success")
             return single_result
+    except ProcessingCancelled:
+        raise
+    except CacheCorruptionError:
+        raise
     except Exception as e:
         logger.warning(f"单文件 AI 解析失败: {e}")
         if log_func:

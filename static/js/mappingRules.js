@@ -25,20 +25,12 @@ App.MappingRules = (function(app) {
             return;
         }
         app.mappingRules.forEach((r, i) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><code>${app.escapeHtml(r.keyword)}</code></td>
-                <td>${r.tmdb_id}</td>
-                <td>${r.media_type === 'movie' ? '🎬' : '📺'}</td>
-                <td>${r.media_type === 'tv' ? `S${(r.season || 0).toString().padStart(2, '0')}E${(r.episode || 1).toString().padStart(2, '0')}` : '-'}</td>
-                <td>${r.enabled !== false ? '✅' : '⏸️'}</td>
-            `;
-            const td = document.createElement('td');
-            td.innerHTML = `
-                <button onclick="App.MappingRules.editMappingRule(${i})" class="secondary" style="padding:4px 8px;">✏️</button>
-                <button onclick="App.MappingRules.deleteMappingRule(${i})" class="danger" style="padding:4px 8px;">🗑️</button>
-            `;
-            tr.appendChild(td);
+            const episode = r.media_type === 'tv' ? `S${String(r.season || 0).padStart(2, '0')}E${String(r.episode || 1).padStart(2, '0')}` : '-';
+            const tr = app.el('tr', {}, app.el('td', {}, app.el('code', {text: r.keyword})),
+                app.el('td', {text: r.tmdb_id}), app.el('td', {text: r.media_type === 'movie' ? '🎬' : '📺'}),
+                app.el('td', {text: episode}), app.el('td', {text: r.enabled !== false ? '✅' : '⏸️'}),
+                app.el('td', {}, app.button('✏️', () => App.MappingRules.editMappingRule(i)),
+                    app.button('🗑️', () => App.MappingRules.deleteMappingRule(i), 'danger')));
             tbody.appendChild(tr);
         });
     }
@@ -53,7 +45,7 @@ App.MappingRules = (function(app) {
          * 加载映射规则
          */
         loadMappingRules: async function() {
-            const resp = await fetch('/api/special_mappings');
+            const resp = await app.fetch('/api/special_mappings');
             const data = await resp.json();
             app.mappingRules = data.mappings || [];
             _renderTable();
@@ -119,7 +111,7 @@ App.MappingRules = (function(app) {
             }
             const method = idx >= 0 ? 'PUT' : 'POST';
             const body = idx >= 0 ? { index: idx, rule } : { rule };
-            const resp = await fetch('/api/special_mappings', {
+            const resp = await app.fetch('/api/special_mappings', {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
@@ -138,7 +130,7 @@ App.MappingRules = (function(app) {
          */
         deleteMappingRule: async function(idx) {
             if (!confirm('确定要删除这条映射规则吗？')) return;
-            const resp = await fetch(`/api/special_mappings?index=${idx}`, { method: 'DELETE' });
+            const resp = await app.fetch(`/api/special_mappings?index=${idx}`, { method: 'DELETE' });
             const data = await resp.json();
             if (data.status === 'success') {
                 await this.loadMappingRules();

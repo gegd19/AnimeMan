@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-已处理缓存管理 API（支持分页、排序、详细路径、批量删除、单条重试并设100%置信度）
+已处理缓存管理 API（支持分页、排序、详细路径、批量删除、单条重试并保留算法置信度）
 """
 
+from core.cancellation import ProcessingCancelled, stop_processing
 from pathlib import Path
-from flask import request, jsonify
-from core import cache_manager, config_manager
+from flask import request, jsonify, g
+from .task_state import request_config
+from core import cache_manager
 from .auth import require_auth
+from core.path_safety import UnsafePathError
 
 CONFIG_PATH = "auto_config.json"
 
 
 def register(app):
+    config_path = app.config.get("CONFIG_PATH", CONFIG_PATH)
+
     @app.route('/api/processed_cache', methods=['GET'])
     def get_processed_cache():
         """获取非失败的已处理缓存记录，支持分页和排序"""
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 50))
+        page = g.validated_query['page']
+        per_page = g.validated_query['per_page']
         sort_by = request.args.get('sort', 'processed_time')
         order = request.args.get('order', 'desc')
 
@@ -46,12 +51,15 @@ def register(app):
                 "year": entry.get("year"),
                 "tmdb_id": entry.get("tmdb_id"),
                 "confidence": entry.get("confidence", 0),
+                "confirmed_by_user": entry.get("confirmed_by_user", False),
+                "last_failure": entry.get("last_failure"),
                 "processed_time": entry.get("processed_time", 0)
             })
 
         reverse = (order == 'desc')
         if sort_by == 'confidence':
-            items.sort(key=lambda x: x['confidence'], reverse=reverse)
+            items.sort(key=lambda x: (x['confidence'] is None,
+                       -(x['confidence'] or 0) if reverse else (x['confidence'] or 0)))
         elif sort_by == 'title':
             items.sort(key=lambda x: x['title'].lower(), reverse=reverse)
         elif sort_by == 'src_name':
@@ -115,16 +123,18 @@ def register(app):
             cache = cache_manager.load_cache()
             deleted = 0
             for path in src_paths:
+                if stop_processing.is_set():
+                    break
                 if path in cache:
                     del cache[path]
                     deleted += 1
             cache_manager.save_cache(cache)
-        return jsonify({"status": "success", "deleted": deleted})
+        return jsonify({"status": "cancelled" if stop_processing.is_set() else "success", "deleted": deleted})
 
     @app.route('/api/processed_cache/retry', methods=['POST'])
     @require_auth
     def retry_processed_cache_item():
-        """对已处理的缓存记录重新执行完整处理流程，并将置信度设为 100%"""
+        """重试整理，成功提交新记录后再清理旧产物。"""
         data = request.json
         src_path = data.get('src_path')
         if not src_path:
@@ -134,37 +144,20 @@ def register(app):
         if not src.exists():
             return jsonify({"status": "error", "message": "源文件不存在"}), 404
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
 
-        # 清理旧的目标文件和缓存记录
-        from core.processor_cache_ops import cleanup_previous_artifacts
-        cleanup_previous_artifacts(src, config)
-
-        with cache_manager.cache_lock:
-            cache = cache_manager.load_cache()
-            if src_path in cache:
-                del cache[src_path]
-                cache_manager.save_cache(cache)
-
-        # 日志回调适配（使用 task_state 的进度回调）
-        from .task_state import progress_callback
-        def log_func(msg, level="info"):
-            # 包装为适应 core 层的回调格式
-            progress_callback(0, 0, msg, level)
-
-        # 调用核心处理函数
+        from core.library_transaction import reprocess_safely
         from core.processor_core import process_video
-        temp_cache = {}
-        success = process_video(src, config, temp_cache, log_func)
-
+        from .task_state import progress_callback
+        try:
+            success, code = reprocess_safely(
+                src, config, lambda effective, result: process_video(src, effective, result, progress_callback))
+        except UnsafePathError as exc:
+            return jsonify({"status": "error", "code": "needs_reindex", "message": str(exc)}), 409
+        except ProcessingCancelled:
+            raise
+        except Exception as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 500
         if success:
-            with cache_manager.cache_lock:
-                cache = cache_manager.load_cache()
-                cache.update(temp_cache)
-                # 强制将新记录的置信度设为 100（代表用户手动确认）
-                if src_path in cache:
-                    cache[src_path]["confidence"] = 100
-                cache_manager.save_cache(cache)
-            return jsonify({"status": "success"})
-        else:
-            return jsonify({"status": "error", "message": "重新处理失败，请查看日志"}), 500
+            return jsonify({"status": "success", "dry_run": bool(config.get("dry_run"))})
+        return jsonify({"status": "error", "code": code, "message": "重新处理失败，旧产物已保留"}), 409 if code == "target_conflict" else 500

@@ -2,7 +2,11 @@
 *.log
 *.cache
 auto_processed_cache.json
+auto_processed_cache.json.t01-*.bak
 ai_parse_cache.json
+ai_preparse_cache.json
+folder_ai_cache.json
+.migration-backups/
 folder_ai_parse_cache.json
 raw_scan_cache.json
 tmdb_search_cache.json
@@ -18,7 +22,16 @@ __pycache__/
 *.so
 venv/
 .venv/
+node_modules/
 
 # IDE
 .vscode/
 .idea/
+
+# Deployment secrets and runtime volumes
+.env
+config/
+cache/
+logs/
+work/
+.animeman-server.lock

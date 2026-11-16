@@ -5,9 +5,11 @@
 跨平台创建硬链接或符号链接，处理各种异常降级，Windows 权限不足时给出友好提示
 """
 
+from .cancellation import check_cancelled
 import os
 import platform
 from pathlib import Path
+from .execution_mode import is_preview
 from typing import Optional, Callable
 
 # 日志级别常量（避免循环导入）
@@ -37,7 +39,12 @@ def create_link(
     创建链接（硬链接或符号链接），失败时自动尝试降级。
     Windows 下因权限不足导致符号链接失败时，提示用户开启开发者模式。
     """
-    if dst.exists():
+    check_cancelled()
+    if is_preview():
+        if log_func:
+            log_func(0, 0, f"🔍 [模拟] 链接: {dst}", LOG_INFO)
+        return True
+    if dst.exists() or dst.is_symlink():
         try:
             if os.path.samefile(str(src), str(dst)):
                 if log_func:

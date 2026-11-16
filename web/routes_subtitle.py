@@ -5,8 +5,10 @@
 包含本地字幕扫描匹配、AI 匹配入库与批量重命名
 """
 
+from core.cancellation import check_cancelled, ProcessingCancelled
 from pathlib import Path
 from flask import request, jsonify
+from .task_state import request_config
 from core import subtitle_handler, config_manager
 from core.cache_manager import load_cache
 from .task_state import progress_callback
@@ -32,21 +34,25 @@ def _wrap_callback(cb):
 
 
 def register(app):
+    config_path = app.config.get("CONFIG_PATH", CONFIG_PATH)
+
     @app.route('/api/subtitle/scan', methods=['POST'])
     def scan_subtitle_folder():
         """扫描本地字幕文件夹（返回结果已包含目录上下文）"""
         data = request.json or {}
         folder = data.get('folder', '')
         if not folder:
-            config = config_manager.load_config(CONFIG_PATH)
+            config = request_config(config_path)
             folder = config.get("subtitle_center", {}).get("default_source_folder", "")
         if not folder:
             return jsonify({"error": "未指定字幕文件夹"}), 400
 
         try:
-            config = config_manager.load_config(CONFIG_PATH)
+            config = request_config(config_path)
             subs = subtitle_handler.scan_subtitle_folder(folder, config)
             return jsonify({"subtitles": subs, "folder": folder})
+        except ProcessingCancelled:
+            raise
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -57,7 +63,7 @@ def register(app):
         subtitles = data.get('subtitles', [])
         threshold = data.get('threshold', 60)
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         library = subtitle_handler.get_media_library_from_cache(config)
 
         results = []
@@ -81,10 +87,11 @@ def register(app):
         data = request.json
         items = data.get('items', [])
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         wrapped_log = _wrap_callback(progress_callback)
         success = 0
         for item in items:
+            check_cancelled()
             if subtitle_handler.execute_subtitle_organization(
                 item['subtitle_path'],
                 item['target_media'],
@@ -94,12 +101,14 @@ def register(app):
             ):
                 success += 1
 
-        return jsonify({"status": "success", "processed": success, "total": len(items)})
+        preview = bool(config.get("dry_run"))
+        return jsonify({"status": "success", "processed": 0 if preview else success,
+                        "planned": success if preview else 0, "dry_run": preview, "total": len(items)})
 
     @app.route('/api/media/library', methods=['GET'])
     def get_media_library():
         """获取已入库媒体库列表（用于字幕手动选择）"""
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         library = subtitle_handler.get_media_library_from_cache(config)
         return jsonify(library)
 
@@ -112,7 +121,7 @@ def register(app):
         if not files or not show_info:
             return jsonify({"error": "缺少必要参数"}), 400
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         wrapped_log = _wrap_callback(progress_callback)
         results = subtitle_handler.ai_match_subtitles_to_show(files, show_info, config, wrapped_log)
         return jsonify({"results": results})
@@ -126,8 +135,11 @@ def register(app):
             return jsonify({"error": "无重命名项"}), 400
 
         wrapped_log = _wrap_callback(progress_callback)
-        result = subtitle_handler.batch_rename_subtitles(renames, wrapped_log)
-        return jsonify({"status": "success", "success": result["success"], "failed": result["failed"]})
+        config = request_config(config_path)
+        result = subtitle_handler.batch_rename_subtitles(renames, wrapped_log, config=config)
+        return jsonify({"status": "success", "success": result["success"], "failed": result["failed"],
+                        "planned": result.get("planned", 0), "dry_run": bool(config.get("dry_run")),
+                        "results": result.get("results", [])})
 
     # ---------- 新增：AI 解析字幕文件名（用于分组优化） ----------
     @app.route('/api/subtitle/ai_parse', methods=['POST'])
@@ -138,7 +150,7 @@ def register(app):
         if not files:
             return jsonify({"error": "缺少文件列表"}), 400
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         wrapped_log = _wrap_callback(progress_callback)
         parsed = subtitle_handler.ai_parse_subtitle_files(files, config, wrapped_log)
         return jsonify({"results": parsed})
@@ -155,7 +167,7 @@ def register(app):
         if not sub:
             return jsonify({"error": "缺少字幕信息"}), 400
 
-        config = config_manager.load_config(CONFIG_PATH)
+        config = request_config(config_path)
         library = subtitle_handler.get_media_library_from_cache(config)
 
         match_name = force_title if force_title else sub.get('name', '')

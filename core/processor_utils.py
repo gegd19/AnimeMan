@@ -45,44 +45,66 @@ def should_skip_file(file_path: Path) -> bool:
 _PATH_TOKEN_SPLIT = re.compile(r'[\s\[\]\(\)\{\}._\-+&,，、【】（）]+')
 
 
-def should_skip_path(path: Path, root: Optional[Path] = None) -> bool:
-    """检查目录名是否为特典/无关目录（不区分大小写）
+SPECIAL_PATH_KEYWORDS = {'ova','oad','sp','sps','specials','特典','映像特典','omake','おまけ','bonus'}
 
-    - 只检查 root 之下的目录部分，挂载点（如 /media/source）本身不参与判断
-    - 按分隔符切成词后做整词匹配，避免 "media" 命中 "ed"、"shared" 命中 "ed" 这类误判
-    """
-    parts = path.parts
+
+def _scan_root(path, config):
+    candidates = [Path(value).absolute() for value in config.get('source_folders', [])]
+    parents = [root for root in candidates if path == root or root in path.parents]
+    return max(parents,key=lambda root:len(root.parts)) if parents else path.parent
+
+
+def should_skip_path(path, root=None, config=None):
+    import fnmatch
+    path = Path(path)
+    root = Path(root) if root is not None else (_scan_root(path,config) if config is not None else None)
+    relative = path
     if root is not None:
         try:
-            parts = path.relative_to(root).parts
+            relative = path.relative_to(root)
         except ValueError:
             pass
-    for part in parts:
-        part_lower = part.lower()
-        if part_lower in SKIP_PATH_KEYWORDS:
+    parts = relative.parts
+    if config is not None:
+        if path.is_symlink() or any(part.startswith('.') for part in parts):
             return True
-        tokens = {t for t in _PATH_TOKEN_SPLIT.split(part_lower) if t}
-        if tokens & SKIP_PATH_KEYWORDS:
+        excludes = config.get('scan_policy',{}).get('exclude_patterns',[])
+        if any(fnmatch.fnmatchcase(relative.as_posix().casefold(),pattern.casefold())
+               or any(fnmatch.fnmatchcase(part.casefold(),pattern.casefold()) for part in parts)
+               for pattern in excludes):
             return True
-    return False
-
-
-def is_video_file(filepath: Path, config: dict) -> bool:
-    """判断是否为有效的视频文件（扩展名、大小、无忽略关键词）"""
-    ext = filepath.suffix.lower()
-    allowed = [e.lower() for e in config["video_extensions"]]
-    if ext not in allowed:
+    tokens = set().union(*({part.lower()} | set(_PATH_TOKEN_SPLIT.split(part.lower())) for part in parts)) if parts else set()
+    excluded = tokens & SKIP_PATH_KEYWORDS
+    if not excluded:
         return False
-    name_lower = filepath.stem.lower()
-    for pattern in config["ignore_patterns"]:
-        if re.search(rf'\b{re.escape(pattern.lower())}\b', name_lower):
+    if config is None or excluded - SPECIAL_PATH_KEYWORDS:
+        return True
+    if config.get('scan_policy',{}).get('include_specials',False):
+        return False
+    from .special_mapping import match_special_mapping
+    mappings = config.get('special_mappings',[])
+    # Descend: a mapping may name a file below this otherwise excluded directory.
+    if path.is_dir():
+        return not any(rule.get('enabled',True) and rule.get('keyword') and rule.get('tmdb_id') for rule in mappings)
+    matched = match_special_mapping(path.name,mappings)
+    return not bool(matched and matched.get('tmdb_id'))
+
+
+def is_video_file(filepath, config):
+    filepath = Path(filepath)
+    if filepath.suffix.lower() not in {ext.lower() for ext in config['video_extensions']}:
+        return False
+    if should_skip_path(filepath, config=config):
+        return False
+    for pattern in config.get('ignore_patterns',[]):
+        if re.search(rf'\b{re.escape(pattern.lower())}\b',filepath.stem.lower()):
             return False
-    min_mb = config.get("min_file_size_mb", 0)
-    if min_mb > 0:
+    minimum = config.get('min_file_size_mb',0)
+    if minimum > 0:
         try:
-            if filepath.stat().st_size / (1024 * 1024) < min_mb:
+            if filepath.stat().st_size / (1024*1024) < minimum:
                 return False
-        except Exception:
+        except OSError:
             return False
     return True
 

@@ -34,10 +34,10 @@ App.AIStream = (function(app) {
             }
 
             try {
-                const resp = await fetch('/api/ai/stream_enhance', {
+                const resp = await app.fetch('/api/ai/stream_enhance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, original_plot: plot, ai_config: aiConfig })
+                    body: JSON.stringify({ title, original_plot: plot, ai_config_source: 'ai_parser', ai_config: aiConfig })
                 });
 
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -61,7 +61,7 @@ App.AIStream = (function(app) {
                                     outputDiv.textContent = app.fullStreamResult;
                                 }
                                 if (data.error) {
-                                    outputDiv.innerHTML = `<span style="color:#ff6b6b;">错误: ${data.error}</span>`;
+                                    outputDiv.textContent = `错误: ${data.error}`;
                                     return;
                                 }
                                 if (data.done) break;
@@ -70,7 +70,7 @@ App.AIStream = (function(app) {
                     }
                 }
             } catch (e) {
-                outputDiv.innerHTML = `<span style="color:#ff6b6b;">请求失败: ${e.message}</span>`;
+                outputDiv.textContent = `请求失败: ${e.message}`;
             } finally {
                 if (btn) {
                     btn.disabled = false;

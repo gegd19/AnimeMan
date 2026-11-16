@@ -41,6 +41,109 @@ window.App = window.App || {};
         return div.innerHTML;
     };
 
+    // Dynamic values enter the DOM as text/properties, never as HTML or code.
+    exports.el = function(tag, properties = {}, ...children) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(properties)) {
+            if (key === 'text') node.textContent = value ?? '';
+            else if (key === 'style') node.style.cssText = value;
+            else if (key === 'dataset') Object.assign(node.dataset, value);
+            else node[key] = value;
+        }
+        node.append(...children);
+        return node;
+    };
+
+    exports.button = function(text, action, className = 'secondary', properties = {}) {
+        const button = exports.el('button', {type: 'button', text, className, ...properties});
+        button.addEventListener('click', event => {
+            try {
+                Promise.resolve(action(event)).catch(error => exports.showToast(error.message, 'error'));
+            } catch (error) {
+                exports.showToast(error.message, 'error');
+            }
+        });
+        return button;
+    };
+
+    exports.mediaPosterUrl = function(mediaType, tmdbId) {
+        if (!['movie', 'tv'].includes(mediaType) || !/^[1-9][0-9]*$/.test(String(tmdbId))) return '';
+        return `/media_poster/${mediaType}/${encodeURIComponent(tmdbId)}`;
+    };
+
+    exports.poster = function(src, properties = {}) {
+        const image = exports.el('img', properties);
+        image.addEventListener('error', () => { image.style.display = 'none'; });
+        if (src) image.src = src;
+        else image.style.display = 'none';
+        return image;
+    };
+
+    exports.tableMessage = function(body, text, columns = 5) {
+        body.replaceChildren(exports.el('tr', {}, exports.el('td', {
+            colSpan: columns, text, style: 'text-align:center;padding:12px;'
+        })));
+    };
+
+    exports.pagination = function(container, current, total, goTo) {
+        container.replaceChildren();
+        if (total <= 1) return;
+        const bar = exports.el('div', {style: 'display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap;'});
+        const move = (label, page, disabled) => exports.button(label, () => goTo(page), 'secondary', {disabled});
+        bar.append(move('⏮️', 1, current === 1), move('◀', current - 1, current === 1),
+            exports.el('span', {text: `第 ${current} / ${total} 页`}),
+            move('▶', current + 1, current === total), move('⏭️', total, current === total));
+        container.append(bar);
+    };
+
+    // Return the original Response so JSON and streaming consumers share checks.
+    exports.fetch = async function(url, options) {
+        let response;
+        try {
+            response = await fetch(url, options);
+        } catch (error) {
+            if (error.name === 'AbortError') throw error;
+            const failure = new Error(`网络请求失败：${error.message}`);
+            exports.showToast(failure.message, 'error');
+            throw failure;
+        }
+        if (response.ok) return response;
+        const status = response.status;
+        const label = status === 401 ? '认证失效，请重新登录' :
+            status === 403 ? '无权访问此资源' : status === 409 ? '操作冲突，请等待当前任务结束或刷新后重试' :
+            status >= 500 ? '服务器错误，请查看服务端日志' : '请求失败';
+        let detail = '';
+        try {
+            const data = await response.json();
+            const message = data?.message || data?.error;
+            if (typeof message === 'string') detail = `：${message}`;
+        } catch (_) { /* Non-JSON error pages are not displayed as server HTML. */ }
+        const error = new Error(`${label}（HTTP ${status}）${detail}`);
+        error.status = status;
+        exports.showToast(error.message, 'error');
+        throw error;
+    };
+
+    exports.renderTmdbResults = function(container, items, mediaType, select) {
+        const table = container.tagName === 'TBODY' ? container : exports.el('table', {className: 'failed-table'});
+        table.replaceChildren();
+        if (table !== container) {
+            table.append(exports.el('tr', {}, ...['海报', '标题', '年份', '季详情', '操作'].map(text => exports.el('th', {text}))));
+            container.replaceChildren(table);
+        }
+        for (const item of items) {
+            const details = item.media_type === 'tv' ? (item.seasons_detail || []) : [];
+            const seasons = exports.el('span', {
+                text: details.length ? details.map(s => `S${s.season_number}(${s.episode_count}集)`).join(', ') : '-',
+                title: details.map(s => `S${s.season_number}: ${s.name} (${s.episode_count}集)`).join('\n')
+            });
+            table.append(exports.el('tr', {},
+                exports.el('td', {}, item.poster_url ? exports.poster(item.poster_url, {style: 'width:45px;height:68px;object-fit:cover;border-radius:6px;'}) : exports.el('span', {text: '无图'})),
+                exports.el('td', {text: item.title}), exports.el('td', {text: item.year || ''}),
+                exports.el('td', {}, seasons), exports.el('td', {}, exports.button('选择', () => select(item.id, item.title, mediaType)))));
+        }
+    };
+
     /**
      * 渲染日志到 logBox
      * 如果暂停，则只缓存日志而不更新 DOM

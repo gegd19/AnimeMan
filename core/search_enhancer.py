@@ -11,6 +11,7 @@ TMDB 搜索增强模块
 import re
 import json
 from pathlib import Path
+from .runtime_paths import cache_file
 from typing import Optional, Dict, List, Tuple
 
 def _get_requests():
@@ -33,16 +34,23 @@ def _get_logger():
 
 ALIAS_FILE = Path("tmdb_aliases.json")
 _alias_cache: Dict[str, Dict] = {}
+_alias_path = None
 
 def load_aliases() -> Dict[str, Dict]:
-    global _alias_cache
-    if _alias_cache:
+    global _alias_cache, _alias_path
+    path = cache_file(ALIAS_FILE.name)
+    if path == _alias_path:
         return _alias_cache
-    if ALIAS_FILE.exists():
+    _alias_path = path
+    _alias_cache = {}
+    if path.exists():
         try:
-            with open(ALIAS_FILE, 'r', encoding='utf-8') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 _alias_cache = json.load(f)
                 _alias_cache = {k.lower(): v for k, v in _alias_cache.items()}
+        except OSError:
+            _alias_path = None
+            raise
         except Exception:
             _alias_cache = {}
     return _alias_cache
@@ -84,7 +92,7 @@ def generate_search_candidates(raw_title: str) -> List[str]:
 
     return candidates
 
-def search_tvmaze(query: str) -> Optional[int]:
+def search_tvmaze(query: str, config=None) -> Optional[int]:
     requests = _get_requests()
     if not requests:
         return None
@@ -103,19 +111,19 @@ def search_tvmaze(query: str) -> Optional[int]:
         imdb_id = externals.get('imdb')
 
         if tvdb_id:
-            return find_tmdb_by_tvdb(tvdb_id)
+            return find_tmdb_by_tvdb(tvdb_id, config=config)
         if imdb_id:
-            return find_tmdb_by_imdb(imdb_id)
+            return find_tmdb_by_imdb(imdb_id, config=config)
     except Exception:
         pass
     return None
 
-def find_tmdb_by_tvdb(tvdb_id: int) -> Optional[int]:
+def find_tmdb_by_tvdb(tvdb_id: int, config=None) -> Optional[int]:
     requests = _get_requests()
     if not requests:
         return None
     try:
-        config = _get_config()
+        config = _get_config() if config is None else config
         api_key = config.get("tmdb_api", {}).get("api_key")
         if not api_key:
             return None
@@ -131,12 +139,12 @@ def find_tmdb_by_tvdb(tvdb_id: int) -> Optional[int]:
         pass
     return None
 
-def find_tmdb_by_imdb(imdb_id: str) -> Optional[int]:
+def find_tmdb_by_imdb(imdb_id: str, config=None) -> Optional[int]:
     requests = _get_requests()
     if not requests:
         return None
     try:
-        config = _get_config()
+        config = _get_config() if config is None else config
         api_key = config.get("tmdb_api", {}).get("api_key")
         if not api_key:
             return None

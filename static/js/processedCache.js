@@ -116,37 +116,28 @@ App.ProcessedCache = (function(app) {
             return;
         }
 
-        let html = '';
+        tbody.replaceChildren();
         let pageSelectedCount = 0;
         items.forEach(item => {
-            const isChecked = selectedItems.has(item.src);
-            if (isChecked) pageSelectedCount++;
-
-            const targetExists = item.target_exists ? '✅' : '⚠️';
+            const checked = selectedItems.has(item.src);
+            if (checked) pageSelectedCount++;
             let mediaInfo = item.title || '未知';
-            if (item.media_type === 'tv' && item.season && item.episode) {
+            if (item.media_type === 'tv' && item.season != null && item.episode != null) {
                 mediaInfo += ` S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`;
-            } else if (item.media_type === 'movie' && item.year) {
-                mediaInfo += ` (${item.year})`;
-            }
-
+            } else if (item.media_type === 'movie' && item.year) mediaInfo += ` (${item.year})`;
             const dirPath = item.grandparent_dir ? `${item.grandparent_dir}/${item.parent_dir}` : item.parent_dir;
-
-            html += `<tr>
-                <td><input type="checkbox" class="processed-cache-checkbox" data-src="${app.escapeHtml(item.src)}" ${isChecked ? 'checked' : ''} onchange="App.ProcessedCache.toggleSelect('${app.escapeHtml(item.src).replace(/'/g, "\\'")}', this.checked)"></td>
-                <td title="${app.escapeHtml(item.src)}">${app.escapeHtml(item.src_name)}</td>
-                <td title="${app.escapeHtml(item.src)}" style="font-size:12px; color:#6c757d;">${app.escapeHtml(dirPath)}</td>
-                <td title="${app.escapeHtml(item.target)}">${targetExists} ${app.escapeHtml(item.target.split('/').pop())}</td>
-                <td>${app.escapeHtml(mediaInfo)}</td>
-                <td>${item.confidence ? item.confidence + '%' : '-'}</td>
-                <td>${formatTime(item.processed_time)}</td>
-                <td>
-                    <button class="secondary" style="padding:4px 6px;" onclick="App.ProcessedCache.manualCorrectItem('${app.escapeHtml(item.src).replace(/'/g, "\\'")}', '${app.escapeHtml(item.src_name).replace(/'/g, "\\'")}')">🔧 手动修正</button>
-                    <button class="danger" style="padding:4px 6px;" onclick="App.ProcessedCache.deleteItem('${app.escapeHtml(item.src).replace(/'/g, "\\'")}')">🗑️ 删除</button>
-                </td>
-            </tr>`;
+            const checkbox = app.el('input', {type: 'checkbox', className: 'processed-cache-checkbox', checked, dataset: {src: item.src}});
+            checkbox.addEventListener('change', () => App.ProcessedCache.toggleSelect(item.src, checkbox.checked));
+            tbody.append(app.el('tr', {}, app.el('td', {}, checkbox),
+                app.el('td', {title: item.src, text: item.src_name}),
+                app.el('td', {title: item.src, text: dirPath, style: 'font-size:12px;color:#6c757d;'}),
+                app.el('td', {title: item.target, text: `${item.target_exists ? '✅' : '⚠️'} ${(item.target || '').split('/').pop()}`}),
+                app.el('td', {text: mediaInfo}),
+                app.el('td', {text: item.confirmed_by_user ? '人工确认' : (item.confidence == null ? '未评分' : item.confidence + '%')}),
+                app.el('td', {text: formatTime(item.processed_time)}),
+                app.el('td', {}, app.button('🔧 手动修正', () => App.ProcessedCache.manualCorrectItem(item.src, item.src_name)),
+                    app.button('🗑️ 删除', () => App.ProcessedCache.deleteItem(item.src), 'danger'))));
         });
-        tbody.innerHTML = html;
 
         if (selectAllCheck) {
             selectAllCheck.checked = (pageSelectedCount === items.length && items.length > 0);
@@ -166,35 +157,18 @@ App.ProcessedCache = (function(app) {
             if (sortField === currentSort) {
                 icon = currentOrder === 'desc' ? ' ↓' : ' ↑';
             }
-            // 保留原有文字，追加图标
-            if (!th.innerHTML.includes('↓') && !th.innerHTML.includes('↑')) {
-                th.innerHTML = th.innerHTML.replace(/(准确率|置信度)/, '$1' + icon);
-            } else {
-                th.innerHTML = th.innerHTML.replace(/[↓↑]/, '') + icon;
-            }
+            th.textContent = th.textContent.replace(/[↓↑]/g, '').trim() + icon;
         });
     }
 
     function renderPagination() {
         const container = document.getElementById(paginationId);
-        if (totalPages <= 1) {
-            container.innerHTML = '';
-            return;
-        }
-
-        let html = '<div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">';
-        html += `<button onclick="App.ProcessedCache.goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}>⏮️</button>`;
-        html += `<button onclick="App.ProcessedCache.goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>◀</button>`;
-        html += `<span>第 ${currentPage} / ${totalPages} 页</span>`;
-        html += `<button onclick="App.ProcessedCache.goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>▶</button>`;
-        html += `<button onclick="App.ProcessedCache.goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>⏭️</button>`;
-        html += '</div>';
-        container.innerHTML = html;
+        app.pagination(container, currentPage, totalPages, page => App.ProcessedCache.goToPage(page));
     }
 
     async function loadCache() {
         try {
-            const resp = await fetch(`/api/processed_cache?page=${currentPage}&per_page=50&sort=${currentSort}&order=${currentOrder}`);
+            const resp = await app.fetch(`/api/processed_cache?page=${currentPage}&per_page=50&sort=${currentSort}&order=${currentOrder}`);
             const data = await resp.json();
             const items = data.items || [];
             totalPages = data.total_pages || 1;
@@ -202,7 +176,7 @@ App.ProcessedCache = (function(app) {
             renderPagination();
         } catch (e) {
             document.getElementById(tableBodyId).innerHTML = '<tr><td colspan="9" style="text-align:center; color:#dc3545;">加载失败，请重试</td></tr>';
-            app.showToast('加载已处理缓存失败', 'error');
+            app.showToast('加载已处理缓存失败：' + e.message, 'error');
         }
     }
 
@@ -330,7 +304,7 @@ App.ProcessedCache = (function(app) {
                 return;
             }
             try {
-                const resp = await fetch('/api/processed_cache/clear', { method: 'POST' });
+                const resp = await app.fetch('/api/processed_cache/clear', { method: 'POST' });
                 const data = await resp.json();
                 if (data.status === 'success') {
                     app.showToast(`已清空 ${data.removed} 条缓存记录`, 'success');
@@ -351,7 +325,7 @@ App.ProcessedCache = (function(app) {
                 return;
             }
             try {
-                const resp = await fetch('/api/processed_cache/delete', {
+                const resp = await app.fetch('/api/processed_cache/delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ src_path: srcPath })
@@ -368,7 +342,7 @@ App.ProcessedCache = (function(app) {
                     app.showToast('删除失败: ' + data.message, 'error');
                 }
             } catch (e) {
-                app.showToast('请求失败', 'error');
+                app.showToast('请求失败：' + e.message, 'error');
             }
         },
 
@@ -382,7 +356,7 @@ App.ProcessedCache = (function(app) {
             }
             const paths = Array.from(selectedItems);
             try {
-                const resp = await fetch('/api/processed_cache/batch_delete', {
+                const resp = await app.fetch('/api/processed_cache/batch_delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ src_paths: paths })
@@ -399,7 +373,7 @@ App.ProcessedCache = (function(app) {
                     app.showToast('删除失败: ' + data.message, 'error');
                 }
             } catch (e) {
-                app.showToast('请求失败', 'error');
+                app.showToast('请求失败：' + e.message, 'error');
             }
         },
 

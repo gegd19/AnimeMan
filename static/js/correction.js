@@ -22,7 +22,9 @@ App.Correction = (function(app) {
             const srcFileName = srcPath.split(/[\\/]/).pop();
 
             // 显示文件名
-            document.getElementById('correctionFileName').innerHTML = `${app.escapeHtml(fileName)} <span style="color:#6c757d; font-weight:normal;">(源文件: ${app.escapeHtml(srcFileName)})</span>`;
+            document.getElementById('correctionFileName').replaceChildren(
+                document.createTextNode(String(fileName ?? '') + ' '),
+                app.el('span', {text: `(源文件: ${srcFileName})`, style: 'color:#6c757d;font-weight:normal;'}));
 
             // 解析目录层级并显示位置
             const pathParts = srcPath.replace(/\\/g, '/').split('/');
@@ -71,7 +73,7 @@ App.Correction = (function(app) {
             const timeoutId = setTimeout(() => controller.abort(), 25000);
 
             try {
-                const resp = await fetch(`/api/tmdb/search_proxy?query=${encodeURIComponent(query)}&media_type=${mediaType}`, {
+                const resp = await app.fetch(`/api/tmdb/search_proxy?query=${encodeURIComponent(query)}&media_type=${mediaType}`, {
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
@@ -92,34 +94,8 @@ App.Correction = (function(app) {
                     return;
                 }
 
-                let html = '';
-                data.results.forEach(item => {
-                    const title = app.escapeHtml(item.title);
-                    const year = item.year || '';
-
-                    const posterHtml = item.poster_url
-                        ? `<img src="${item.poster_url}" style="width:45px; height:68px; object-fit:cover; border-radius:6px;">`
-                        : '<div style="width:45px;height:68px;background:#e9ecef;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#6c757d;font-size:10px;">无图</div>';
-
-                    let seasonInfo = '';
-                    if (item.media_type === 'tv' && item.seasons_detail && item.seasons_detail.length > 0) {
-                        const parts = item.seasons_detail.map(s => `S${s.season_number}(${s.episode_count}集)`);
-                        seasonInfo = parts.join(', ');
-                        const fullNames = item.seasons_detail.map(s => `S${s.season_number}: ${s.name} (${s.episode_count}集)`).join('\n');
-                        seasonInfo = `<span title="${app.escapeHtml(fullNames)}" style="cursor:help; border-bottom:1px dashed #6c757d;">${app.escapeHtml(seasonInfo)}</span>`;
-                    } else {
-                        seasonInfo = '-';
-                    }
-
-                    html += `<tr>
-                        <td style="padding:4px;">${posterHtml}</td>
-                        <td>${title}</td>
-                        <td>${year}</td>
-                        <td>${seasonInfo}</td>
-                        <td><button onclick="App.Correction.selectTmdbForCorrection(${item.id}, '${title.replace(/'/g, "\\'")}', '${mediaType}')" class="secondary">选择</button></td>
-                    </tr>`;
-                });
-                tbody.innerHTML = html;
+                app.renderTmdbResults(tbody, data.results, mediaType,
+                    (id, title, type) => App.Correction.selectTmdbForCorrection(id, title, type));
 
                 const thead = document.querySelector('#tmdbSearchResults thead');
                 if (thead) {
@@ -136,7 +112,7 @@ App.Correction = (function(app) {
                 } else {
                     errorMsg = e.message || '网络错误';
                 }
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#dc3545;">❌ ${app.escapeHtml(errorMsg)}</td></tr>`;
+                app.tableMessage(tbody, '❌ ' + errorMsg);
                 app.showToast(errorMsg, 'error');
             } finally {
                 searchBtn.disabled = false;
@@ -175,14 +151,14 @@ App.Correction = (function(app) {
             confirmBtn.disabled = true;
             confirmBtn.textContent = '⏳ 处理中...';
             try {
-                const resp = await fetch('/api/failed_cache/correct', {
+                const resp = await app.fetch('/api/failed_cache/correct', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 const data = await resp.json();
                 if (data.status === 'success') {
-                    app.showToast('✅ 修正成功！文件已重新处理。', 'success');
+                    app.showToast(data.dry_run ? '🔍 模拟修正完成，未修改文件或缓存' : '✅ 修正成功！文件已重新处理。', 'success');
                     _closeModal();
                     if (typeof App.FailedCache !== 'undefined') App.FailedCache.loadFailedCache();
                     if (typeof App.History !== 'undefined') App.History.loadProcessedHistory();
