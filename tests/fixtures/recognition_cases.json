@@ -1,0 +1,2134 @@
+{
+  "version": "b00-v1",
+  "cases": [
+    {
+      "case_id": "C01",
+      "category": "tv",
+      "folder": "Aurora",
+      "filename": "Aurora S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1000,
+          "name": "Aurora",
+          "title": "Aurora",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1000,
+        "name": "Aurora",
+        "title": "Aurora",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1000,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "明确系列和季集",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C02",
+      "category": "tv",
+      "folder": "Blue River",
+      "filename": "Blue River S01E02.mkv",
+      "search_results": [
+        {
+          "id": 1001,
+          "name": "Blue River",
+          "title": "Blue River",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1001,
+        "name": "Blue River",
+        "title": "Blue River",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 2,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1001,
+        "season": 1,
+        "episode": 2
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C03",
+      "category": "tv",
+      "folder": "星空",
+      "filename": "星空 S01E03.mkv",
+      "search_results": [
+        {
+          "id": 1002,
+          "name": "星空",
+          "title": "星空",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1002,
+        "name": "星空",
+        "title": "星空",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 3,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1002,
+        "season": 1,
+        "episode": 3
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C04",
+      "category": "tv",
+      "folder": "月光",
+      "filename": "月光 S02E01.mkv",
+      "search_results": [
+        {
+          "id": 1003,
+          "name": "月光",
+          "title": "月光",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1003,
+        "name": "月光",
+        "title": "月光",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 2,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "2": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1003,
+        "season": 2,
+        "episode": 1
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C05",
+      "category": "tv",
+      "folder": "Sakura",
+      "filename": "Sakura [01].mkv",
+      "search_results": [
+        {
+          "id": 1004,
+          "name": "Sakura",
+          "title": "Sakura",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1004,
+        "name": "Sakura",
+        "title": "Sakura",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1004,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C06",
+      "category": "tv",
+      "folder": "Hikari",
+      "filename": "Hikari S01E04.mkv",
+      "search_results": [
+        {
+          "id": 1005,
+          "name": "Hikari",
+          "title": "Hikari",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1005,
+        "name": "Hikari",
+        "title": "Hikari",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 4,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1005,
+        "season": 1,
+        "episode": 4
+      },
+      "basis": "明确系列和季集",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C07",
+      "category": "tv",
+      "folder": "Green Hill",
+      "filename": "Green Hill S01E05.mkv",
+      "search_results": [
+        {
+          "id": 1006,
+          "name": "Green Hill",
+          "title": "Green Hill",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1006,
+        "name": "Green Hill",
+        "title": "Green Hill",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 5,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1006,
+        "season": 1,
+        "episode": 5
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C08",
+      "category": "tv",
+      "folder": "Silver Sky",
+      "filename": "Silver Sky S01E06.mkv",
+      "search_results": [
+        {
+          "id": 1007,
+          "name": "Silver Sky",
+          "title": "Silver Sky",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1007,
+        "name": "Silver Sky",
+        "title": "Silver Sky",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 6,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1007,
+        "season": 1,
+        "episode": 6
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C09",
+      "category": "tv",
+      "folder": "Paper Bird",
+      "filename": "Paper Bird S01E07.mkv",
+      "search_results": [
+        {
+          "id": 1008,
+          "name": "Paper Bird",
+          "title": "Paper Bird",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1008,
+        "name": "Paper Bird",
+        "title": "Paper Bird",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 7,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1008,
+        "season": 1,
+        "episode": 7
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C10",
+      "category": "tv",
+      "folder": "North Train",
+      "filename": "North Train S01E08.mkv",
+      "search_results": [
+        {
+          "id": 1009,
+          "name": "North Train",
+          "title": "North Train",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1009,
+        "name": "North Train",
+        "title": "North Train",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 8,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1009,
+        "season": 1,
+        "episode": 8
+      },
+      "basis": "明确系列和季集",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C11",
+      "category": "movie",
+      "folder": "Glass Garden",
+      "filename": "Glass Garden (2020).mkv",
+      "search_results": [
+        {
+          "id": 1010,
+          "name": "Glass Garden",
+          "title": "Glass Garden",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1010,
+        "name": "Glass Garden",
+        "title": "Glass Garden",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "movie",
+        "tmdb_id": 1010,
+        "season": null,
+        "episode": null
+      },
+      "basis": "电影名称及年份明确",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C12",
+      "category": "movie",
+      "folder": "Ocean Dream",
+      "filename": "Ocean Dream (2020).mkv",
+      "search_results": [
+        {
+          "id": 1011,
+          "name": "Ocean Dream",
+          "title": "Ocean Dream",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1011,
+        "name": "Ocean Dream",
+        "title": "Ocean Dream",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "movie",
+        "tmdb_id": 1011,
+        "season": null,
+        "episode": null
+      },
+      "basis": "电影名称及年份明确",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C13",
+      "category": "movie",
+      "folder": "Silent Moon",
+      "filename": "Silent Moon (2020).mkv",
+      "search_results": [
+        {
+          "id": 1012,
+          "name": "Silent Moon",
+          "title": "Silent Moon",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1012,
+        "name": "Silent Moon",
+        "title": "Silent Moon",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "movie",
+        "tmdb_id": 1012,
+        "season": null,
+        "episode": null
+      },
+      "basis": "电影名称及年份明确",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C14",
+      "category": "movie",
+      "folder": "Rain City",
+      "filename": "Rain City (2020).mkv",
+      "search_results": [
+        {
+          "id": 1013,
+          "name": "Rain City",
+          "title": "Rain City",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1013,
+        "name": "Rain City",
+        "title": "Rain City",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "movie",
+        "tmdb_id": 1013,
+        "season": null,
+        "episode": null
+      },
+      "basis": "电影名称及年份明确",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C15",
+      "category": "movie",
+      "folder": "Winter Light",
+      "filename": "Winter Light (2020).mkv",
+      "search_results": [
+        {
+          "id": 1014,
+          "name": "Winter Light",
+          "title": "Winter Light",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1014,
+        "name": "Winter Light",
+        "title": "Winter Light",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "movie",
+        "tmdb_id": 1014,
+        "season": null,
+        "episode": null
+      },
+      "basis": "电影名称及年份明确",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C16",
+      "category": "movie",
+      "folder": "Golden Road",
+      "filename": "Golden Road (2020).mkv",
+      "search_results": [
+        {
+          "id": 1015,
+          "name": "Golden Road",
+          "title": "Golden Road",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1015,
+        "name": "Golden Road",
+        "title": "Golden Road",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "movie",
+        "tmdb_id": 1015,
+        "season": null,
+        "episode": null
+      },
+      "basis": "电影名称及年份明确",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C17",
+      "category": "numeric",
+      "folder": "Season 01",
+      "filename": "01.mkv",
+      "search_results": [
+        {
+          "id": 1016,
+          "name": "Gallery 0",
+          "title": "Gallery 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1016,
+        "name": "Gallery 0",
+        "title": "Gallery 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "缺少系列身份，不能根据数字猜作品",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C18",
+      "category": "numeric",
+      "folder": "Season 02",
+      "filename": "02.mkv",
+      "search_results": [
+        {
+          "id": 1017,
+          "name": "Gallery 1",
+          "title": "Gallery 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1017,
+        "name": "Gallery 1",
+        "title": "Gallery 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "缺少系列身份，不能根据数字猜作品",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C19",
+      "category": "numeric",
+      "folder": "Season 03",
+      "filename": "03.mkv",
+      "search_results": [
+        {
+          "id": 1018,
+          "name": "Gallery 2",
+          "title": "Gallery 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1018,
+        "name": "Gallery 2",
+        "title": "Gallery 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "缺少系列身份，不能根据数字猜作品",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C20",
+      "category": "numeric",
+      "folder": "Season 04",
+      "filename": "04.mkv",
+      "search_results": [
+        {
+          "id": 1019,
+          "name": "Gallery 3",
+          "title": "Gallery 3",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1019,
+        "name": "Gallery 3",
+        "title": "Gallery 3",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "缺少系列身份，不能根据数字猜作品",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C21",
+      "category": "numeric",
+      "folder": "Season 05",
+      "filename": "05.mkv",
+      "search_results": [
+        {
+          "id": 1020,
+          "name": "Gallery 4",
+          "title": "Gallery 4",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1020,
+        "name": "Gallery 4",
+        "title": "Gallery 4",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "缺少系列身份，不能根据数字猜作品",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C22",
+      "category": "numeric",
+      "folder": "Season 06",
+      "filename": "06.mkv",
+      "search_results": [
+        {
+          "id": 1021,
+          "name": "Gallery 5",
+          "title": "Gallery 5",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1021,
+        "name": "Gallery 5",
+        "title": "Gallery 5",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "缺少系列身份，不能根据数字猜作品",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C23",
+      "category": "decimal",
+      "folder": "Nova 0",
+      "filename": "Nova 0 - 12.5.mkv",
+      "search_results": [
+        {
+          "id": 1022,
+          "name": "Nova 0",
+          "title": "Nova 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1022,
+        "name": "Nova 0",
+        "title": "Nova 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "小数集号未指定映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C24",
+      "category": "decimal",
+      "folder": "Nova 1",
+      "filename": "Nova 1 - 13.5.mkv",
+      "search_results": [
+        {
+          "id": 1023,
+          "name": "Nova 1",
+          "title": "Nova 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1023,
+        "name": "Nova 1",
+        "title": "Nova 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "小数集号未指定映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C25",
+      "category": "decimal",
+      "folder": "Nova 2",
+      "filename": "Nova 2 - 14.5.mkv",
+      "search_results": [
+        {
+          "id": 1024,
+          "name": "Nova 2",
+          "title": "Nova 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1024,
+        "name": "Nova 2",
+        "title": "Nova 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "小数集号未指定映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C26",
+      "category": "decimal",
+      "folder": "Nova 3",
+      "filename": "Nova 3 - 15.5.mkv",
+      "search_results": [
+        {
+          "id": 1025,
+          "name": "Nova 3",
+          "title": "Nova 3",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1025,
+        "name": "Nova 3",
+        "title": "Nova 3",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "小数集号未指定映射",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C27",
+      "category": "range",
+      "folder": "Range 0",
+      "filename": "Range 0 - 01-02.mkv",
+      "search_results": [
+        {
+          "id": 1026,
+          "name": "Range 0",
+          "title": "Range 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1026,
+        "name": "Range 0",
+        "title": "Range 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "多集范围尚无目标映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C28",
+      "category": "range",
+      "folder": "Range 1",
+      "filename": "Range 1 - 02-03.mkv",
+      "search_results": [
+        {
+          "id": 1027,
+          "name": "Range 1",
+          "title": "Range 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1027,
+        "name": "Range 1",
+        "title": "Range 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "多集范围尚无目标映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C29",
+      "category": "range",
+      "folder": "Range 2",
+      "filename": "Range 2 - 03-04.mkv",
+      "search_results": [
+        {
+          "id": 1028,
+          "name": "Range 2",
+          "title": "Range 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1028,
+        "name": "Range 2",
+        "title": "Range 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "多集范围尚无目标映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C30",
+      "category": "range",
+      "folder": "Range 3",
+      "filename": "Range 3 - 04-05.mkv",
+      "search_results": [
+        {
+          "id": 1029,
+          "name": "Range 3",
+          "title": "Range 3",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1029,
+        "name": "Range 3",
+        "title": "Range 3",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "多集范围尚无目标映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C31",
+      "category": "special",
+      "folder": "Special 0",
+      "filename": "Special 0 OVA 01.mkv",
+      "search_results": [
+        {
+          "id": 1030,
+          "name": "Special 0",
+          "title": "Special 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1030,
+        "name": "Special 0",
+        "title": "Special 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 0,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "0": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "特辑未提供明确季集映射",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C32",
+      "category": "special",
+      "folder": "Special 1",
+      "filename": "Special 1 OVA 01.mkv",
+      "search_results": [
+        {
+          "id": 1031,
+          "name": "Special 1",
+          "title": "Special 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1031,
+        "name": "Special 1",
+        "title": "Special 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 0,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "0": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "特辑未提供明确季集映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C33",
+      "category": "special",
+      "folder": "Special 2",
+      "filename": "Special 2 OVA 01.mkv",
+      "search_results": [
+        {
+          "id": 1032,
+          "name": "Special 2",
+          "title": "Special 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1032,
+        "name": "Special 2",
+        "title": "Special 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 0,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "0": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "特辑未提供明确季集映射",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C34",
+      "category": "conflict",
+      "folder": "Mixed 0",
+      "filename": "Original 0 S02E01.mkv",
+      "search_results": [
+        {
+          "id": 1033,
+          "name": "Original 0",
+          "title": "Original 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1033,
+        "name": "Original 0",
+        "title": "Original 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "目录中作品身份冲突",
+      "split": "development",
+      "other_files": [
+        "Different work 33 S01E01.mkv"
+      ]
+    },
+    {
+      "case_id": "C35",
+      "category": "conflict",
+      "folder": "Mixed 1",
+      "filename": "Original 1 S02E01.mkv",
+      "search_results": [
+        {
+          "id": 1034,
+          "name": "Original 1",
+          "title": "Original 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1034,
+        "name": "Original 1",
+        "title": "Original 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "目录中作品身份冲突",
+      "split": "development",
+      "other_files": [
+        "Different work 34 S01E01.mkv"
+      ]
+    },
+    {
+      "case_id": "C36",
+      "category": "conflict",
+      "folder": "Mixed 2",
+      "filename": "Original 2 S02E01.mkv",
+      "search_results": [
+        {
+          "id": 1035,
+          "name": "Original 2",
+          "title": "Original 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1035,
+        "name": "Original 2",
+        "title": "Original 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "目录中作品身份冲突",
+      "split": "heldout",
+      "other_files": [
+        "Different work 35 S01E01.mkv"
+      ]
+    },
+    {
+      "case_id": "C37",
+      "category": "unrelated",
+      "folder": "Target 0",
+      "filename": "Target 0 S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1036,
+          "name": "Unrelated 0",
+          "title": "Unrelated 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1036,
+        "name": "Unrelated 0",
+        "title": "Unrelated 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "搜索结果与标题无关",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C38",
+      "category": "unrelated",
+      "folder": "Target 1",
+      "filename": "Target 1 S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1037,
+          "name": "Unrelated 1",
+          "title": "Unrelated 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1037,
+        "name": "Unrelated 1",
+        "title": "Unrelated 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "搜索结果与标题无关",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C39",
+      "category": "unrelated",
+      "folder": "Target 2",
+      "filename": "Target 2 S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1038,
+          "name": "Unrelated 2",
+          "title": "Unrelated 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1038,
+        "name": "Unrelated 2",
+        "title": "Unrelated 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "搜索结果与标题无关",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C40",
+      "category": "network",
+      "folder": "Network 0",
+      "filename": "Network 0 S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1039,
+          "name": "Network 0",
+          "title": "Network 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1039,
+        "name": "Network 0",
+        "title": "Network 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": true,
+      "expected": null,
+      "basis": "模拟网络故障",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C41",
+      "category": "network",
+      "folder": "Network 1",
+      "filename": "Network 1 S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1040,
+          "name": "Network 1",
+          "title": "Network 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1040,
+        "name": "Network 1",
+        "title": "Network 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": true,
+      "expected": null,
+      "basis": "模拟网络故障",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C42",
+      "category": "network",
+      "folder": "Network 2",
+      "filename": "Network 2 S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1041,
+          "name": "Network 2",
+          "title": "Network 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1041,
+        "name": "Network 2",
+        "title": "Network 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": true,
+      "expected": null,
+      "basis": "模拟网络故障",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C43",
+      "category": "absolute",
+      "folder": "Part 0",
+      "filename": "Part 0 第二季 第13集.mkv",
+      "search_results": [
+        {
+          "id": 1042,
+          "name": "Part 0",
+          "title": "Part 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1042,
+        "name": "Part 0",
+        "title": "Part 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "未明确本季或累计编号",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C44",
+      "category": "absolute",
+      "folder": "Part 1",
+      "filename": "Part 1 第二季 第13集.mkv",
+      "search_results": [
+        {
+          "id": 1043,
+          "name": "Part 1",
+          "title": "Part 1",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1043,
+        "name": "Part 1",
+        "title": "Part 1",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "未明确本季或累计编号",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C45",
+      "category": "absolute",
+      "folder": "Part 2",
+      "filename": "Part 2 第二季 第13集.mkv",
+      "search_results": [
+        {
+          "id": 1044,
+          "name": "Part 2",
+          "title": "Part 2",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1044,
+        "name": "Part 2",
+        "title": "Part 2",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "未明确本季或累计编号",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C46",
+      "category": "multilingual",
+      "folder": "樱花之歌",
+      "filename": "Sakura no Uta S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1100,
+          "name": "樱花之歌",
+          "title": "樱花之歌",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1100,
+        "name": "樱花之歌",
+        "title": "樱花之歌",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1100,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "合成的别名或续作身份需证据确认",
+      "split": "heldout",
+      "other_files": []
+    },
+    {
+      "case_id": "C47",
+      "category": "same-title",
+      "folder": "同名作品 2020",
+      "filename": "同名作品 (2020) S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1199,
+          "name": "同名作品",
+          "title": "同名作品",
+          "first_air_date": "1990-01-01",
+          "release_date": "1990-01-01"
+        },
+        {
+          "id": 1101,
+          "name": "同名作品",
+          "title": "同名作品",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1101,
+        "name": "同名作品",
+        "title": "同名作品",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1101,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "合成的别名或续作身份需证据确认",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C48",
+      "category": "sequel",
+      "folder": "星光 II",
+      "filename": "星光 II S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1198,
+          "name": "星光",
+          "title": "星光",
+          "first_air_date": "2018-01-01",
+          "release_date": "2018-01-01"
+        },
+        {
+          "id": 1102,
+          "name": "星光 II",
+          "title": "星光 II",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1102,
+        "name": "星光 II",
+        "title": "星光 II",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1102,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "合成的别名或续作身份需证据确认",
+      "split": "development",
+      "other_files": []
+    },
+    {
+      "case_id": "C49",
+      "category": "romanized",
+      "folder": "空の旅",
+      "filename": "Sora no Tabi S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1103,
+          "name": "空の旅",
+          "title": "空の旅",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1103,
+        "name": "空の旅",
+        "title": "空の旅",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1103,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "合成的别名或续作身份需证据确认",
+      "split": "development",
+      "other_files": []
+    }
+  ]
+}

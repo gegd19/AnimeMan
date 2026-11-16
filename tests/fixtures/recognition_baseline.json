@@ -1,0 +1,742 @@
+{
+  "cases": [
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1000
+      },
+      "ai_calls": 0,
+      "case_id": "C01",
+      "category": "tv",
+      "expected": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1000
+      },
+      "split": "heldout",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 2,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1001
+      },
+      "ai_calls": 0,
+      "case_id": "C02",
+      "category": "tv",
+      "expected": {
+        "episode": 2,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1001
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 3,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1002
+      },
+      "ai_calls": 0,
+      "case_id": "C03",
+      "category": "tv",
+      "expected": {
+        "episode": 3,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1002
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 2,
+        "tmdb_id": 1003
+      },
+      "ai_calls": 0,
+      "case_id": "C04",
+      "category": "tv",
+      "expected": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 2,
+        "tmdb_id": 1003
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1004
+      },
+      "ai_calls": 0,
+      "case_id": "C05",
+      "category": "tv",
+      "expected": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1004
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 4,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1005
+      },
+      "ai_calls": 0,
+      "case_id": "C06",
+      "category": "tv",
+      "expected": {
+        "episode": 4,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1005
+      },
+      "split": "heldout",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 5,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1006
+      },
+      "ai_calls": 0,
+      "case_id": "C07",
+      "category": "tv",
+      "expected": {
+        "episode": 5,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1006
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 6,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1007
+      },
+      "ai_calls": 0,
+      "case_id": "C08",
+      "category": "tv",
+      "expected": {
+        "episode": 6,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1007
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 7,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1008
+      },
+      "ai_calls": 0,
+      "case_id": "C09",
+      "category": "tv",
+      "expected": {
+        "episode": 7,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1008
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 8,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1009
+      },
+      "ai_calls": 0,
+      "case_id": "C10",
+      "category": "tv",
+      "expected": {
+        "episode": 8,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1009
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1010
+      },
+      "ai_calls": 0,
+      "case_id": "C11",
+      "category": "movie",
+      "expected": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1010
+      },
+      "split": "heldout",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1011
+      },
+      "ai_calls": 0,
+      "case_id": "C12",
+      "category": "movie",
+      "expected": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1011
+      },
+      "split": "development",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1012
+      },
+      "ai_calls": 0,
+      "case_id": "C13",
+      "category": "movie",
+      "expected": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1012
+      },
+      "split": "development",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1013
+      },
+      "ai_calls": 0,
+      "case_id": "C14",
+      "category": "movie",
+      "expected": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1013
+      },
+      "split": "development",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1014
+      },
+      "ai_calls": 0,
+      "case_id": "C15",
+      "category": "movie",
+      "expected": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1014
+      },
+      "split": "development",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1015
+      },
+      "ai_calls": 0,
+      "case_id": "C16",
+      "category": "movie",
+      "expected": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1015
+      },
+      "split": "heldout",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1016
+      },
+      "ai_calls": 0,
+      "case_id": "C17",
+      "category": "numeric",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C18",
+      "category": "numeric",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C19",
+      "category": "numeric",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C20",
+      "category": "numeric",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C21",
+      "category": "numeric",
+      "expected": null,
+      "split": "heldout",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C22",
+      "category": "numeric",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C23",
+      "category": "decimal",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C24",
+      "category": "decimal",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C25",
+      "category": "decimal",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C26",
+      "category": "decimal",
+      "expected": null,
+      "split": "heldout",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1026
+      },
+      "ai_calls": 0,
+      "case_id": "C27",
+      "category": "range",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C28",
+      "category": "range",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C29",
+      "category": "range",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C30",
+      "category": "range",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 5
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C31",
+      "category": "special",
+      "expected": null,
+      "split": "heldout",
+      "tmdb_calls": 0
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 0,
+        "tmdb_id": 1031
+      },
+      "ai_calls": 0,
+      "case_id": "C32",
+      "category": "special",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C33",
+      "category": "special",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1033
+      },
+      "ai_calls": 0,
+      "case_id": "C34",
+      "category": "conflict",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 6
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1034
+      },
+      "ai_calls": 0,
+      "case_id": "C35",
+      "category": "conflict",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 6
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1035
+      },
+      "ai_calls": 0,
+      "case_id": "C36",
+      "category": "conflict",
+      "expected": null,
+      "split": "heldout",
+      "tmdb_calls": 6
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1036
+      },
+      "ai_calls": 0,
+      "case_id": "C37",
+      "category": "unrelated",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1037
+      },
+      "ai_calls": 0,
+      "case_id": "C38",
+      "category": "unrelated",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1038
+      },
+      "ai_calls": 0,
+      "case_id": "C39",
+      "category": "unrelated",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C40",
+      "category": "network",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 4
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C41",
+      "category": "network",
+      "expected": null,
+      "split": "heldout",
+      "tmdb_calls": 4
+    },
+    {
+      "actual": null,
+      "ai_calls": 0,
+      "case_id": "C42",
+      "category": "network",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 4
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1042
+      },
+      "ai_calls": 0,
+      "case_id": "C43",
+      "category": "absolute",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1043
+      },
+      "ai_calls": 0,
+      "case_id": "C44",
+      "category": "absolute",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": null,
+        "media_type": "movie",
+        "season": null,
+        "tmdb_id": 1044
+      },
+      "ai_calls": 0,
+      "case_id": "C45",
+      "category": "absolute",
+      "expected": null,
+      "split": "development",
+      "tmdb_calls": 2
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1100
+      },
+      "ai_calls": 0,
+      "case_id": "C46",
+      "category": "multilingual",
+      "expected": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1100
+      },
+      "split": "heldout",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1101
+      },
+      "ai_calls": 0,
+      "case_id": "C47",
+      "category": "same-title",
+      "expected": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1101
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1198
+      },
+      "ai_calls": 0,
+      "case_id": "C48",
+      "category": "sequel",
+      "expected": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1102
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    },
+    {
+      "actual": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1103
+      },
+      "ai_calls": 0,
+      "case_id": "C49",
+      "category": "romanized",
+      "expected": {
+        "episode": 1,
+        "media_type": "tv",
+        "season": 1,
+        "tmdb_id": 1103
+      },
+      "split": "development",
+      "tmdb_calls": 3
+    }
+  ],
+  "fixture_sha256": "15d142970dc6a81d9e2ad3f3dde3fdf6ac0f999394658a0208dd28a25d0ef421",
+  "fixture_version": "b00-v1",
+  "metrics": {
+    "ai_calls": 0,
+    "auto_accuracy": 0.59375,
+    "correct_auto": 19,
+    "correct_coverage": 0.3877551020408163,
+    "incorrect_auto": 13,
+    "review": 17,
+    "review_expected_but_auto": 12,
+    "tmdb_calls": 171,
+    "total": 49
+  },
+  "splits": {
+    "development": {
+      "ai_calls": 0,
+      "auto_accuracy": 0.5384615384615384,
+      "correct_auto": 14,
+      "correct_coverage": 0.358974358974359,
+      "incorrect_auto": 12,
+      "review": 13,
+      "review_expected_but_auto": 11,
+      "tmdb_calls": 138,
+      "total": 39
+    },
+    "heldout": {
+      "ai_calls": 0,
+      "auto_accuracy": 0.8333333333333334,
+      "correct_auto": 5,
+      "correct_coverage": 0.5,
+      "incorrect_auto": 1,
+      "review": 4,
+      "review_expected_but_auto": 1,
+      "tmdb_calls": 33,
+      "total": 10
+    }
+  }
+}
