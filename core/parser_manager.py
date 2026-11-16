@@ -4,6 +4,7 @@
 from copy import deepcopy,copy
 from dataclasses import dataclass,field
 from pathlib import Path
+import re
 import threading
 
 from . import ai_client,cache_manager,folder_ai_cache,parse_identity
@@ -139,6 +140,12 @@ def parse_filename(file_path,config,log_func=None):
     file_path=Path(file_path);folder=file_path.parent
     key=get_ai_parse_cache_key(str(file_path),config)
     enabled=config.get('ai_parser',{}).get('enabled',False)
+    # An explicit Chinese season and episode are stronger than a partial movie parse.
+    if (re.search(r'第\s*[零一二两三四五六七八九十\d]+\s*季', file_path.stem)
+            and re.search(r'第\s*\d{1,4}\s*[集話话](?!\d)', file_path.stem)):
+        info=_tag(parse_with_regex(file_path.name,folder.name),'regex')
+        if info:
+            parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
     if enabled:
         for source,result in [('offline_ai',get_cached_preparse(folder,config)),
                               ('ai_folder',folder_ai_cache.get_cached_folder_parse(folder,config))]:
