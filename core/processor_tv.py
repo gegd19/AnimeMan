@@ -68,33 +68,51 @@ def process_tv_branch(
         proxy = config.get("tmdb_api", {}).get("proxy")          # 获取代理配置
         base_url = config["image_base_url"]
 
-        # 总集数智能换算
-        if total_episode is not None and explicit_season > 1:
-            season_ep_counts = {}
-            for s in details.get("seasons", []):
-                sn = s.get("season_number", 0)
-                if sn > 0:
-                    eps = tmdb_client.get_tv_season_episodes(
-                        tmdb_id, sn, api_key, language, log_func, proxy=proxy
-                    )
-                    season_ep_counts[sn] = len(eps)
-
+        # Only explicitly established absolute numbering may be converted.
+        numbering_source = info.get("numbering_source", "unknown")
+        if numbering_source not in ("season_relative", "absolute", "unknown"):
+            save_failed_cache(src, "编号来源无效，需要人工确认", cache_dict, log_func)
+            return False
+        if total_episode is not None and numbering_source == "unknown":
+            save_failed_cache(src, "累计集号来源不明确，需要人工确认", cache_dict, log_func)
+            return False
+        if numbering_source == "absolute":
+            if type(total_episode) is not int or total_episode < 1:
+                save_failed_cache(src, "累计集号无效，需要人工确认", cache_dict, log_func)
+                return False
+            season_numbers = sorted({s.get("season_number") for s in details.get("seasons", [])
+                                     if type(s.get("season_number")) is int and s.get("season_number") > 0})
             cumulative = 0
             converted = False
-            for sn in sorted(season_ep_counts.keys()):
-                count = season_ep_counts[sn]
-                if cumulative + count >= total_episode:
-                    season = sn
-                    episode = total_episode - cumulative
+            for expected_number, sn in enumerate(season_numbers, 1):
+                if sn != expected_number:
+                    break
+                eps = tmdb_client.get_tv_season_episodes(tmdb_id, sn, api_key, language, log_func, proxy=proxy)
+                if not eps:
+                    break
+                episode_numbers = [ep.get("episode_number") for ep in eps if isinstance(ep, dict)]
+                if (len(episode_numbers) != len(eps)
+                        or any(type(number) is not int for number in episode_numbers)
+                        or sorted(episode_numbers) != list(range(1, len(eps) + 1))):
+                    break
+                season_meta = next((item for item in details.get("seasons", [])
+                                    if item.get("season_number") == sn), {})
+                stated_count = season_meta.get("episode_count")
+                if type(stated_count) is int and stated_count != len(eps):
+                    break
+                if cumulative + len(eps) >= total_episode:
+                    if explicit_season is not None and sn != explicit_season:
+                        break
+                    season, episode = sn, total_episode - cumulative
                     confidence = max(confidence - 10, 0)
+                    converted = True
                     if log_func:
                         log_func(f"🔄 总集数转换: 第{total_episode}集 → S{season:02d}E{episode:02d}", LOG_INFO)
-                    converted = True
                     break
-                cumulative += count
-
-            if not converted and log_func:
-                log_func(f"⚠️ 无法转换总集数 {total_episode}，使用原始解析结果", LOG_WARNING)
+                cumulative += len(eps)
+            if not converted:
+                save_failed_cache(src, "累计集号无法可靠换算，需要人工确认", cache_dict, log_func)
+                return False
 
         # 应用 AI 修正
         corrected_season = info.get("corrected_season")

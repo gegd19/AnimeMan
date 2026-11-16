@@ -60,9 +60,13 @@ def parse_with_regex(filename, parent_dir=''):
         episode = None
     if episode is not None and season is None:
         season = 1
+    absolute = re.search(r'(?:全剧|累计|总计)\s*第\s*(\d{1,4})\s*[集話话](?!\d)', name)
+    total_episode = int(absolute[1]) if absolute and episode == int(absolute[1]) else None
     title = name
     if matched and episode is not None:
         title = title[:matched.start()] + ' ' + title[matched.end():]
+    if total_episode is not None:
+        title = re.sub(r'(?:全剧|累计|总计)\s*$', '', title).strip()
     title = re.sub(r'第\s*[零一二两三四五六七八九十\d]+\s*季|(?<!\w)(?:Season\s*|S)\d{1,2}(?!\d)',' ',title,flags=re.I)
     title = re.sub(r'\b(?:1080p|720p|2160p|4K|HDR|HEVC|x264|x265|AAC|WEB-DL|BluRay|BDRip)\b','',title,flags=re.I)
     title = re.sub(r'[\[\]()【】_,.\-]',' ',title)
@@ -72,4 +76,5 @@ def parse_with_regex(filename, parent_dir=''):
     return {'media_type':'tv' if episode is not None else 'unknown', 'title':title,'search_title':title,
             'year':year,'season':season,'episode':episode,'episode_title':'','alternative_titles':[],
             'year_guess':None,'corrected_season':None,'corrected_episode':None,'_parser':'regex',
-            'explicit_season':explicit if explicit is not None else season,'total_episode':None}
+            'explicit_season':explicit if explicit is not None else season,'total_episode':total_episode,
+            'numbering_source':'absolute' if total_episode is not None else ('season_relative' if explicit is not None and episode is not None else 'unknown')}

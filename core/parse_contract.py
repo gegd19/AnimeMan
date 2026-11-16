@@ -41,6 +41,10 @@ def normalize_media(value, *, trusted=False):
         if result['media_type']=='tv' and (result['season'] is None or result['episode'] is None):return None
         if result['explicit_season'] is None:result['explicit_season']=result['season']
         if trusted:
+            numbering_source=value.get('numbering_source', 'unknown')
+            if numbering_source not in ('season_relative', 'absolute', 'unknown'):
+                raise ValueError('无效编号来源')
+            result['numbering_source']=numbering_source
             for key in ['_parser','_anitopy_success','_from_ai','_from_folder_cache','_from_offline_ai',
                         '_from_folder_ai_batch','_cleaned_filename','_parent_dir','release_group']:
                 if key in value and type(value[key]) in (str,bool):result[key]=value[key]

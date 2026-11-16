@@ -210,19 +210,9 @@ def parse_with_anitopy(
     if detected is not None:
         season = explicit_season = detected
 
-    # 总集数检测
+    # A generic “第 N 集” does not establish absolute numbering.
     total_episode = None
-    if explicit_season > 1:
-        m = re.search(r'第\s*(\d{1,4})\s*集', combined)
-        if m:
-            total_episode = int(m.group(1))
-        else:
-            m = re.search(r'#(\d{1,4})|(\d{1,4})\s*話', combined)
-            if m:
-                total_episode = int(m.group(1) or m.group(2))
-        if total_episode is not None:
-            if log_func:
-                log_func(f"🔍 检测到总集数模式: 第{total_episode}集 (显式季数={explicit_season})", LOG_INFO)
+    numbering_source = 'season_relative' if detected is not None and episode is not None else 'unknown'
 
     result.update({
         "title": title or "",
@@ -238,7 +228,8 @@ def parse_with_anitopy(
         "release_group": release_group,
         "_parser": "anitopy",
         "explicit_season": explicit_season,
-        "total_episode": total_episode
+        "total_episode": total_episode,
+        "numbering_source": numbering_source
     })
 
     if log_func and result["_anitopy_success"]:

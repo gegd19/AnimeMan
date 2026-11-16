@@ -177,7 +177,8 @@ def parse_filename(file_path,config,log_func=None):
             parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
         return {'media_type':'unknown'}
     # An explicit Chinese season and episode are stronger than a partial movie parse.
-    if (re.search(r'第\s*[零一二两三四五六七八九十\d]+\s*季', file_path.stem)
+    if ((re.search(r'第\s*[零一二两三四五六七八九十\d]+\s*季', file_path.stem)
+             or (file_season is not None and re.search(r'(?:全剧|累计|总计)\s*第', file_path.stem)))
             and re.search(r'第\s*\d{1,4}\s*[集話话](?!\d)', file_path.stem)):
         info=_tag(parse_with_regex(file_path.name,folder.name),'regex')
         if info:
