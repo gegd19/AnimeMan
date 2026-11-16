@@ -52,8 +52,14 @@ def process_tv_branch(
         return False
 
     try:
-        season = info.get("season", 1)
-        episode = info.get("episode", 1)
+        season = info.get("season")
+        episode = info.get("episode")
+        if (type(tmdb_id) is not int or tmdb_id <= 0
+                or not isinstance(official_title, str) or not official_title.strip()
+                or type(season) is not int or season < 0
+                or type(episode) is not int or episode < 1):
+            save_failed_cache(src, "剧集身份信息不完整，需要人工确认", cache_dict, log_func)
+            return False
         explicit_season = info.get("explicit_season", season)
         total_episode = info.get("total_episode")
 
@@ -209,6 +215,16 @@ TMDB 搜索结果：
             return False
 
         confidence = min(confidence + 5, 100)
+        if (type(season) is not int or season < 0
+                or type(episode) is not int or episode < 1):
+            save_failed_cache(src, "最终季集身份无效，需要人工确认", cache_dict, log_func)
+            return False
+        if confidence < MIN_FINAL_CONFIDENCE:
+            reason = f"最终置信度过低 ({confidence}% < {MIN_FINAL_CONFIDENCE}%)"
+            if log_func and config.get("dry_run"):
+                log_func(f"⚠️ {reason}", LOG_WARNING)
+            save_failed_cache(src, reason, cache_dict, log_func)
+            return False
 
         target_path = episode_video_path(src, config, official_title, official_year,
                                          season, episode, ep_data.get("name"))
