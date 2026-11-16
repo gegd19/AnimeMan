@@ -275,13 +275,6 @@ def get_tv_season_episodes(
         resp.raise_for_status()
         data = resp.json()
         episodes = data.get("episodes", [])
-        if season_num == 0 and not episodes:
-            if log_func:
-                log_func(f"⚠️ TMDB 特辑列表为空，使用占位集", LOG_WARNING)
-            episodes = [{
-                "episode_number": 1, "name": "特辑", "overview": "",
-                "air_date": "", "still_path": None
-            }]
         return episodes
     except ProcessingCancelled:
         raise
@@ -289,8 +282,6 @@ def get_tv_season_episodes(
         note_error(e)
         if log_func:
             log_func(f"❌ 获取季 {season_num} 信息失败: {redact(e)}", LOG_ERROR)
-        if season_num == 0:
-            return [{"episode_number": 1, "name": "特辑", "overview": "", "air_date": "", "still_path": None}]
         return []
 
 

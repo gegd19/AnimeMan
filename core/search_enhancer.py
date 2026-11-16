@@ -183,22 +183,18 @@ def find_episode_across_seasons(
     season_numbers = [s.get("season_number", 0) for s in seasons if s.get("season_number", 0) >= 0]
     season_numbers.sort()
 
+    matches = []
     for season_num in season_numbers:
         if season_num == 0:
             continue
         episodes = tmdb_client.get_tv_season_episodes(
             tmdb_id, season_num, api_key, language, log_func, proxy
         )
-        for ep in episodes:
-            if ep.get("episode_number") == target_episode:
-                return season_num, ep
-
-    if 0 in season_numbers:
-        episodes = tmdb_client.get_tv_season_episodes(
-            tmdb_id, 0, api_key, language, log_func, proxy
-        )
-        for ep in episodes:
-            if ep.get("episode_number") == target_episode:
-                return 0, ep
-
-    return None, None
+        # An empty response may be a failed request; uniqueness cannot be proved.
+        if not episodes:
+            return None, None
+        matches.extend((season_num, ep) for ep in episodes
+                       if ep.get("episode_number") == target_episode)
+        if len(matches) > 1:
+            return None, None
+    return matches[0] if len(matches) == 1 else (None, None)

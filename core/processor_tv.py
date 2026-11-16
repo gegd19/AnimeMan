@@ -94,6 +94,9 @@ def process_tv_branch(
         corrected_season = info.get("corrected_season")
         corrected_episode = info.get("corrected_episode")
         if corrected_season is not None and corrected_episode is not None:
+            if corrected_season != season:
+                save_failed_cache(src, "季号修正与原始季号冲突，需要人工确认", cache_dict, log_func)
+                return False
             season = corrected_season
             episode = corrected_episode
             confidence = max(confidence - 10, 0)
@@ -108,70 +111,15 @@ def process_tv_branch(
             save_failed_cache(src, "TMDB 中没有季信息", cache_dict, log_func)
             return False
 
-        if not regular_seasons and special_seasons and season != 0:
-            season = 0
-
         episodes = tmdb_client.get_tv_season_episodes(
             tmdb_id, season, api_key, language, log_func, proxy=proxy
         )
-
-        # 404 降级：若当前季不存在，尝试跨季查找或特辑季
+        # Missing or unavailable season data is not evidence for another season.
         if not episodes:
-            try:
-                from . import search_enhancer
-                found_season, found_ep = search_enhancer.find_episode_across_seasons(
-                    tmdb_id, episode, api_key, language, log_func, proxy=proxy
-                )
-                if found_ep:
-                    season = found_season
-                    episodes = tmdb_client.get_tv_season_episodes(
-                        tmdb_id, season, api_key, language, log_func, proxy=proxy
-                    )
-                    if log_func:
-                        log_func(f"🔍 跨季查找成功: 改用 S{season:02d}", LOG_INFO)
-            except ImportError:
-                pass
-
-            if not episodes and season != 0:
-                episodes = tmdb_client.get_tv_season_episodes(
-                    tmdb_id, 0, api_key, language, log_func, proxy=proxy
-                )
-                if episodes:
-                    season = 0
-                    if log_func:
-                        log_func(f"🔄 当前季不存在，已回退到特辑季 (Season 0)", LOG_INFO)
-
-            if not episodes:
-                save_failed_cache(src, f"无法获取季 {season} 的集列表", cache_dict, log_func)
-                return False
+            save_failed_cache(src, f"无法获取季 {season} 的集列表", cache_dict, log_func)
+            return False
 
         ep_data = next((ep for ep in episodes if ep.get("episode_number") == episode), None)
-
-        # 特辑回退
-        if not ep_data and season != 0 and special_seasons:
-            special_episodes = tmdb_client.get_tv_season_episodes(
-                tmdb_id, 0, api_key, language, log_func, proxy=proxy
-            )
-            ep_data = next((ep for ep in special_episodes if ep.get("episode_number") == episode), None)
-            if ep_data:
-                season = 0
-                confidence += 5
-
-        # 跨季集数自动查找（若集号在当前季不存在）
-        if not ep_data and season > 0:
-            try:
-                from . import search_enhancer
-                found_season, found_ep = search_enhancer.find_episode_across_seasons(
-                    tmdb_id, episode, api_key, language, log_func, proxy=proxy
-                )
-                if found_ep:
-                    season = found_season
-                    ep_data = found_ep
-                    confidence = max(confidence - 5, 0)
-                    if log_func:
-                        log_func(f"🔍 跨季查找成功: 第{episode}集 → S{season:02d}E{episode:02d}", LOG_INFO)
-            except ImportError:
-                pass
 
         # 集号验证失败时的 AI 二次修正
         if not ep_data and info.get("_parser") == "anitopy" and config.get("ai_parser", {}).get("enabled"):
@@ -230,6 +178,9 @@ TMDB 搜索结果：
                     if log_func:
                         log_func(f"🤖 AI 修正建议: S{new_season:02d}E{new_episode:02d} ({reason})", LOG_INFO)
 
+                    if new_season != season:
+                        save_failed_cache(src, "AI 建议更改季号，需要人工确认", cache_dict, log_func)
+                        return False
                     episodes_new = tmdb_client.get_tv_season_episodes(
                         tmdb_id, new_season, api_key, language, log_func, proxy=proxy
                     )
