@@ -71,6 +71,12 @@ def process_video(
         force_tmdb_id, force_media_type, force_season, force_episode = apply_special_mapping(src, config, wrapped_log)
         info = parse_filename_info(src, config, wrapped_log, force_tmdb_id, force_media_type, force_season, force_episode)
 
+        if info.get("reason_code") == "unsupported_episode_numbering":
+            save_failed_cache(src, "unsupported_episode_numbering: 集号范围或小数需要人工确认", cache_dict, wrapped_log)
+            if config.get("dry_run") and wrapped_log:
+                wrapped_log("集号范围或小数需要人工确认", LOG_WARNING)
+            return False
+
         # 文件夹级 AI 批量解析
         updated_info = try_folder_ai_batch(src, config, info, force_tmdb_id, wrapped_log)
         if updated_info:

@@ -138,6 +138,12 @@ def parse_filename(file_path,config,log_func=None):
     from .offline_ai_preparser import get_cached_preparse,parse_folder_on_demand,load_raw_cache
     _ensure_persistent_cache();check_cancelled()
     file_path=Path(file_path);folder=file_path.parent
+    # Decimal and range episode tokens need explicit mapping; never truncate them.
+    stem=file_path.stem
+    ambiguous=(re.search(r'(?i)(?:\s-\s*|\[|第\s*|(?<![a-z])e(?:p)?\s*)\d{1,3}\.\d+(?!\d)',stem)
+               or re.search(r'(?i)(?:\s-\s*|\[|(?<![a-z])e(?:p)?\s*)\d{1,3}\s*[-~–]\s*(?:e(?:p)?\s*)?\d{1,3}(?!\d)',stem))
+    if ambiguous:
+        return {'media_type':'unknown','reason_code':'unsupported_episode_numbering'}
     key=get_ai_parse_cache_key(str(file_path),config)
     enabled=config.get('ai_parser',{}).get('enabled',False)
     # An explicit Chinese season and episode are stronger than a partial movie parse.
