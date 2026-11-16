@@ -9,7 +9,7 @@ window.App = window.App || {};
 App.MediaManager = (function(app) {
     'use strict';
 
-    console.log('✅ MediaManager 模块已加载（影剧分离 + 无限滚动）');
+    console.log('MediaManager 模块已加载（影剧分离 + 无限滚动）');
 
     // 数据状态
     let fullLibrary = { movies: [], tv_shows: [] };
@@ -90,13 +90,22 @@ App.MediaManager = (function(app) {
             container.innerHTML = '';
             renderedSeasons = {};
 
+            // 媒体库本身为空（不是过滤后为空）时，给出下一步，而不是两块空白网格。
+            if (!(fullLibrary.movies || []).length && !(fullLibrary.tv_shows || []).length) {
+                container.append(app.el('div', {className: 'empty-state'},
+                    app.el('b', {text: '媒体库还是空的'}),
+                    '在「设置」里填好源文件夹和目标文件夹，然后点击顶部的「开始处理」。'));
+                updateBatchButtons();
+                return;
+            }
+
             // 视图切换按钮
             const viewBar = document.createElement('div');
             viewBar.className = 'view-toggle-bar';
-            for (const [mode, text] of [['all', '📚 全部'], ['movies', '🎬 电影'], ['tv', '📺 剧集']]) {
+            for (const [mode, text] of [['all', '全部'], ['movies', '电影'], ['tv', '剧集']]) {
                 viewBar.append(app.el('button', {type: 'button', text,
                     className: `view-btn ${viewMode === mode ? 'active' : ''}`,
-                    dataset: {action: 'switchView', view: mode}}));
+                    dataset: {action: 'switchView', view: mode}, attrs: {'aria-pressed': viewMode === mode}}));
             }
             container.appendChild(viewBar);
 
@@ -104,7 +113,7 @@ App.MediaManager = (function(app) {
             if (viewMode !== 'tv') {
                 const movieSection = document.createElement('div');
                 movieSection.className = 'media-section';
-                movieSection.innerHTML = '<h4>🎬 电影</h4><div class="media-card-grid" id="movieGrid"></div>';
+                movieSection.innerHTML = '<h4>电影</h4><div class="media-card-grid" id="movieGrid"></div>';
                 container.appendChild(movieSection);
             }
 
@@ -112,7 +121,7 @@ App.MediaManager = (function(app) {
             if (viewMode !== 'movies') {
                 const showSection = document.createElement('div');
                 showSection.className = 'media-section';
-                showSection.innerHTML = '<h4>📺 剧集</h4><div class="media-card-grid" id="showGrid"></div>';
+                showSection.innerHTML = '<h4>剧集</h4><div class="media-card-grid" id="showGrid"></div>';
                 container.appendChild(showSection);
             }
         }
@@ -149,15 +158,15 @@ App.MediaManager = (function(app) {
         if (!movies.length && !append) { grid.textContent = '暂无电影'; return; }
         for (const movie of movies) {
             const checkbox = app.el('input', {type: 'checkbox', checked: selectedEpisodes.has(movie.cache_key),
-                dataset: {action: 'toggleSelect', type: 'movie', key: movie.cache_key}});
+                title: '选择', dataset: {action: 'toggleSelect', type: 'movie', key: movie.cache_key}});
             grid.append(app.el('div', {className: 'media-card movie-card', dataset: {movieKey: movie.cache_key}},
                 app.el('div', {className: 'media-card-poster'}, app.poster(app.mediaPosterUrl('movie', movie.tmdb_id)),
                     app.el('div', {className: 'media-card-check'}, checkbox)),
                 app.el('div', {className: 'media-card-info'},
                     app.el('div', {className: 'media-card-title', title: movie.title, text: cleanTitle(movie.title)}),
                     app.el('div', {className: 'media-card-year', text: movie.year || ''})),
-                app.el('div', {className: 'media-card-actions'}, actionButton('🔧', 'correctSingle', movie.cache_key),
-                    actionButton('🗑️', 'deleteSingle', movie.cache_key, 'danger'))));
+                app.el('div', {className: 'media-card-actions'}, actionButton('修正', 'correctSingle', movie.cache_key),
+                    actionButton('删除', 'deleteSingle', movie.cache_key, 'danger'))));
         }
     }
 
@@ -175,7 +184,7 @@ App.MediaManager = (function(app) {
                     app.el('div', {className: 'media-card-title', title: show.title, text: cleanTitle(show.title)}),
                     app.el('div', {className: 'media-card-year', text: show.year || ''})),
                 app.el('div', {className: 'media-card-seasons-toggle'}, app.el('button', {type: 'button', className: 'season-toggle-btn',
-                    text: `📋 ${count} 季 ${expandedShows[show.tmdb_id] ? '▲' : '▼'}`,
+                    text: `${count} 季`, attrs: {'aria-expanded': !!expandedShows[show.tmdb_id]},
                     dataset: {action: 'toggleShowSeasons', showId: show.tmdb_id}}))));
         }
     }
@@ -193,16 +202,18 @@ App.MediaManager = (function(app) {
             const list = app.el('div', {className: 'season-list'});
             const panel = app.el('div', {className: 'show-seasons-panel', dataset: {showPanel: id}},
                 app.el('div', {className: 'show-seasons-header', style: 'display:flex;justify-content:space-between;align-items:center;'},
-                    app.el('span', {text: `📁 ${cleanTitle(show.title)} 季列表`}),
-                    app.el('button', {type: 'button', className: 'secondary', text: '✕ 收起', dataset: {action: 'toggleShowSeasons', showId: id}})), list);
+                    app.el('span', {text: `${cleanTitle(show.title)} 季列表`}),
+                    app.el('button', {type: 'button', className: 'secondary btn-sm', text: '收起', dataset: {action: 'toggleShowSeasons', showId: id}})), list);
             for (const number of numbers) {
                 const key = `${id}-${number}`;
                 const expanded = expandedSeasons[key] || false;
                 const count = (seasons[number].episodes || []).length;
                 list.append(app.el('div', {className: 'season-row'},
                     app.el('div', {className: 'season-row-header', style: 'display:flex;align-items:center;justify-content:space-between;'},
-                        app.el('span', {style: 'cursor:pointer;flex:1;', dataset: {action: 'toggleSeasonEpisodes', seasonKey: key}},
-                            `📺 第 ${number} 季 (${count} 集) `, app.el('span', {className: 'expand-arrow', text: expanded ? '▼' : '▶'})),
+                        app.el('button', {type: 'button', className: 'ghost season-expand', dataset: {action: 'toggleSeasonEpisodes', seasonKey: key},
+                                attrs: {'aria-expanded': expanded}},
+                            app.el('span', {className: 'expand-arrow', text: expanded ? '▼' : '▶'}),
+                            `${Number(number) === 0 ? '特别篇 (S00)' : `第 ${number} 季`} · ${count} 集`),
                         app.el('div', {style: 'display:flex;gap:4px;'},
                             app.button('全选', () => App.MediaManager.selectAllInSeason(key, true)),
                             app.button('反选', () => App.MediaManager.selectAllInSeason(key, false)))),
@@ -225,14 +236,14 @@ App.MediaManager = (function(app) {
         container.replaceChildren();
         for (const episode of seasonData.episodes || []) {
             const title = episode.title || `第 ${episode.episode} 集`;
-            const label = app.el('span', {className: 'episode-title episode-title-clickable',
-                style: 'cursor:pointer;text-decoration:underline dotted;font-size:12px;', title: title + '\n点击查看源文件详情', text: title});
+            const label = app.el('button', {type: 'button', className: 'episode-title episode-title-clickable',
+                title: title + '\n点击查看源文件详情', text: title});
             label.addEventListener('click', event => App.MediaManager.showEpisodeDetail(event, episode.cache_key, cleanTitle(show.title), seasonNum));
             container.append(app.el('div', {className: 'episode-item-card'},
-                app.el('input', {type: 'checkbox', checked: selectedEpisodes.has(episode.cache_key), dataset: {action: 'toggleSelect', type: 'episode', key: episode.cache_key}}),
+                app.el('input', {type: 'checkbox', checked: selectedEpisodes.has(episode.cache_key), title: '选择', dataset: {action: 'toggleSelect', type: 'episode', key: episode.cache_key}}),
                 app.el('span', {className: 'episode-number', text: `E${String(episode.episode).padStart(2, '0')}`}), label,
-                app.el('div', {className: 'episode-actions'}, actionButton('🔧', 'correctSingle', episode.cache_key),
-                    actionButton('🗑️', 'deleteSingle', episode.cache_key, 'danger'))));
+                app.el('div', {className: 'episode-actions'}, actionButton('修正', 'correctSingle', episode.cache_key),
+                    actionButton('删除', 'deleteSingle', episode.cache_key, 'danger'))));
         }
         renderedSeasons[key] = true;
     }
@@ -359,7 +370,7 @@ App.MediaManager = (function(app) {
         }
         if (files.length === 0) { app.showToast('无有效文件', 'warning'); return; }
         if (typeof App.BatchCorrection !== 'undefined') {
-            App.BatchCorrection.openModalWithFiles('📋 媒体库选中项', files);
+            App.BatchCorrection.openModalWithFiles('媒体库选中项', files);
         } else {
             app.showToast('批量修正模块未加载', 'error');
         }
@@ -427,13 +438,17 @@ App.MediaManager = (function(app) {
                     if (panel) panel.remove();
                 } else {
                     renderExpandedSeasonsPanels(true);
+                    // 季列表追加在网格之后；滚动过去，免得展开后看不到变化。
+                    const opened = Array.from(document.querySelectorAll('.show-seasons-panel')).find(node => node.dataset.showPanel === String(showId));
+                    if (opened && opened.scrollIntoView) opened.scrollIntoView({block: 'nearest'});
                 }
                 const card = target.closest('.tv-card');
                 if (card) {
                     const btn = card.querySelector('.season-toggle-btn');
                     const seasons = filteredShows.find(s => s.tmdb_id == showId)?.seasons || {};
                     const count = Object.keys(seasons).length;
-                    btn.textContent = `📋 ${count} 季 ${expandedShows[showId] ? '▲' : '▼'}`;
+                    btn.textContent = `${count} 季`;
+                    btn.setAttribute('aria-expanded', String(!!expandedShows[showId]));
                 }
                 break;
             }
@@ -457,6 +472,7 @@ App.MediaManager = (function(app) {
                 if (header) {
                     const arrow = header.querySelector('.expand-arrow');
                     if (arrow) arrow.textContent = isNowExpanded ? '▼' : '▶';
+                    target.setAttribute('aria-expanded', String(isNowExpanded));
                 }
                 break;
             }
@@ -509,7 +525,7 @@ App.MediaManager = (function(app) {
                 }
                 if (files.length === 0) { app.showToast('该剧无集数', 'warning'); return; }
                 if (typeof App.BatchCorrection !== 'undefined') {
-                    App.BatchCorrection.openModalWithFiles(`📺 ${show.title}`, files);
+                    App.BatchCorrection.openModalWithFiles(`${show.title}`, files);
                 } else {
                     app.showToast('批量修正模块未加载', 'error');
                 }
@@ -618,10 +634,8 @@ App.MediaManager = (function(app) {
             if (!popup) {
                 popup = document.createElement('div');
                 popup.id = 'episodeDetailPopup';
-                popup.style.cssText = `
-                    position: fixed; background: white; border: 1px solid #ccc; border-radius: 12px;
-                    padding: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); z-index: 1000; max-width: 400px;
-                `;
+                popup.className = 'popover';
+                popup.setAttribute('role', 'status');
                 document.body.appendChild(popup);
                 document.addEventListener('click', (e) => {
                     if (!popup.contains(e.target) && !e.target.closest('.episode-title-clickable')) {
@@ -630,14 +644,20 @@ App.MediaManager = (function(app) {
                 });
             }
             popup.replaceChildren(
-                app.el('strong', {text: `📺 ${showTitle} S${String(seasonNum).padStart(2,'0')}E${String(epData.episode).padStart(2,'0')}`}), app.el('br'),
-                app.el('span', {style: 'font-size:13px;color:#6c757d;', text: `📁 ${grandparentDir}/${parentDir}`}), app.el('br'),
-                app.el('span', {style: 'font-size:12px;word-break:break-all;', text: `📄 ${fileName}`}), app.el('br'),
-                app.el('span', {style: 'font-size:12px;', text: `🕒 处理时间: ${epData.processed_time ? new Date(epData.processed_time * 1000).toLocaleString() : '未知'}`}));
+                app.el('strong', {text: `${showTitle} S${String(seasonNum).padStart(2,'0')}E${String(epData.episode).padStart(2,'0')}`}), app.el('br'),
+                app.el('span', {className: 'path', text: `目录：${grandparentDir}/${parentDir}`}), app.el('br'),
+                app.el('span', {className: 'path', text: `文件：${fileName}`}), app.el('br'),
+                app.el('span', {className: 'text-muted', text: `处理时间: ${epData.processed_time ? new Date(epData.processed_time * 1000).toLocaleString() : '未知'}`}));
             popup.style.display = 'block';
+            // 贴着被点击的标题显示，并保证不超出视口。
             const rect = event.currentTarget.getBoundingClientRect();
-            popup.style.left = rect.left + 'px';
-            popup.style.top = (rect.bottom + 5) + 'px';
+            const margin = 12;
+            const left = Math.max(margin, Math.min(rect.left, window.innerWidth - popup.offsetWidth - margin));
+            const below = rect.bottom + 6;
+            const top = below + popup.offsetHeight + margin > window.innerHeight
+                ? Math.max(margin, rect.top - popup.offsetHeight - 6) : below;
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
         },
         batchCorrectSelected: batchCorrectSelected,
         batchDeleteSelected: batchDeleteSelected,

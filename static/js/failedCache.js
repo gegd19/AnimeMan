@@ -19,14 +19,14 @@ App.FailedCache = (function(app) {
     }
 
     function _header(folder, files) {
-        const bar = app.el('div', {style: 'margin-bottom:10px;'},
-            app.button('🔙 返回聚类视图', () => _loadCache()),
-            app.el('span', {text: `📁 ${folder}`, style: 'margin-left:15px;'}));
-        if (files) bar.append(app.button('📦 批量修正全部', () => _openBatchWithAllFiles(folder), 'success'));
+        const bar = app.el('div', {className: 'list-head'},
+            app.button('返回文件夹视图', () => _loadCache()),
+            app.el('strong', {text: `${folder}`}));
+        if (files) bar.append(app.button('批量修正全部', () => _openBatchWithAllFiles(folder), 'success'));
         return bar;
     }
 
-    function _correctionButton(file, label = '🔧 修正', className = 'warning') {
+    function _correctionButton(file, label = '修正', className = 'warning') {
         return app.button(label, () => App.Correction.openCorrectionModal(file.path, file.name), className);
     }
 
@@ -42,21 +42,21 @@ App.FailedCache = (function(app) {
             currentClusters = data.clusters || [];
             document.getElementById(countSpanId).textContent = currentClusters.reduce((sum, c) => sum + c.count, 0);
             if (!currentClusters.length) {
-                listDiv.textContent = '✅ 暂无失败缓存记录';
+                listDiv.textContent = '暂无失败缓存记录';
                 return;
             }
             const table = app.el('table', {className: 'failed-table'},
                 app.el('tr', {}, ...['文件夹', '失败数量', '操作'].map(text => app.el('th', {text}))));
             for (const cluster of currentClusters) {
                 table.append(app.el('tr', {},
-                    app.el('td', {title: cluster.folder, text: cluster.folder, style: 'max-width:400px;word-break:break-all;'}),
+                    app.el('td', {title: cluster.folder, text: cluster.folder, className: 'mono'}),
                     app.el('td', {text: cluster.count}), app.el('td', {},
-                        app.button('📦 批量修正', () => App.BatchCorrection.openModal(cluster.folder, cluster.files), 'success'),
-                        app.button('📂 查看失败文件', () => _showFilesInFolder(cluster.folder, cluster.files)),
-                        app.button('📋 查看所有文件', () => _showAllFilesInFolder(cluster.folder)))));
+                        app.button('批量修正', () => App.BatchCorrection.openModal(cluster.folder, cluster.files), 'success'),
+                        app.button('查看失败文件', () => _showFilesInFolder(cluster.folder, cluster.files)),
+                        app.button('查看所有文件', () => _showAllFilesInFolder(cluster.folder)))));
             }
-            listDiv.replaceChildren(app.el('div', {style: 'margin-bottom:10px;'},
-                app.button('📋 切换为列表视图', () => _switchToListView())), table);
+            listDiv.replaceChildren(app.el('div', {className: 'list-head'},
+                app.button('切换为列表视图', () => _switchToListView())), table);
         } catch (error) { _error(error); }
     }
 
@@ -66,7 +66,7 @@ App.FailedCache = (function(app) {
         table.append(app.el('tr', {}, ...columns.map(text => app.el('th', {text}))));
         for (const file of files) {
             const row = app.el('tr', {}, app.el('td', {title: file.path, text: file.name}),
-                app.el('td', {text: file.reason || '', style: 'color:#dc3545;'}));
+                app.el('td', {text: file.reason || '', className: 'text-danger'}));
             if (withTime) row.append(app.el('td', {text: file.failed_time ? new Date(file.failed_time * 1000).toLocaleString() : '未知'}));
             row.append(app.el('td', {}, _correctionButton(file)));
             table.append(row);
@@ -80,7 +80,7 @@ App.FailedCache = (function(app) {
             const files = data.failed || [];
             document.getElementById(countSpanId).textContent = files.length;
             if (!files.length) {
-                document.getElementById(listDivId).textContent = '✅ 暂无失败缓存记录';
+                document.getElementById(listDivId).textContent = '暂无失败缓存记录';
                 return;
             }
             _showFilesInFolder('失败缓存', files, true);
@@ -89,7 +89,7 @@ App.FailedCache = (function(app) {
 
     async function _showAllFilesInFolder(folder) {
         const listDiv = document.getElementById(listDivId);
-        listDiv.textContent = '🔄 正在加载文件夹详情...';
+        listDiv.textContent = '正在加载文件夹详情...';
         window.__currentFolderAllFiles = [];
         try {
             const data = await (await app.fetch(`/api/failed_cache/folder_details?folder=${encodeURIComponent(folder)}`)).json();
@@ -104,7 +104,8 @@ App.FailedCache = (function(app) {
                 app.el('tr', {}, ...['状态', '文件名', '识别信息', '操作'].map(text => app.el('th', {text}))));
             for (const file of files) {
                 const success = file.status === 'success';
-                const badge = success ? '✅' : file.status === 'failed' ? '❌' : '❓';
+                const badge = success ? '成功' : file.status === 'failed' ? '失败' : '未处理';
+                const badgeClass = success ? 'badge is-green' : file.status === 'failed' ? 'badge is-red' : 'badge';
                 let info = success ? (file.title || '') : file.status === 'failed' ? `失败原因: ${file.reason || '未知'}` : '尚未处理';
                 if (success) {
                     if (file.media_type === 'tv' && file.season != null && file.episode != null) {
@@ -112,14 +113,14 @@ App.FailedCache = (function(app) {
                     }
                     info += file.confirmed_by_user ? ' (人工确认)' : file.confidence == null ? ' (未评分)' : ` (置信度: ${file.confidence}%)`;
                 }
-                table.append(app.el('tr', {}, app.el('td', {title: success ? '成功' : file.status === 'failed' ? '失败' : '未处理', text: badge}),
-                    app.el('td', {title: file.path, text: file.name}), app.el('td', {text: info, style: 'font-size:12px;'}),
-                    app.el('td', {}, _correctionButton(file, success ? '🔄 重处理' : '🔧 修正', success ? 'secondary' : 'warning'))));
+                table.append(app.el('tr', {}, app.el('td', {}, app.el('span', {className: badgeClass, text: badge})),
+                    app.el('td', {title: file.path, text: file.name}), app.el('td', {text: info, className: 'text-small'}),
+                    app.el('td', {}, _correctionButton(file, success ? '重处理' : '修正', success ? 'secondary' : 'warning'))));
             }
-            listDiv.replaceChildren(_header(`${folder} (共 ${files.length} 个视频文件)`),
-                app.button('📦 批量修正全部', () => _openBatchWithAllFiles(folder), 'success'), table,
-                app.el('div', {style: 'margin-top:12px;'}, app.button('📦 批量修正此文件夹所有文件', () => _openBatchWithAllFiles(folder), 'success'),
-                    app.el('span', {className: 'note', text: '💡 点击后将打开批量修正面板，可调整顺序并选择正确 TMDB 条目'})));
+            const head = _header(`${folder} (共 ${files.length} 个视频文件)`);
+            head.append(app.button('批量修正此文件夹所有文件', () => _openBatchWithAllFiles(folder), 'success'));
+            listDiv.replaceChildren(head, table,
+                app.el('div', {className: 'text-muted text-small', text: '批量修正会打开修正面板，可以调整顺序并选择正确的 TMDB 条目。'}));
         } catch (error) { _error(error); }
     }
 
@@ -131,7 +132,7 @@ App.FailedCache = (function(app) {
             return;
         }
         if (typeof App.BatchCorrection !== 'undefined') {
-            App.BatchCorrection.openModalWithFiles(`📁 ${folder}`, files);
+            App.BatchCorrection.openModalWithFiles(`${folder}`, files);
         } else {
             app.showToast('批量修正模块未加载', 'error');
         }
@@ -161,10 +162,10 @@ App.FailedCache = (function(app) {
             const resp = await app.fetch('/api/failed_cache/clear', { method: 'POST' });
             const data = await resp.json();
             if (data.status === 'success') {
-                alert(`已清空 ${data.removed} 条`);
+                app.showToast(`已清空 ${data.removed} 条失败记录`, 'success');
                 await _loadCache();
             } else {
-                alert('清空失败');
+                app.showToast('清空失败', 'error');
             }
         }
     };

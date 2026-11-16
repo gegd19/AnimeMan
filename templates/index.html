@@ -1,34 +1,60 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     {% include 'partials/head.html' %}
 </head>
 <body>
-<div class="container">
-    {% include 'partials/header.html' %}
-    {% include 'partials/progress_log.html' %}
-    {% include 'partials/ai_stream_test.html' %}
+<a class="skip-link" href="#main">跳到主要内容</a>
+<div class="app">
+    {% include 'partials/nav.html' %}
 
-    <h2>⚙️ 配置面板</h2>
-    <form id="configForm">
-        {% include 'partials/config_panel.html' %}
-    </form>
+    <div class="stage">
+        {% include 'partials/header.html' %}
 
-    {% include 'partials/offline_preparser.html' %}
-    {% include 'partials/subtitle_center.html' %}
-    {% include 'partials/special_mappings.html' %}
-    {% include 'partials/media_manager.html' %}
+        <!-- 所有页面始终渲染在 DOM 中，导航只切换 hidden，表单值、勾选和任务状态不会丢失 -->
+        <main id="main">
+            <section class="view" id="view-home" data-view="home" aria-labelledby="view-home-title" tabindex="-1">
+                {% include 'partials/progress_log.html' %}
+            </section>
 
-    <!-- 模态框 -->
-    {% include 'partials/modals/browse.html' %}
-    {% include 'partials/modals/failed_cache.html' %}
-    {% include 'partials/modals/processed_cache.html' %}
-    {% include 'partials/modals/manual_select.html' %}
-    {% include 'partials/modals/correction.html' %}
-    {% include 'partials/modals/mapping.html' %}
-    {% include 'partials/modals/batch_correction.html' %}
-    {% include 'partials/modals/media_detail.html' %}
+            <section class="view" id="view-library" data-view="library" aria-labelledby="view-library-title" tabindex="-1" hidden>
+                {% include 'partials/media_manager.html' %}
+            </section>
+
+            <section class="view" id="view-subtitles" data-view="subtitles" aria-labelledby="view-subtitles-title" tabindex="-1" hidden>
+                {% include 'partials/subtitle_center.html' %}
+            </section>
+
+            <section class="view" id="view-tools" data-view="tools" aria-labelledby="view-tools-title" tabindex="-1" hidden>
+                <div class="view-head">
+                    <h1 id="view-tools-title">工具</h1>
+                </div>
+                {% include 'partials/special_mappings.html' %}
+                {% include 'partials/offline_preparser.html' %}
+                {% include 'partials/ai_stream_test.html' %}
+            </section>
+
+            <section class="view" id="view-settings" data-view="settings" aria-labelledby="view-settings-title" tabindex="-1" hidden>
+                <div class="view-head">
+                    <h1 id="view-settings-title">设置</h1>
+                </div>
+                <form id="configForm" class="sheet" onsubmit="return false;">
+                    {% include 'partials/config_panel.html' %}
+                </form>
+            </section>
+        </main>
+    </div>
 </div>
+
+<!-- 弹窗放在页面外层，不会被隐藏的页面遮住 -->
+{% include 'partials/modals/browse.html' %}
+{% include 'partials/modals/failed_cache.html' %}
+{% include 'partials/modals/processed_cache.html' %}
+{% include 'partials/modals/manual_select.html' %}
+{% include 'partials/modals/correction.html' %}
+{% include 'partials/modals/mapping.html' %}
+{% include 'partials/modals/batch_correction.html' %}
+{% include 'partials/modals/media_detail.html' %}
 
 {% include 'partials/scripts.html' %}
 </body>

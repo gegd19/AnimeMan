@@ -40,8 +40,8 @@ App.History = (function(app) {
                 app.el('td', {title: item.src || '', text: item.src_name || '', style: 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'}),
                 app.el('td', {title: displayTitle, text: displayTitle, style: 'max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'}),
                 app.el('td', {text: confidenceText, style: `color:${color};font-weight:bold;`}),
-                app.el('td', {}, app.button('🔄 重试', () => App.History.retryProcessed(item.src)),
-                    app.button('🔧 修正', () => App.History.openManualCorrectionForHistory(item.src, item.src_name), 'warning'))));
+                app.el('td', {}, app.button('重试', () => App.History.retryProcessed(item.src)),
+                    app.button('修正', () => App.History.openManualCorrectionForHistory(item.src, item.src_name), 'warning'))));
         });
 
         // 更新全选复选框状态
@@ -137,7 +137,7 @@ App.History = (function(app) {
             // 调用 batchCorrection 的通用打开方法
             if (typeof App.BatchCorrection !== 'undefined') {
                 // 使用一个虚拟文件夹名（显示为"历史记录选中项"）
-                App.BatchCorrection.openModalWithFiles('📋 历史记录选中项', selectedFiles);
+                App.BatchCorrection.openModalWithFiles('历史记录选中项', selectedFiles);
             } else {
                 app.showToast('批量修正模块未加载', 'error');
             }

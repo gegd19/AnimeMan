@@ -36,9 +36,12 @@ App.Task = (function(app) {
                             completed:'已完成', failed:'失败', cancelled:'已取消'};
             const result = data.result || {};
             const counts = typeof result.success === 'number' ? ` 成功 ${result.success}，失败 ${result.failed || 0}` : '';
-            statusText.textContent = `${labels[data.status] || (data.running ? '运行中' : '空闲')}${counts} ${data.message || ''}`;
+            const text = `${labels[data.status] || (data.running ? '运行中' : '空闲')}${counts} ${data.message || ''}`;
+            // 文字不变时不重写节点，避免读屏软件每秒重复播报。
+            if (statusText.textContent !== text) statusText.textContent = text;
 
             app.renderLogs(data.log || []);
+            if (typeof app.onTaskStatus === 'function') app.onTaskStatus(data);
         } catch (e) {
             console.error('状态更新失败', e);
         }
@@ -53,21 +56,22 @@ App.Task = (function(app) {
             const runBtn = document.getElementById('runBtn');
             const stopBtn = document.getElementById('stopBtn');
             runBtn.disabled = true;
-            document.getElementById('statusText').textContent = '⏳ 启动中...';
+            document.getElementById('statusText').textContent = '启动中...';
             try {
                 const resp = await app.fetch('/api/run', { method: 'POST' });
                 const data = await resp.json();
                 if (data.status === 'started') {
-                    document.getElementById('statusText').textContent = '🚀 运行中';
+                    document.getElementById('statusText').textContent = '运行中';
                     currentTask = {running:true, status:'running', task_id:data.task_id};
                     stopBtn.disabled = false;
+                    if (typeof app.onTaskStatus === 'function') app.onTaskStatus(currentTask);
                     this.startStatusPolling();
                 } else {
-                    alert('启动失败: ' + (data.message || '未知错误'));
+                    app.showToast('启动失败：' + (data.message || '未知错误'), 'error');
                     await _updateStatus();
                 }
             } catch (e) {
-                alert('网络错误');
+                // App.fetch 已经给出具体原因；这里只恢复按钮和状态。
                 await _updateStatus();
             }
         },
@@ -80,6 +84,7 @@ App.Task = (function(app) {
             document.getElementById('runBtn').disabled = true;
             document.getElementById('stopBtn').disabled = true;
             document.getElementById('statusText').textContent = '正在停止，等待工作线程退出...';
+            if (typeof app.onTaskStatus === 'function') app.onTaskStatus(currentTask);
             try {
                 const suffix = identity ? '?task_id=' + encodeURIComponent(identity) : '';
                 const resp = await app.fetch('/api/stop' + suffix, {method:'POST'});

@@ -6,7 +6,7 @@ window.App = window.App || {};
 App.SubtitleCenter = (function(app) {
     'use strict';
 
-    console.log('✅ subtitleCenter.js 完整版已加载');
+    console.log('subtitleCenter.js 完整版已加载');
 
     // DOM 元素
     const thresholdInput = document.getElementById('matchThresholdInput');
@@ -227,7 +227,7 @@ App.SubtitleCenter = (function(app) {
         if (!tbody) return;
         tbody.innerHTML = '';
         if (!app.matchResults || !app.matchResults.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无数据，请先扫描字幕</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5">还没有数据。先扫描字幕文件夹，再自动匹配。</td></tr>';
             updateSelectionUI(0, 0);
             renderPagination(0);
             return;
@@ -288,11 +288,11 @@ App.SubtitleCenter = (function(app) {
                 const display = info.media_type === 'tv'
                     ? `${info.title} S${(info.season || '').toString().padStart(2, '0')}E${(info.episode || '').toString().padStart(2, '0')}`
                     : `${info.title} (${info.year || ''})`;
-                tdMatch.replaceChildren(app.el('span', {text: '✅ 已匹配', style: 'color:#28a745;'}),
-                    app.el('br'), app.el('span', {text: display, style: 'font-size:12px;'}));
+                tdMatch.replaceChildren(app.el('span', {text: '已入库', className: 'badge is-green'}),
+                    app.el('br'), app.el('span', {text: display, className: 'cell-sub'}));
             } else {
                 tdMatch.textContent = '无匹配';
-                tdMatch.style.color = '#dc3545';
+                tdMatch.className = 'text-danger';
             }
             tr.appendChild(tdMatch);
 
@@ -307,16 +307,15 @@ App.SubtitleCenter = (function(app) {
             if (hasTarget) {
                 const execBtn = document.createElement('button');
                 execBtn.textContent = '执行';
+                execBtn.type = 'button';
                 execBtn.className = 'success';
-                execBtn.style.padding = '4px 10px';
                 execBtn.addEventListener('click', () => executeSingle(globalIdx, best, processed).catch(error => app.showToast(error.message, 'error')));
                 tdAction.appendChild(execBtn);
             }
             const manSelectBtn = document.createElement('button');
-            manSelectBtn.textContent = '📂 自由选择';
+            manSelectBtn.textContent = '自由选择';
+            manSelectBtn.type = 'button';
             manSelectBtn.className = 'secondary';
-            manSelectBtn.style.padding = '4px 10px';
-            manSelectBtn.style.marginLeft = '5px';
             manSelectBtn.addEventListener('click', () => {
                 if (typeof App.MediaLibrary !== 'undefined') App.MediaLibrary.showManualSelect(globalIdx);
             });
@@ -410,7 +409,7 @@ App.SubtitleCenter = (function(app) {
         btn.disabled = true;
         btn.innerText = '匹配中...';
         const tbody = document.getElementById('subtitleMatchBody');
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">🔄 正在智能匹配字幕...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5">正在匹配字幕…</td></tr>';
         try {
             const resp = await app.fetch('/api/subtitle/match', {
                 method: 'POST',
@@ -425,9 +424,9 @@ App.SubtitleCenter = (function(app) {
             currentPage = 1;
             renderMatchTable();
             const matched = app.matchResults.filter(i => i.best_match).length;
-            app.showToast(`✅ 匹配完成！共 ${app.matchResults.length} 个，${matched} 个找到匹配`, 'success');
+            app.showToast(`匹配完成！共 ${app.matchResults.length} 个，${matched} 个找到匹配`, 'success');
         } catch (e) {
-            tbody.innerHTML = '<tr><td colspan="5" style="color:#dc3545;">匹配失败，请重试</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-danger">匹配失败，请重试</td></tr>';
             app.showToast('匹配失败: ' + e.message, 'error');
         } finally {
             btn.disabled = false;
@@ -524,12 +523,12 @@ App.SubtitleCenter = (function(app) {
             groups.get(key).subs.push(sub);
         });
 
-        console.log(`📦 共 ${groups.size} 组`);
+        console.log(`共 ${groups.size} 组`);
         let totalMatched = 0, processed = 0;
 
         for (const [key, group] of groups.entries()) {
             processed++;
-            btn.textContent = `⏳ AI 识别中 (${processed}/${groups.size})`;
+            btn.textContent = `AI 识别中 (${processed}/${groups.size})`;
             let aiTitle = group.baseTitle;
             let aiSeason = group.season;
             const rep = group.subs[0];
@@ -613,11 +612,11 @@ App.SubtitleCenter = (function(app) {
                 if (span) {
                     if (target.type === 'movie') {
                         const m = target.data;
-                        span.textContent = `🎬 ${cleanTitle(m.title)}${m.year ? ' ('+m.year+')' : ''}`;
+                        span.textContent = `${cleanTitle(m.title)}${m.year ? ' ('+m.year+')' : ''}`;
                     } else {
                         const show = target.data.showInfo;
                         const season = target.data.selectedSeason;
-                        span.textContent = `📺 ${cleanTitle(show.title)}${show.year ? ' ('+show.year+')' : ''} - 第 ${season} 季`;
+                        span.textContent = `${cleanTitle(show.title)}${show.year ? ' ('+show.year+')' : ''} - 第 ${season} 季`;
                     }
                 }
                 app.showToast(`已选择${target.type==='movie'?'电影':'剧集'}`, 'success');
@@ -635,7 +634,7 @@ App.SubtitleCenter = (function(app) {
                     const clean = cleanTitle(showInfo.title || '');
                     selectedShowInfo = showInfo;
                     selectedShowInfo.title = clean;
-                    document.getElementById('selectedShowDisplay').textContent = `📺 ${clean} (${showInfo.year||''})`;
+                    document.getElementById('selectedShowDisplay').textContent = `${clean} (${showInfo.year||''})`;
                     app.showToast(`已选择剧集: ${clean}`, 'success');
                 });
             } else app.showToast('媒体库模块未加载', 'error');
@@ -678,7 +677,7 @@ App.SubtitleCenter = (function(app) {
             const btn = document.getElementById('applyAiMatchBtn');
             const original = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '⏳ 处理中...';
+            btn.textContent = '处理中...';
 
             try {
                 const r1 = await app.fetch('/api/subtitle/batch_rename', {

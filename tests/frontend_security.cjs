@@ -64,6 +64,12 @@ async function setup(t, overrides={}) {
     await page.evaluate(()=>{clearInterval(App.statusInterval);});
     return {page,requests};
 }
+// The page is organised into views; reach a panel the way a user does (real click on
+// the navigation, then wait until the panel is actually visible).
+async function openView(page, view) {
+    await page.locator(`[data-view-target="${view}"]`).click();
+    await page.locator(`#view-${view}`).waitFor({state:'visible'});
+}
 async function safe(page, scope) {
     assert.equal(await page.locator(scope+' #injected').count(),0,'no injected elements');
     assert.equal(await page.evaluate(()=>window.__xss),0,'no injected event executed');
@@ -159,6 +165,7 @@ for(const batch of [false,true]) test(`${batch?'batch':'single'} TMDB search tre
 
 test('media manager movie attributes preserve key and delete payload',async t=>{
     const {page,requests}=await setup(t,{'/api/media/library':route=>route.fulfill({json:{movies:[item],tv_shows:[show]}})});
+    await openView(page,'library');
     await page.evaluate(()=>App.MediaManager.refreshLibrary());
     await page.locator('#movieGrid .movie-card').waitFor();
     await safe(page,'#mediaLibraryManagerContainer');
@@ -170,6 +177,7 @@ test('media manager movie attributes preserve key and delete payload',async t=>{
 
 test('media manager show/episode panels and popup do not parse titles',async t=>{
     const {page}=await setup(t,{'/api/media/library':route=>route.fulfill({json:{movies:[],tv_shows:[show]}})});
+    await openView(page,'library');
     await page.evaluate(()=>App.MediaManager.refreshLibrary());
     await page.locator('.season-toggle-btn').click();
     await page.locator('[data-action="toggleSeasonEpisodes"]').click();
@@ -190,6 +198,7 @@ test('media selector returns unmodified movie metadata with entity-like text',as
 
 test('subtitle show display and execution keep text and raw paths',async t=>{
     const {page,requests}=await setup(t);
+    await openView(page,'subtitles');
     await page.evaluate(({show,tricky,title})=>{
         App.scannedSubtitles=[{path:tricky,name:title}];
         App.MediaLibrary.showShowSelector=cb=>cb(show);
@@ -205,6 +214,7 @@ test('subtitle show display and execution keep text and raw paths',async t=>{
 
 test('mapping fields are inert and edit restores exact keyword',async t=>{
     const {page}=await setup(t,{'/api/special_mappings':route=>route.fulfill({json:{mappings:[{keyword:title,tmdb_id:title,media_type:'tv',season:1,episode:1,enabled:true}]}})});
+    await openView(page,'tools');
     await page.evaluate(()=>App.MappingRules.loadMappingRules());
     await safe(page,'#mappingRulesBody');
     await page.locator('#mappingRulesBody button.secondary').click();
@@ -224,6 +234,7 @@ for(const status of [401,409,500]) test(`HTTP ${status} is a readable failure wi
 
 test('stream error containing HTML is only text (existing protection)',async t=>{
     const {page}=await setup(t,{'/api/ai/stream_enhance':route=>route.fulfill({contentType:'text/event-stream',body:'data: '+JSON.stringify({error:title})+'\n\n'})});
+    await openView(page,'tools');
     await page.locator('#testTitle').fill('title'); await page.locator('#testPlot').fill('plot');
     await page.evaluate(()=>App.AIStream.startStreamEnhance());
     assert.equal(await page.locator('#streamOutput').textContent(),'错误: '+title);
@@ -253,6 +264,7 @@ test('batch correction sends checked files without reinterpreting titles',async 
 
 test('season selection and inversion keep the episode key for batch deletion',async t=>{
     const {page,requests}=await setup(t,{'/api/media/library':route=>route.fulfill({json:{movies:[],tv_shows:[show]}})});
+    await openView(page,'library');
     await page.evaluate(()=>App.MediaManager.refreshLibrary());
     await page.locator('.season-toggle-btn').click();
     await page.locator('.season-row button').filter({hasText:'全选'}).click();
@@ -285,6 +297,7 @@ test('browser directory navigation and selection preserve punctuation and entiti
 test('mapping edit/save passes the literal keyword and has no injected nodes',async t=>{
     const {page}=await setup(t,{'/api/special_mappings':(route,req)=>route.fulfill({json:req.method()==='GET'?{
         mappings:[{keyword:title,tmdb_id:42,media_type:'tv',season:0,episode:1,enabled:true}]}:{status:'success'}})});
+    await openView(page,'tools');
     await page.evaluate(()=>App.MappingRules.loadMappingRules());
     await page.locator('#mappingRulesBody button.secondary').click();
     const wait=page.waitForRequest(req=>new URL(req.url()).pathname==='/api/special_mappings'&&req.method()==='PUT');
@@ -315,6 +328,7 @@ for(const kind of ['html','network']) test(`${kind} error messages render withou
 
 for(const status of [401,409,500]) test(`stream HTTP ${status} is checked before consuming content`,async t=>{
     const {page}=await setup(t,{'/api/ai/stream_enhance':route=>route.fulfill({status,contentType:'text/event-stream',body:'data: '+JSON.stringify({content:evil})+'\n\n'})});
+    await openView(page,'tools');
     await page.locator('#testTitle').fill('title'); await page.locator('#testPlot').fill('plot');
     await page.evaluate(()=>App.AIStream.startStreamEnhance());
     assert.match(await page.locator('#streamOutput').textContent(),new RegExp(status===401?'认证':status===409?'冲突':'服务器'));

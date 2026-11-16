@@ -1,161 +1,197 @@
-<div class="config-grid">
-    <div class="card">
-        <h3>📁 路径设置</h3>
-        <div class="note" id="environmentPathNote"></div>
-        <div class="field-row">
-            <label>源文件夹</label>
+<section class="form-section" aria-labelledby="cfgPathsTitle">
+    <div class="form-section-head">
+        <h2 id="cfgPathsTitle">路径</h2>
+        <p>从哪里读取视频，整理到哪里。</p>
+    </div>
+    <div class="form-section-body">
+        <div class="note" id="environmentPathNote" role="note"></div>
+        <div class="field">
+            <label for="sourceFoldersInput">源文件夹</label>
             <div class="path-input-group">
-                <input type="text" id="sourceFoldersInput" placeholder="多个用逗号分隔">
+                <input type="text" id="sourceFoldersInput" placeholder="多个用逗号分隔" autocomplete="off" spellcheck="false">
                 <button type="button" class="browse" id="sourceBrowseButton" onclick="App.Browse.openBrowser('source')">浏览</button>
             </div>
         </div>
-        <div class="field-row">
-            <label>剧集目标</label>
+        <div class="field">
+            <label for="tvTargetFolderInput">剧集目标</label>
             <div class="path-input-group">
-                <input type="text" id="tvTargetFolderInput" placeholder="Emby 剧集库根目录">
+                <input type="text" id="tvTargetFolderInput" placeholder="Emby 剧集库根目录" autocomplete="off" spellcheck="false">
                 <button type="button" class="browse" id="tvBrowseButton" onclick="App.Browse.openBrowser('tv_target')">浏览</button>
             </div>
         </div>
-        <div class="field-row">
-            <label>电影目标</label>
+        <div class="field">
+            <label for="movieTargetFolderInput">电影目标</label>
             <div class="path-input-group">
-                <input type="text" id="movieTargetFolderInput" placeholder="Emby 电影库根目录">
+                <input type="text" id="movieTargetFolderInput" placeholder="Emby 电影库根目录" autocomplete="off" spellcheck="false">
                 <button type="button" class="browse" id="movieBrowseButton" onclick="App.Browse.openBrowser('movie_target')">浏览</button>
             </div>
         </div>
-        <div class="field-row">
-            <label>链接类型</label>
+        <div class="field">
+            <label for="linkTypeSelect">链接类型</label>
             <select id="linkTypeSelect">
                 <option value="hard">硬链接 (同盘)</option>
                 <option value="symlink">符号链接 (跨盘)</option>
             </select>
         </div>
     </div>
+</section>
 
-    <div class="card">
-        <h3>🔧 处理选项</h3>
-        <div class="checkbox-group">
-            <div class="checkbox-item"><input type="checkbox" id="dryRunCheck"> 模拟运行</div>
-            <div class="checkbox-item"><input type="checkbox" id="incrementalCheck" checked> 增量处理</div>
-            <div class="checkbox-item"><input type="checkbox" id="downloadImagesCheck" checked> 下载图片</div>
+<section class="form-section" aria-labelledby="cfgProcessTitle">
+    <div class="form-section-head">
+        <h2 id="cfgProcessTitle">处理方式</h2>
+        <p>每次点击「开始处理」时怎样扫描和命名。</p>
+    </div>
+    <div class="form-section-body">
+        <label class="check"><input type="checkbox" id="dryRunCheck"><span>模拟运行<small>只生成处理计划，不创建链接、不写入缓存。</small></span></label>
+        <label class="check"><input type="checkbox" id="incrementalCheck" checked><span>增量处理<small>跳过已经处理过的文件。</small></span></label>
+        <div class="check-row">
+            <label class="check"><input type="checkbox" id="downloadImagesCheck" checked><span>下载图片</span></label>
+            <label class="check"><input type="checkbox" id="addYearCheck" checked><span>文件夹加年份</span></label>
+            <label class="check"><input type="checkbox" id="forceChineseCheck" checked><span>强制中文名称</span></label>
         </div>
-        <div class="checkbox-group">
-            <div class="checkbox-item"><input type="checkbox" id="addYearCheck" checked> 文件夹加年份</div>
-            <div class="checkbox-item"><input type="checkbox" id="forceChineseCheck" checked> 强制中文名称</div>
+        <div class="field">
+            <label for="maxWorkersInput">并发线程数</label>
+            <input type="number" id="maxWorkersInput" class="field-inline" min="1" max="10" value="3" inputmode="numeric">
         </div>
-        <div class="field-row">
-            <label>并发线程数</label>
-            <input type="number" id="maxWorkersInput" min="1" max="10" value="3">
+        <div class="field">
+            <label for="minFileSizeInput">最小文件大小 (MB)</label>
+            <input type="number" id="minFileSizeInput" class="field-inline" min="0" value="0" inputmode="numeric">
         </div>
-        <div class="field-row">
-            <label>最小文件大小(MB)</label>
-            <input type="number" id="minFileSizeInput" min="0" value="0">
+        <div class="field">
+            <label for="videoExtInput">视频扩展名</label>
+            <input type="text" id="videoExtInput" placeholder=".mkv, .mp4, .avi ..." value=".mkv, .mp4, .avi, .ts, .m2ts, .mov, .wmv, .flv" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+            <label for="ignorePatternsInput">忽略关键词</label>
+            <input type="text" id="ignorePatternsInput" placeholder="sample, trailer, extra" value="sample, trailer, extra" autocomplete="off" spellcheck="false">
+            <p class="field-hint">文件名包含这些词时跳过，用逗号分隔。</p>
         </div>
     </div>
+</section>
 
-    <div class="card">
-        <h3>🎞️ 视频扩展名</h3>
-        <input type="text" id="videoExtInput" style="width:100%;" placeholder=".mkv, .mp4, .avi ..." value=".mkv, .mp4, .avi, .ts, .m2ts, .mov, .wmv, .flv">
-        <h3 style="margin-top:18px;">🚫 忽略关键词</h3>
-        <input type="text" id="ignorePatternsInput" style="width:100%;" placeholder="sample, trailer, extra" value="sample, trailer, extra">
+<section class="form-section" aria-labelledby="cfgTmdbTitle">
+    <div class="form-section-head">
+        <h2 id="cfgTmdbTitle">TMDB</h2>
+        <p>用来查询片名、季集和海报。密钥保存在服务端，页面不会回显。</p>
     </div>
-</div>
-
-<div class="config-grid">
-    <div class="card api-section">
-        <h3>🤖 AI 解析设置</h3>
-        <div class="checkbox-item" style="margin-bottom:12px;">
-            <input type="checkbox" id="aiParserEnabledCheck"> 启用 AI 解析
-        </div>
-        <div class="checkbox-item" style="margin-bottom:12px;">
-            <input type="checkbox" id="aiBatchFolderCheck" checked> 优先使用文件夹批量解析 (推荐)
-        </div>
-        <div class="field-row"><label>提供商</label><select id="aiProviderSelect"><option>deepseek</option><option>openai</option><option>zhipu</option><option>qwen</option></select></div>
-        <div class="field-row"><label>模型</label><input type="text" id="aiModelInput" value="deepseek-flash"></div>
-        <div class="field-row"><label>API 地址</label><input type="text" id="aiBaseUrlInput" value="https://api.deepseek.com"></div>
-    </div>
-    <div class="card api-section">
-        <h3>✨ AI 简介润色</h3>
-        <div class="checkbox-item" style="margin-bottom:12px;"><input type="checkbox" id="aiPlotEnhanceCheck"> 启用简介润色</div>
-        <div class="field-row"><label>温度</label><input type="number" id="plotTempInput" step="0.1" min="0" max="1" value="0.7"></div>
-        <div class="field-row"><label>最大 tokens</label><input type="number" id="plotTokensInput" value="500"></div>
-    </div>
-    <div class="card">
-        <h3>🔑 API 密钥</h3>
-        <div class="field-row">
-            <label>TMDB API Key</label>
-            <div style="display: flex; gap: 8px; flex: 1;">
-                <input type="password" id="tmdbKeyInput" placeholder="必填" style="flex: 1;">
-                <button type="button" id="testTmdbBtn" onclick="App.Config.testTmdbConnection()" class="secondary" style="white-space: nowrap;">🔌 测试连通性</button>
+    <div class="form-section-body">
+        <div class="field">
+            <label for="tmdbKeyInput">TMDB API Key</label>
+            <div class="field-control">
+                <input type="password" id="tmdbKeyInput" placeholder="必填" autocomplete="off">
+                <button type="button" id="testTmdbBtn" onclick="App.Config.testTmdbConnection()" class="secondary">测试连接</button>
             </div>
         </div>
-        <label><input type="checkbox" id="clearTmdbKeyCheck"> 清除已保存的 TMDB Key</label>
-        <!-- TMDB 代理配置 -->
-        <div class="field-row">
-            <label>TMDB 代理</label>
-            <div style="display: flex; gap: 8px; flex: 1;">
-                <input type="text" id="tmdbProxyInput" placeholder="例如: 127.0.0.1:7890 或 http://127.0.0.1:7890" style="flex: 1;">
-            </div>
+        <label class="check is-danger"><input type="checkbox" id="clearTmdbKeyCheck"><span>清除已保存的 TMDB Key</span></label>
+        <div class="field">
+            <label for="tmdbProxyInput">TMDB 代理</label>
+            <input type="text" id="tmdbProxyInput" placeholder="例如 127.0.0.1:7890 或 http://127.0.0.1:7890" autocomplete="off" spellcheck="false">
+            <p class="field-hint">留空则不使用代理。只填 IP:端口时，保存时自动补全 http://；SOCKS5 需加 socks5://。</p>
         </div>
-        <div class="note" style="margin-top: 4px; margin-left: 130px;">
-            💡 留空则不使用代理。可直接填写 IP:端口，保存时自动补全 http://。支持 SOCKS5 (需加 socks5://)
-        </div>
-        <!-- AI API Key -->
-        <div class="field-row"><label>AI API Key</label><input type="password" id="aiKeyInput" placeholder="可选"></div>
-        <label><input type="checkbox" id="clearAiKeyCheck"> 清除已保存的 AI Key 并关闭 AI 功能</label>
-        <div class="note">输入新 AI Key 将更新解析和润色密钥；留空保留各自已保存的值。</div>
-        <h3 style="margin-top:18px;">🌐 TMDB 语言</h3>
-        <input type="text" id="tmdbLanguageInput" value="zh-CN" placeholder="zh-CN">
-
-        <!-- 访问认证卡片 -->
-        <div style="margin-top: 24px;">
-            <h3>🔐 访问认证</h3>
-            <div class="checkbox-item" style="margin-bottom:12px;">
-                <input type="checkbox" id="authEnabledCheck"> 启用 HTTP 基本认证
-            </div>
-            <div class="field-row">
-                <label>用户名</label>
-                <input type="text" id="authUsernameInput" placeholder="admin" value="admin">
-            </div>
-            <div class="field-row">
-                <label>密码</label>
-                <input type="password" id="authPasswordInput" placeholder="密码">
-            </div>
-            <label><input type="checkbox" id="clearAuthPasswordCheck"> 清除已保存的密码（需同时关闭认证）</label>
-            <div class="note">认证修改立即生效，浏览器可能要求重新登录。密码仍保存在服务端配置文件中。</div>
+        <div class="field">
+            <label for="tmdbLanguageInput">TMDB 语言</label>
+            <input type="text" id="tmdbLanguageInput" class="field-inline" value="zh-CN" placeholder="zh-CN" autocomplete="off" spellcheck="false">
         </div>
     </div>
-</div>
+</section>
 
-<div class="config-grid">
-    <div class="card">
-        <h3>📝 字幕处理</h3>
-        <div class="checkbox-item" style="margin-bottom:12px;">
-            <input type="checkbox" id="subtitleEnabledCheck" checked> 启用字幕处理
-        </div>
-        <div class="checkbox-item" style="margin-bottom:12px;">
-            <input type="checkbox" id="subtitleAutoSyncCheck"> 自动同步时间轴 (需安装ffsubsync)
-        </div>
-        <div class="checkbox-item" style="margin-bottom:12px;">
-            <input type="checkbox" id="subtitleLinkCheck" checked> 字幕也创建链接 (否则复制)
-        </div>
-        <div class="field-row">
-            <label>同步超时(秒)</label>
-            <input type="number" id="subtitleSyncTimeoutInput" min="10" max="300" value="60">
-        </div>
-        <div class="note">💡 自动搜索同目录及 Subs/字幕 文件夹下的 .ass/.srt/.vtt 文件</div>
+<section class="form-section" aria-labelledby="cfgAiTitle">
+    <div class="form-section-head">
+        <h2 id="cfgAiTitle">识别与 AI</h2>
+        <p>规则解析处理不了的文件名交给 AI。调用大模型可能产生费用。</p>
     </div>
-    <div class="card">
-        <h3>🎌 动漫增强</h3>
-        <div class="checkbox-item" style="margin-bottom:12px;">
-            <input type="checkbox" id="animeParserEnabledCheck" checked> 启用 anitopy 动漫解析
-        </div>
-        <div class="checkbox-item" style="margin-bottom:12px;">
-            <input type="checkbox" id="animeParserFallbackCheck" checked> 解析失败时回退到原方法
-        </div>
-    </div>
-</div>
+    <div class="form-section-body api-section">
+        <label class="check"><input type="checkbox" id="animeParserEnabledCheck" checked><span>启用 anitopy 动漫解析</span></label>
+        <label class="check"><input type="checkbox" id="animeParserFallbackCheck" checked><span>解析失败时回退到原方法</span></label>
 
-<div class="note" style="margin-top: 15px; background: #fff3cd; padding: 10px; border-radius: 8px;">
-    💡 提示：修改配置后请点击「💾 保存配置」按钮，否则不会写入文件。
+        <h4>AI 解析</h4>
+        <label class="check"><input type="checkbox" id="aiParserEnabledCheck"><span>启用 AI 解析</span></label>
+        <label class="check"><input type="checkbox" id="aiBatchFolderCheck" checked><span>优先使用文件夹批量解析<small>同一文件夹只调用一次，推荐开启。</small></span></label>
+        <div class="field">
+            <label for="aiProviderSelect">提供商</label>
+            <select id="aiProviderSelect"><option>deepseek</option><option>openai</option><option>zhipu</option><option>qwen</option></select>
+        </div>
+        <div class="field">
+            <label for="aiModelInput">模型</label>
+            <input type="text" id="aiModelInput" value="deepseek-flash" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+            <label for="aiBaseUrlInput">API 地址</label>
+            <input type="text" id="aiBaseUrlInput" value="https://api.deepseek.com" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+            <label for="aiKeyInput">AI API Key</label>
+            <input type="password" id="aiKeyInput" placeholder="可选" autocomplete="off">
+            <p class="field-hint">输入新的 Key 会同时更新解析和润色的密钥；留空则各自保留已保存的值。</p>
+        </div>
+        <label class="check is-danger"><input type="checkbox" id="clearAiKeyCheck"><span>清除已保存的 AI Key 并关闭 AI 功能</span></label>
+
+        <h4>AI 简介润色</h4>
+        <label class="check"><input type="checkbox" id="aiPlotEnhanceCheck"><span>启用简介润色</span></label>
+        <div class="field">
+            <label for="plotTempInput">温度</label>
+            <input type="number" id="plotTempInput" class="field-inline" step="0.1" min="0" max="1" value="0.7" inputmode="decimal">
+        </div>
+        <div class="field">
+            <label for="plotTokensInput">最大 tokens</label>
+            <input type="number" id="plotTokensInput" class="field-inline" value="500" inputmode="numeric">
+        </div>
+    </div>
+</section>
+
+<section class="form-section" aria-labelledby="cfgSubtitleTitle">
+    <div class="form-section-head">
+        <h2 id="cfgSubtitleTitle">字幕</h2>
+        <p>处理视频时顺带整理同目录以及 Subs / 字幕 文件夹里的 .ass / .srt / .vtt。</p>
+    </div>
+    <div class="form-section-body">
+        <label class="check"><input type="checkbox" id="subtitleEnabledCheck" checked><span>启用字幕处理</span></label>
+        <label class="check"><input type="checkbox" id="subtitleAutoSyncCheck"><span>自动同步时间轴<small>需要已安装 ffsubsync。</small></span></label>
+        <label class="check"><input type="checkbox" id="subtitleLinkCheck" checked><span>字幕也创建链接<small>关闭后改为复制。</small></span></label>
+        <div class="field">
+            <label for="subtitleSyncTimeoutInput">同步超时 (秒)</label>
+            <input type="number" id="subtitleSyncTimeoutInput" class="field-inline" min="10" max="300" value="60" inputmode="numeric">
+        </div>
+    </div>
+</section>
+
+<section class="form-section" aria-labelledby="cfgAuthTitle">
+    <div class="form-section-head">
+        <h2 id="cfgAuthTitle">访问认证</h2>
+        <p>修改后立即生效，浏览器可能要求重新登录。密码保存在服务端配置文件中。</p>
+    </div>
+    <div class="form-section-body">
+        <label class="check"><input type="checkbox" id="authEnabledCheck"><span>启用 HTTP 基本认证</span></label>
+        <div class="field">
+            <label for="authUsernameInput">用户名</label>
+            <input type="text" id="authUsernameInput" placeholder="admin" value="admin" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+            <label for="authPasswordInput">密码</label>
+            <input type="password" id="authPasswordInput" placeholder="密码" autocomplete="new-password">
+        </div>
+        <label class="check is-danger"><input type="checkbox" id="clearAuthPasswordCheck"><span>清除已保存的密码<small>需要同时关闭认证。</small></span></label>
+    </div>
+</section>
+
+<section class="form-section" aria-labelledby="cfgLookTitle">
+    <div class="form-section-head">
+        <h2 id="cfgLookTitle">外观</h2>
+        <p>只保存在这个浏览器里，不写入配置文件。</p>
+    </div>
+    <div class="form-section-body">
+        <div class="field">
+            <span class="field-label" id="themeChoiceLabel">界面主题</span>
+            <div class="segmented" role="group" aria-labelledby="themeChoiceLabel">
+                <button type="button" data-theme-choice="system" aria-pressed="true">跟随系统</button>
+                <button type="button" data-theme-choice="light" aria-pressed="false">浅色</button>
+                <button type="button" data-theme-choice="dark" aria-pressed="false">深色</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="savebar">
+    <p>修改后需要保存才会写入配置文件。</p>
+    <button type="button" class="success primary" onclick="App.Config.saveConfig()"><span class="icon i-save" aria-hidden="true"></span>保存配置</button>
 </div>

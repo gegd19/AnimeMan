@@ -48,6 +48,12 @@ window.App = window.App || {};
             if (key === 'text') node.textContent = value ?? '';
             else if (key === 'style') node.style.cssText = value;
             else if (key === 'dataset') Object.assign(node.dataset, value);
+            else if (key === 'attrs') {
+                // ARIA 等没有对应属性的特性；值始终作为文本写入。
+                if (typeof node.setAttribute === 'function') {
+                    for (const [name, attr] of Object.entries(value)) node.setAttribute(name, String(attr));
+                }
+            }
             else node[key] = value;
         }
         node.append(...children);
@@ -81,18 +87,18 @@ window.App = window.App || {};
 
     exports.tableMessage = function(body, text, columns = 5) {
         body.replaceChildren(exports.el('tr', {}, exports.el('td', {
-            colSpan: columns, text, style: 'text-align:center;padding:12px;'
+            colSpan: columns, text, className: 'cell-empty'
         })));
     };
 
     exports.pagination = function(container, current, total, goTo) {
         container.replaceChildren();
         if (total <= 1) return;
-        const bar = exports.el('div', {style: 'display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap;'});
-        const move = (label, page, disabled) => exports.button(label, () => goTo(page), 'secondary', {disabled});
-        bar.append(move('⏮️', 1, current === 1), move('◀', current - 1, current === 1),
+        const bar = exports.el('div', {className: 'pager'});
+        const move = (label, page, disabled) => exports.button(label, () => goTo(page), 'secondary btn-sm', {disabled});
+        bar.append(move('首页', 1, current === 1), move('上一页', current - 1, current === 1),
             exports.el('span', {text: `第 ${current} / ${total} 页`}),
-            move('▶', current + 1, current === total), move('⏭️', total, current === total));
+            move('下一页', current + 1, current === total), move('末页', total, current === total));
         container.append(bar);
     };
 
@@ -138,7 +144,7 @@ window.App = window.App || {};
                 title: details.map(s => `S${s.season_number}: ${s.name} (${s.episode_count}集)`).join('\n')
             });
             table.append(exports.el('tr', {},
-                exports.el('td', {}, item.poster_url ? exports.poster(item.poster_url, {style: 'width:45px;height:68px;object-fit:cover;border-radius:6px;'}) : exports.el('span', {text: '无图'})),
+                exports.el('td', {}, item.poster_url ? exports.poster(item.poster_url, {alt: ''}) : exports.el('span', {className: 'text-muted', text: '无图'})),
                 exports.el('td', {text: item.title}), exports.el('td', {text: item.year || ''}),
                 exports.el('td', {}, seasons), exports.el('td', {}, exports.button('选择', () => select(item.id, item.title, mediaType)))));
         }
@@ -151,11 +157,13 @@ window.App = window.App || {};
     exports.renderLogs = function(logs) {
         const logBox = document.getElementById('logBox');
         if (!logBox) return;
+        // 「清空日志」只清空本页显示：此前的条目不再重新出现，完整日志仍可在新窗口查看。
+        if (clearedUntil && logs.length) logs = logs.filter(item => !(item.time <= clearedUntil));
 
         // 更新暂停按钮状态显示
         const pauseBtn = document.getElementById('pauseLogsBtn');
         if (pauseBtn) {
-            pauseBtn.textContent = exports.logsPaused ? '▶ 恢复日志' : '⏸️ 暂停日志';
+            pauseBtn.textContent = exports.logsPaused ? '恢复日志' : '暂停日志';
         }
 
         // 如果处于暂停状态，只保存日志到 pendingLogs，不更新界面
@@ -170,30 +178,40 @@ window.App = window.App || {};
         exports.pendingLogs = [];
     };
 
+    const EMPTY_LOG = '<div class="log-empty">准备就绪。开始处理后，日志会显示在这里。</div>';
+    const LOG_LEVELS = ['error', 'success', 'warning', 'progress'];
+    let renderedLogKey = null;
+    let clearedUntil = 0;
+
     // 内部函数：实际将日志渲染到 DOM
     function _renderLogsToDOM(logs) {
         const logBox = document.getElementById('logBox');
         if (!logBox) return;
 
-        logBox.innerHTML = '';
         if (!logs || logs.length === 0) {
-            logBox.innerHTML = '<div style="color:#8a95a5;">✨ 准备就绪</div>';
+            renderedLogKey = null;
+            logBox.innerHTML = EMPTY_LOG;
             return;
         }
 
+        // 状态每秒轮询一次；日志没有变化时不重建节点，避免打断阅读和文字选择。
+        const last = logs[logs.length - 1];
+        const key = `${logs.length}|${logs[0].time}|${last.time}|${last.msg}`;
+        if (key === renderedLogKey && logBox.childElementCount === logs.length) return;
+        renderedLogKey = key;
+
+        // 只有原本就停在底部时才继续跟随最新日志。
+        const follow = logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight < 48;
+        const fragment = document.createDocumentFragment();
         logs.forEach(item => {
-            const div = document.createElement('div');
-            let color = '#e3e8f0';
-            if (item.level === 'error') color = '#ff6b6b';
-            else if (item.level === 'success') color = '#51cf66';
-            else if (item.level === 'warning') color = '#ffd43b';
-            else if (item.level === 'progress') color = '#74c0fc';
-            div.style.color = color;
+            const level = LOG_LEVELS.includes(item.level) ? item.level : 'info';
             const time = item.time ? new Date(item.time * 1000).toLocaleTimeString() : '';
-            div.textContent = time ? `[${time}] ${item.msg}` : item.msg;
-            logBox.appendChild(div);
+            fragment.appendChild(exports.el('div', {className: `log-line log-${level}`},
+                exports.el('span', {className: 'log-time', text: time}),
+                exports.el('span', {className: 'log-msg', text: item.msg})));
         });
-        logBox.scrollTop = logBox.scrollHeight;
+        logBox.replaceChildren(fragment);
+        if (follow) logBox.scrollTop = logBox.scrollHeight;
     }
 
     /**
@@ -219,7 +237,7 @@ window.App = window.App || {};
         }
 
         if (pauseBtn) {
-            pauseBtn.textContent = exports.logsPaused ? '▶ 恢复日志' : '⏸️ 暂停日志';
+            pauseBtn.textContent = exports.logsPaused ? '恢复日志' : '暂停日志';
         }
     };
 
@@ -228,65 +246,36 @@ window.App = window.App || {};
      */
     exports.clearLogs = function() {
         const logBox = document.getElementById('logBox');
+        const shown = exports.pendingLogs.length ? exports.pendingLogs : exports.cachedLogsForDisplay;
+        if (shown.length) clearedUntil = Math.max(clearedUntil, ...shown.map(item => Number(item.time) || 0));
         if (logBox) {
-            logBox.innerHTML = '<div style="color:#8a95a5;">✨ 准备就绪</div>';
+            renderedLogKey = null;
+            logBox.innerHTML = EMPTY_LOG;
         }
         exports.pendingLogs = [];
         exports.cachedLogsForDisplay = [];
     };
 
-    exports.showToast = function(message, type = 'info', duration = 3000) {
+    // 外观在 style.css 的 .app-toast 中定义；消息始终作为文本写入。
+    // 未指定时长时，错误和警告多停留一会儿，便于读完。
+    exports.showToast = function(message, type = 'info', duration) {
         const existingToast = document.querySelector('.app-toast');
         if (existingToast) existingToast.remove();
+        if (!['success', 'error', 'info', 'warning'].includes(type)) type = 'info';
+        if (duration === undefined) duration = (type === 'error' || type === 'warning') ? 6000 : 3000;
 
         const toast = document.createElement('div');
         toast.className = `app-toast app-toast-${type}`;
+        toast.setAttribute('role', type === 'error' || type === 'warning' ? 'alert' : 'status');
         toast.textContent = message;
-        toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            max-width: 350px;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            color: white;
-            z-index: 10000;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-            animation: slideIn 0.3s ease;
-            word-break: break-word;
-        `;
-
-        const colors = {
-            success: '#28a745',
-            error: '#dc3545',
-            info: '#2c7be5',
-            warning: '#fd7e14'
+        const dismiss = () => {
+            toast.classList.add('is-leaving');
+            setTimeout(() => toast.remove(), 250);
         };
-        toast.style.backgroundColor = colors[type] || colors.info;
-
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from { opacity: 0; transform: translateX(20px); }
-                to { opacity: 1; transform: translateX(0); }
-            }
-        `;
-        if (!document.querySelector('#toast-animation')) {
-            style.id = 'toast-animation';
-            document.head.appendChild(style);
-        }
-
+        toast.addEventListener('click', dismiss);
         document.body.appendChild(toast);
 
-        if (duration > 0) {
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.3s';
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
+        if (duration > 0) setTimeout(dismiss, duration);
     };
 
     // ========== 全局函数绑定 ==========

@@ -21,16 +21,16 @@ App.MappingRules = (function(app) {
         const tbody = document.getElementById(tableBodyId);
         tbody.innerHTML = '';
         if (app.mappingRules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">暂无规则，点击“新增规则”添加</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6">还没有规则。点击「新增规则」添加第一条。</td></tr>';
             return;
         }
         app.mappingRules.forEach((r, i) => {
             const episode = r.media_type === 'tv' ? `S${String(r.season || 0).padStart(2, '0')}E${String(r.episode || 1).padStart(2, '0')}` : '-';
             const tr = app.el('tr', {}, app.el('td', {}, app.el('code', {text: r.keyword})),
-                app.el('td', {text: r.tmdb_id}), app.el('td', {text: r.media_type === 'movie' ? '🎬' : '📺'}),
-                app.el('td', {text: episode}), app.el('td', {text: r.enabled !== false ? '✅' : '⏸️'}),
-                app.el('td', {}, app.button('✏️', () => App.MappingRules.editMappingRule(i)),
-                    app.button('🗑️', () => App.MappingRules.deleteMappingRule(i), 'danger')));
+                app.el('td', {text: r.tmdb_id}), app.el('td', {text: r.media_type === 'movie' ? '电影' : '剧集'}),
+                app.el('td', {text: episode}), app.el('td', {}, app.el('span', {className: r.enabled !== false ? 'badge is-green' : 'badge', text: r.enabled !== false ? '启用' : '停用'})),
+                app.el('td', {}, app.button('编辑', () => App.MappingRules.editMappingRule(i)),
+                    app.button('删除', () => App.MappingRules.deleteMappingRule(i), 'danger')));
             tbody.appendChild(tr);
         });
     }
@@ -106,7 +106,7 @@ App.MappingRules = (function(app) {
                 enabled: document.getElementById('mappingEnabled').checked
             };
             if (!rule.keyword || !rule.tmdb_id) {
-                alert('关键词和 TMDB ID 不能为空');
+                app.showToast('关键词和 TMDB ID 不能为空', 'warning');
                 return;
             }
             const method = idx >= 0 ? 'PUT' : 'POST';
@@ -121,7 +121,7 @@ App.MappingRules = (function(app) {
                 await this.loadMappingRules();
                 _closeModal();
             } else {
-                alert('保存失败: ' + data.message);
+                app.showToast('保存失败：' + (data.message || '未知错误'), 'error');
             }
         },
 
@@ -135,7 +135,7 @@ App.MappingRules = (function(app) {
             if (data.status === 'success') {
                 await this.loadMappingRules();
             } else {
-                alert('删除失败');
+                app.showToast('删除失败', 'error');
             }
         }
     };

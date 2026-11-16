@@ -30,7 +30,7 @@ App.AIStream = (function(app) {
             const btn = document.querySelector('#stream-card button.primary');
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = '⏳ 生成中...';
+                btn.textContent = '生成中…';
             }
 
             try {
@@ -74,7 +74,7 @@ App.AIStream = (function(app) {
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = '🤖 开始流式生成';
+                    btn.textContent = '开始生成';
                 }
             }
         },

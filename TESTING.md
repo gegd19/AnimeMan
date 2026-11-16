@@ -113,3 +113,11 @@ python tools/compose_smoke.py animeman:verification
 本机实际通过 Docker 28.5.2 rootless 的镜像构建、18 类上下文排除、两种写任务 SIGTERM 场景和 Compose 2.40.3 生产入口。检查认证、健康状态、单任务/单进程互斥、容器删除重建持久化、源只读及内容保留、已提交产物保留、未提交产物清理、实际 StopTimeout=-1；另实测自定义 UID 1026/GID 100 的构建与 Compose 启动，覆盖基础镜像组冲突。宽限超时按用户明确选择报告并继续等待，最终安全退出码为 1。
 
 `.github/workflows/ci.yml` 包含 Linux Python/JS/浏览器、Docker/Compose 和 Windows 链接/长路径探针；actionlint 1.7.7 静态校验通过。**未推送，远程 GitHub Actions 未执行；本机无 Windows，Windows 探针尚未执行**。没有将 CI 配置完成写成 CI 实跑成功。部署、权限和停机细则见 DEPLOYMENT.md；证据与回滚见 T15-NOTES.md。
+
+## 界面美化（ui/visual-refresh）
+
+`npm run test:ui` 现在还会运行 `tests/shell_ui.cjs`：16 项真实 Chromium 用例，覆盖页面导航与状态保持、任务条在各页面的停止中/失败状态、`task_id` 停止请求、模拟运行标记、环境变量只读路径、密钥不进入页面与浏览器存储、弹窗的名称/焦点/Escape、日志暂停与清空、错误提示、缺图占位、主题偏好，以及 375 / 768 / 1280 像素下无整页横向溢出。原有 38 项保持不变；`frontend_security.cjs` 只增加了进入对应页面的真实导航点击。
+
+`node tests/ui_preview.cjs <输出目录>` 用同样的请求拦截和合成数据生成桌面 / 手机 / 平板、浅色 / 深色截图，供人工检查；它不是测试，不在 `test:ui` 里。可用 `UI_PREVIEW_ONLY='^phone-library$'` 只生成部分场景。
+
+本次实际结果、环境差异和未测项见 UI-REFRESH-NOTES.md。

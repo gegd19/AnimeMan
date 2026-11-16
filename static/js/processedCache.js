@@ -110,7 +110,7 @@ App.ProcessedCache = (function(app) {
 
         const selectAllCheck = document.getElementById('processedCacheSelectAll');
         if (items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">暂无已处理缓存记录</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">还没有已处理的缓存记录</td></tr>';
             if (selectAllCheck) selectAllCheck.checked = false;
             updateBatchButtons();
             return;
@@ -130,13 +130,14 @@ App.ProcessedCache = (function(app) {
             checkbox.addEventListener('change', () => App.ProcessedCache.toggleSelect(item.src, checkbox.checked));
             tbody.append(app.el('tr', {}, app.el('td', {}, checkbox),
                 app.el('td', {title: item.src, text: item.src_name}),
-                app.el('td', {title: item.src, text: dirPath, style: 'font-size:12px;color:#6c757d;'}),
-                app.el('td', {title: item.target, text: `${item.target_exists ? '✅' : '⚠️'} ${(item.target || '').split('/').pop()}`}),
+                app.el('td', {title: item.src, text: dirPath, className: 'cell-sub'}),
+                app.el('td', {title: item.target}, app.el('span', {className: item.target_exists ? 'badge is-green' : 'badge is-amber',
+                    text: item.target_exists ? '存在' : '缺失'}), ' ' + (item.target || '').split('/').pop()),
                 app.el('td', {text: mediaInfo}),
                 app.el('td', {text: item.confirmed_by_user ? '人工确认' : (item.confidence == null ? '未评分' : item.confidence + '%')}),
                 app.el('td', {text: formatTime(item.processed_time)}),
-                app.el('td', {}, app.button('🔧 手动修正', () => App.ProcessedCache.manualCorrectItem(item.src, item.src_name)),
-                    app.button('🗑️ 删除', () => App.ProcessedCache.deleteItem(item.src), 'danger'))));
+                app.el('td', {}, app.button('手动修正', () => App.ProcessedCache.manualCorrectItem(item.src, item.src_name)),
+                    app.button('删除', () => App.ProcessedCache.deleteItem(item.src), 'danger'))));
         });
 
         if (selectAllCheck) {
@@ -175,7 +176,7 @@ App.ProcessedCache = (function(app) {
             renderTable(items);
             renderPagination();
         } catch (e) {
-            document.getElementById(tableBodyId).innerHTML = '<tr><td colspan="9" style="text-align:center; color:#dc3545;">加载失败，请重试</td></tr>';
+            document.getElementById(tableBodyId).innerHTML = '<tr><td colspan="8" class="text-danger">加载失败，请关闭后重试</td></tr>';
             app.showToast('加载已处理缓存失败：' + e.message, 'error');
         }
     }
@@ -202,7 +203,7 @@ App.ProcessedCache = (function(app) {
         }));
 
         if (typeof App.BatchCorrection !== 'undefined') {
-            App.BatchCorrection.openModalWithFiles('📋 已处理缓存选中项', selectedFiles);
+            App.BatchCorrection.openModalWithFiles('已处理缓存选中项', selectedFiles);
         } else {
             app.showToast('批量修正模块未加载', 'error');
         }
@@ -223,7 +224,7 @@ App.ProcessedCache = (function(app) {
         const sorted = smartSortFiles(selectedFiles);
 
         if (typeof App.BatchCorrection !== 'undefined') {
-            App.BatchCorrection.openModalWithFiles('📋 已处理缓存（智能排序）', sorted);
+            App.BatchCorrection.openModalWithFiles('已处理缓存（智能排序）', sorted);
         } else {
             app.showToast('批量修正模块未加载', 'error');
         }

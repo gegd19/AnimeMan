@@ -87,8 +87,8 @@ App.BatchCorrection = (function(app) {
         const increment = parseInt(document.getElementById('batchEpisodeIncrement').value) || 1;
         const mediaType = selectedMediaType || 'tv';
 
-        const table = app.el('table', {style: 'width:100%;border-collapse:collapse;font-size:13px;'});
-        const selectAll = app.el('input', {type: 'checkbox', id: 'batchSelectAll'});
+        const table = app.el('table', {});
+        const selectAll = app.el('input', {type: 'checkbox', id: 'batchSelectAll', title: '全选'});
         selectAll.addEventListener('change', () => App.BatchCorrection.toggleSelectAll(selectAll.checked));
         const header = app.el('tr', {}, app.el('th', {}, selectAll), app.el('th', {text: '顺序'}), app.el('th', {text: '文件名'}));
         if (mediaType === 'tv') header.append(app.el('th', {text: '预览集号'}));
@@ -98,23 +98,23 @@ App.BatchCorrection = (function(app) {
         displayFiles.forEach((file, idx) => {
             const previewEp = file.selected && mediaType === 'tv' ? epCounter : '—';
             if (file.selected && mediaType === 'tv') epCounter += increment;
-            const statusBadge = file.status === 'success' ? '✅' : file.status === 'failed' ? '❌' : file.status === 'unknown' ? '❓' : '';
+            const statusBadge = file.status === 'success' ? '[已入库]' : file.status === 'failed' ? '[失败]' : file.status === 'unknown' ? '[未处理]' : '';
             const titleInfo = file.title ? ` (${file.title}${file.season ? ` S${String(file.season).padStart(2,'0')}E${String(file.episode).padStart(2,'0')}` : ''})` : '';
             const checkbox = app.el('input', {type: 'checkbox', checked: !!file.selected, dataset: {index: idx}});
             checkbox.addEventListener('change', () => App.BatchCorrection.toggleFile(idx, checkbox.checked));
-            const name = app.el('td', {title: file.path, style: 'max-width:300px;word-break:break-word;'},
-                app.el('strong', {text: `${statusBadge} ${file.name}${isSpecialLike(file.name) ? ' 🎬' : ''}`}));
-            if (titleInfo) name.append(app.el('br'), app.el('span', {text: titleInfo, style: 'font-size:11px;color:#495057;'}));
+            const name = app.el('td', {title: file.path},
+                app.el('strong', {text: `${statusBadge} ${file.name}${isSpecialLike(file.name) ? ' [特典]' : ''}`.trim()}));
+            if (titleInfo) name.append(app.el('br'), app.el('span', {text: titleInfo, className: 'cell-sub'}));
             const row = app.el('tr', {}, app.el('td', {}, checkbox), app.el('td', {text: idx + 1}), name);
             if (mediaType === 'tv') row.append(app.el('td', {text: previewEp, style: 'font-weight:bold;'}));
-            row.append(app.el('td', {}, app.button('↑', () => App.BatchCorrection.moveUp(idx), 'secondary', {disabled: idx === 0}),
-                app.button('↓', () => App.BatchCorrection.moveDown(idx), 'secondary', {disabled: idx === displayFiles.length - 1})));
+            row.append(app.el('td', {}, app.button('上移', () => App.BatchCorrection.moveUp(idx), 'secondary', {disabled: idx === 0}),
+                app.button('下移', () => App.BatchCorrection.moveDown(idx), 'secondary', {disabled: idx === displayFiles.length - 1})));
             table.append(row);
         });
-        container.replaceChildren(table, app.el('div', {style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;'},
-            app.button('🧠 智能排序（按集号）', () => App.BatchCorrection.smartSort()),
-            app.button('🔢 提取起始集号', () => App.BatchCorrection.autoExtractStartEpisode()),
-            app.button('🔄 重置顺序', () => App.BatchCorrection.resetOrder())));
+        container.replaceChildren(table, app.el('div', {className: 'toolbar'},
+            app.button('智能排序（按集号）', () => App.BatchCorrection.smartSort()),
+            app.button('提取起始集号', () => App.BatchCorrection.autoExtractStartEpisode()),
+            app.button('重置顺序', () => App.BatchCorrection.resetOrder())));
 
         const allChecked = displayFiles.length > 0 && displayFiles.every(f => f.selected);
         const selectAllCheck = document.getElementById('batchSelectAll');
@@ -257,7 +257,7 @@ App.BatchCorrection = (function(app) {
                 return;
             }
             const resultsDiv = document.getElementById('batchTmdbResults');
-            resultsDiv.innerHTML = '<div style="text-align:center; padding:10px;">🔍 搜索中...</div>';
+            resultsDiv.innerHTML = '<div class="text-muted">正在搜索 TMDB…</div>';
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 25000);
@@ -273,7 +273,7 @@ App.BatchCorrection = (function(app) {
                 if (data.error) throw new Error(data.error);
 
                 if (!data.results || data.results.length === 0) {
-                    resultsDiv.innerHTML = '<div style="text-align:center; padding:10px;">❌ 无结果</div>';
+                    resultsDiv.innerHTML = '<div class="text-muted">没有搜索结果，换个关键词试试</div>';
                     return;
                 }
 
@@ -282,7 +282,7 @@ App.BatchCorrection = (function(app) {
             } catch (e) {
                 clearTimeout(timeoutId);
                 let errMsg = e.message || '网络错误';
-                resultsDiv.textContent = '❌ ' + errMsg;
+                resultsDiv.replaceChildren(app.el('div', {className: 'text-danger', text: '搜索失败：' + errMsg}));
                 app.showToast(errMsg, 'error');
             }
         },
@@ -339,7 +339,7 @@ App.BatchCorrection = (function(app) {
             const statusText = document.getElementById('statusText');
             const runBtn = document.getElementById('runBtn');
             const stopBtn = document.getElementById('stopBtn');
-            if (statusText) statusText.innerHTML = '🚀 批量修正中...';
+            if (statusText) statusText.textContent = '批量修正中...';
             if (runBtn) runBtn.disabled = true;
             if (stopBtn) stopBtn.disabled = false;
 
@@ -351,19 +351,19 @@ App.BatchCorrection = (function(app) {
                 });
                 const data = await resp.json();
                 if (data.status === 'started') {
-                    app.showToast(`✅ 批量修正任务已启动，共 ${data.total} 个文件`, 'success');
+                    app.showToast(`批量修正任务已启动，共 ${data.total} 个文件`, 'success');
                     if (typeof App.Task !== 'undefined') {
                         App.Task.startStatusPolling();
                     }
                 } else {
-                    app.showToast('❌ 启动失败：' + (data.message || '未知错误'), 'error');
-                    if (statusText) statusText.innerHTML = '⚪ 空闲';
+                    app.showToast('启动失败：' + (data.message || '未知错误'), 'error');
+                    if (statusText) statusText.textContent = '空闲';
                     if (runBtn) runBtn.disabled = false;
                     if (stopBtn) stopBtn.disabled = true;
                 }
             } catch (e) {
                 app.showToast('请求失败：' + e.message, 'error');
-                if (statusText) statusText.innerHTML = '⚪ 空闲';
+                if (statusText) statusText.textContent = '空闲';
                 if (runBtn) runBtn.disabled = false;
                 if (stopBtn) stopBtn.disabled = true;
             }

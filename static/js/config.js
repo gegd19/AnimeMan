@@ -99,12 +99,12 @@ App.Config = (function(app) {
         if (checkbox.checked) {
             const aiKey = document.getElementById('aiKeyInput').value.trim();
             if (!aiKey && !app.configCache.ai_parser?.api_key_configured) {
-                const msg = '🤖 AI 解析需调用大模型 API，可能产生少量费用（新用户通常有免费额度）。\n\n请先填写有效的 API Key 再启用。';
+                const msg = 'AI 解析需调用大模型 API，可能产生少量费用（新用户通常有免费额度）。\n\n请先填写有效的 API Key 再启用。';
                 app.showToast(msg, 'info', 6000);
                 checkbox.checked = false;
                 return;
             }
-            app.showToast('✅ AI 解析已启用，请确保账户余额充足', 'success', 3000);
+            app.showToast('AI 解析已启用，请确保账户余额充足', 'success', 3000);
         }
     }
 
@@ -146,7 +146,7 @@ App.Config = (function(app) {
         // 如果启用了 AI 但没有 Key，强制禁用
         if (cfg.ai_parser.enabled && !aiKey && !app.configCache.ai_parser?.api_key_configured) {
             cfg.ai_parser.enabled = false;
-            app.showToast('⚠️ AI 解析已自动禁用：未填写 API Key', 'warning', 3000);
+            app.showToast('AI 解析已自动禁用：未填写 API Key', 'warning', 3000);
         }
         cfg.ai_parser.batch_folder_enabled = document.getElementById('aiBatchFolderCheck').checked;
         cfg.ai_parser.provider = document.getElementById('aiProviderSelect').value;
@@ -205,10 +205,10 @@ App.Config = (function(app) {
     }
 
     function scrollToConfig() {
-        const panel = document.querySelector('h2 + form') || document.getElementById('configForm');
-        if (panel) {
-            panel.scrollIntoView({ behavior: 'smooth' });
-        }
+        // 配置在「设置」页；先切换页面再定位到表单。
+        if (app.Shell && typeof app.Shell.show === 'function') app.Shell.show('settings', {focus: true});
+        const panel = document.getElementById('configForm');
+        if (panel) panel.scrollIntoView({block: 'start'});
     }
 
     function dismissOnboarding() {
@@ -250,11 +250,12 @@ App.Config = (function(app) {
                 app.configCache = await resp.json();
                 app.configCache.auth = app.configCache.auth || { enabled: false, username: 'admin', password: '' };
                 populateForm(app.configCache);
+                if (typeof app.onConfigLoaded === 'function') app.onConfigLoaded(app.configCache);
                 if (typeof App.MappingRules !== 'undefined') await App.MappingRules.loadMappingRules();
                 if (typeof App.MediaManager !== 'undefined') App.MediaManager.refreshLibrary();
                 checkOnboarding();
             } catch (e) {
-                alert('加载配置失败：' + e.message);
+                app.showToast('加载配置失败：' + e.message, 'error');
             }
         },
 
@@ -268,7 +269,7 @@ App.Config = (function(app) {
                 });
                 const data = await resp.json();
                 if (data.status === 'success') {
-                    app.showToast('✅ 配置已保存到 auto_config.json', 'success');
+                    app.showToast('配置已保存到 auto_config.json', 'success');
                     await this.loadConfig();
                 } else {
                     app.showToast('保存失败: ' + data.message, 'error');
@@ -282,25 +283,25 @@ App.Config = (function(app) {
             const folder = document.getElementById('subSourceFolderInput').value.trim();
             if (!folder) { app.showToast('请先输入或选择一个文件夹', 'warning'); return; }
             await this.saveConfig();
-            app.showToast(`⭐ 已将 "${folder}" 设为默认字幕文件夹`, 'success');
+            app.showToast(`已将 "${folder}" 设为默认字幕文件夹`, 'success');
         },
 
         testTmdbConnection: async function() {
             const btn = document.getElementById('testTmdbBtn');
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '⏳ 测试中...';
+            btn.textContent = '测试中...';
 
             try {
                 const resp = await app.fetch('/api/tmdb/test');
                 const data = await resp.json();
                 if (data.status === 'success') {
-                    app.showToast(`✅ TMDB 连接正常！图片服务器: ${data.images_base_url || '默认'}`, 'success', 5000);
+                    app.showToast(`TMDB 连接正常！图片服务器: ${data.images_base_url || '默认'}`, 'success', 5000);
                 } else {
-                    app.showToast(`❌ TMDB 连接失败: ${data.message}`, 'error', 5000);
+                    app.showToast(`TMDB 连接失败: ${data.message}`, 'error', 5000);
                 }
             } catch (e) {
-                app.showToast(`❌ 请求失败: ${e.message}`, 'error');
+                app.showToast(`请求失败: ${e.message}`, 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
@@ -318,7 +319,7 @@ App.Config = (function(app) {
         validateAiKey: function() {
             const aiKey = document.getElementById('aiKeyInput').value.trim();
             if (!aiKey && !app.configCache.ai_parser?.api_key_configured) {
-                app.showToast('❌ 请先填写 AI API Key，或关闭 AI 解析功能', 'warning', 4000);
+                app.showToast('请先填写 AI API Key，或关闭 AI 解析功能', 'warning', 4000);
                 return false;
             }
             return true;

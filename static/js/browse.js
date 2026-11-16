@@ -13,11 +13,11 @@ App.Browse = (function(app) {
         const list = document.getElementById(dirListId);
         list.innerHTML = '';
         if (!items || items.length === 0) {
-            list.innerHTML = '<li style="padding:12px;color:#6c757d;justify-content:center;">📭 空目录或无权限访问</li>';
+            list.innerHTML = '<li class="is-empty">这里没有子文件夹，或没有访问权限</li>';
             return;
         }
         items.forEach(item => {
-            const li = document.createElement('li');
+            const li = app.el('li', {tabIndex: 0, title: item.path, attrs: {role: 'button'}});
             li.append(app.el('span', {className: 'folder-icon', text: '📁'}), document.createTextNode(' ' + item.name));
             li.addEventListener('click', () => _browsePath(item.path).catch(error => app.showToast(error.message, 'error')));
             list.appendChild(li);
@@ -51,7 +51,7 @@ App.Browse = (function(app) {
                 upBtn.disabled = !data.parent;
             }
         } else {
-            alert('无法浏览该目录，可能是权限不足或路径无效');
+            app.showToast('无法浏览该目录，可能是权限不足或路径无效', 'error');
         }
     }
 
@@ -91,7 +91,7 @@ App.Browse = (function(app) {
         goUp: _goUp,
         selectCurrentPath: function() {
             if (!app.currentBrowsePath) {
-                alert('请先点击一个文件夹进入，或点击“根目录”选择起始路径');
+                app.showToast('请先点击一个文件夹进入，或点击“根目录”选择起始路径', 'warning');
                 return;
             }
             let inputId;
@@ -103,8 +103,8 @@ App.Browse = (function(app) {
                 default: return;
             }
             document.getElementById(inputId).value = app.currentBrowsePath;
-            alert('✅ 已设置路径');
             _closeModal();
+            app.showToast('已填入路径，保存配置后生效', 'info');
         }
     };
 })(window.App);

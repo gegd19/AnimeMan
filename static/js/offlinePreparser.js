@@ -15,9 +15,9 @@ App.OfflinePreparser = (function(app) {
 
             // 更新显示
             document.getElementById('offlineScanStatus').textContent =
-                `📁 已扫描 ${data.total_folders || 0} 个文件夹，共 ${data.total_files || 0} 个视频文件`;
+                `已扫描 ${data.total_folders || 0} 个文件夹，共 ${data.total_files || 0} 个视频文件`;
             document.getElementById('offlineCacheStatus').textContent =
-                `🤖 已缓存 ${data.cached_folders || 0} 个文件夹的 AI 解析结果`;
+                `已缓存 ${data.cached_folders || 0} 个文件夹的 AI 解析结果`;
 
             const scanBtn = document.getElementById('offlineScanBtn');
             const parseBtn = document.getElementById('offlineParseBtn');
@@ -25,23 +25,23 @@ App.OfflinePreparser = (function(app) {
             // 处理扫描中状态
             if (data.scanning) {
                 scanBtn.disabled = true;
-                scanBtn.textContent = `⏳ 扫描中 ${data.scan_progress || 0}/${data.scan_total || 0}`;
+                scanBtn.textContent = `扫描中 ${data.scan_progress || 0}/${data.scan_total || 0}`;
                 // 显示进度 toast（可选，避免频繁弹窗）
                 if (data.scan_message) {
                     // 不频繁弹 toast，仅在状态栏显示，或者用非阻塞提示
                 }
             } else {
                 scanBtn.disabled = false;
-                scanBtn.textContent = '🔍 扫描源文件夹';
+                scanBtn.textContent = '扫描源文件夹';
             }
 
             // 处理解析中状态
             if (data.parsing) {
                 parseBtn.disabled = true;
-                parseBtn.textContent = `⏳ 解析中 ${data.parse_progress || 0}/${data.parse_total || 0}`;
+                parseBtn.textContent = `解析中 ${data.parse_progress || 0}/${data.parse_total || 0}`;
             } else {
                 parseBtn.disabled = false;
-                parseBtn.textContent = '⚡ 全量预解析 (按需可选)';
+                parseBtn.textContent = '全量预解析';
             }
 
             // 如果扫描刚完成，提示用户
@@ -85,7 +85,7 @@ App.OfflinePreparser = (function(app) {
                     app.showToast('扫描任务已启动', 'info', 1500);
                     startPolling();
                 } else {
-                    app.showToast('❌ 扫描失败：' + (data.message || '未知错误'), 'error');
+                    app.showToast('扫描失败：' + (data.message || '未知错误'), 'error');
                 }
             } catch (e) {
                 app.showToast('请求失败：' + e.message, 'error');
@@ -105,7 +105,7 @@ App.OfflinePreparser = (function(app) {
                     app.showToast('预解析任务已启动', 'info', 1500);
                     startPolling();
                 } else {
-                    app.showToast('❌ 预解析失败：' + (data.message || '未知错误'), 'error');
+                    app.showToast('预解析失败：' + (data.message || '未知错误'), 'error');
                 }
             } catch (e) {
                 app.showToast('请求失败：' + e.message, 'error');

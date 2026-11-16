@@ -40,24 +40,25 @@ App.MediaLibrary = (function(app) {
         container.replaceChildren();
         if (filteredMovies.length && ['episode', 'target'].includes(selectorMode)) {
             const list = app.el('div', {className: 'movie-list'});
-            container.append(app.el('div', {className: 'media-section'}, app.el('h4', {text: '🎬 电影'}), list));
+            container.append(app.el('div', {className: 'media-section'}, app.el('h4', {text: '电影'}), list));
             for (const movie of filteredMovies) {
                 const button = app.el('button', {type: 'button', className: `${selectorMode === 'target' ? 'select-movie-btn' : 'select-media-btn'} success`,
                     text: selectorMode === 'target' ? '选择此电影' : '选择'});
                 button.dataset[selectorMode === 'target' ? 'movie' : 'media'] = JSON.stringify(movie);
-                list.append(app.el('div', {className: 'movie-item', style: 'display:flex;align-items:center;gap:12px;'},
-                    app.poster(app.mediaPosterUrl('movie', movie.tmdb_id), {style: 'width:45px;height:68px;object-fit:cover;border-radius:6px;'}),
-                    app.el('span', {className: 'movie-title', style: 'flex:1;', text: `${cleanTitle(movie.title)} ${movie.year ? '(' + movie.year + ')' : ''}`}), button));
+                list.append(app.el('div', {className: 'movie-item'},
+                    app.poster(app.mediaPosterUrl('movie', movie.tmdb_id), {alt: ''}),
+                    app.el('span', {className: 'movie-title', text: `${cleanTitle(movie.title)} ${movie.year ? '(' + movie.year + ')' : ''}`}), button));
             }
         }
         if (filteredShows.length) {
             const list = app.el('div', {className: 'tv-show-list'});
-            container.append(app.el('div', {className: 'media-section'}, app.el('h4', {text: '📺 剧集'}), list));
+            container.append(app.el('div', {className: 'media-section'}, app.el('h4', {text: '剧集'}), list));
             for (const show of filteredShows) {
                 const seasons = show.seasons || {};
                 const numbers = Object.keys(seasons).sort((a,b) => parseInt(a) - parseInt(b));
-                const header = app.el('div', {className: 'tv-show-header'},
-                    app.poster(app.mediaPosterUrl('tv', show.tmdb_id), {className: 'show-poster'}),
+                const header = app.el('div', {className: 'tv-show-header', tabIndex: 0,
+                        attrs: {role: 'button', 'aria-expanded': expandedShows.has(show.tmdb_id)}},
+                    app.poster(app.mediaPosterUrl('tv', show.tmdb_id), {className: 'show-poster', alt: ''}),
                     app.el('div', {className: 'show-info'},
                         app.el('span', {className: 'show-title', text: `${cleanTitle(show.title)} ${show.year ? '(' + show.year + ')' : ''}`}),
                         app.el('span', {className: 'show-seasons-count', title: getSeasonSummary(show), text: `${numbers.length} 季 · ${getSeasonSummary(show)}`})));
@@ -65,7 +66,7 @@ App.MediaLibrary = (function(app) {
                     if (!event.target.closest('button')) App.MediaLibrary.toggleShowExpand(show.tmdb_id);
                 });
                 if (selectorMode === 'show') header.append(app.el('button', {type: 'button', className: 'select-show-btn success',
-                    text: '选择此剧集', style: 'margin-left:auto;', dataset: {show: JSON.stringify(show)}}));
+                    text: '选择此剧集', dataset: {show: JSON.stringify(show)}}));
                 header.append(app.el('span', {className: 'expand-icon', text: expandedShows.has(show.tmdb_id) ? '▼' : '▶'}));
                 const seasonList = app.el('div', {className: 'tv-show-seasons', id: `seasons-${show.tmdb_id}`,
                     style: `display:${expandedShows.has(show.tmdb_id) ? 'block' : 'none'};`});
@@ -73,13 +74,13 @@ App.MediaLibrary = (function(app) {
                     const episodes = seasons[number].episodes || [];
                     const key = `${show.tmdb_id}-${number}`;
                     const expanded = expandedSeasons.has(key);
-                    const seasonHeader = app.el('div', {className: 'season-header'},
+                    const seasonHeader = app.el('div', {className: 'season-header', tabIndex: 0, attrs: {role: 'button', 'aria-expanded': expanded}},
                         app.el('span', {className: 'season-title', text: `第 ${number} 季 (${episodes.length} 集)`}));
                     seasonHeader.addEventListener('click', event => {
                         if (!event.target.closest('button')) App.MediaLibrary.toggleSeasonExpand(key);
                     });
                     if (['season', 'target'].includes(selectorMode)) seasonHeader.append(app.el('button', {
-                        type: 'button', className: 'select-season-btn success', text: '选择此季', style: 'margin-left:10px;',
+                        type: 'button', className: 'select-season-btn success', text: '选择此季',
                         dataset: {show: JSON.stringify(show), season: number}}));
                     seasonHeader.append(app.el('span', {className: 'expand-icon', text: expanded ? '▼' : '▶'}));
                     const episodeList = app.el('div', {className: 'season-episodes', id: `episodes-${key}`, style: `display:${expanded ? 'block' : 'none'};`});
@@ -206,7 +207,7 @@ App.MediaLibrary = (function(app) {
             document.getElementById(searchInput).value = '';
 
             const container = document.getElementById(containerId);
-            if (container) container.innerHTML = '<div style="text-align:center; padding:20px;">📚 正在加载媒体库...</div>';
+            if (container) container.innerHTML = '<div class="empty-state">正在读取媒体库…</div>';
 
             try {
                 await loadLibrary();
@@ -226,7 +227,7 @@ App.MediaLibrary = (function(app) {
             document.getElementById(searchInput).value = '';
 
             const container = document.getElementById(containerId);
-            if (container) container.innerHTML = '<div style="text-align:center; padding:20px;">📚 正在加载媒体库...</div>';
+            if (container) container.innerHTML = '<div class="empty-state">正在读取媒体库…</div>';
 
             try {
                 await loadLibrary();
@@ -246,7 +247,7 @@ App.MediaLibrary = (function(app) {
             document.getElementById(searchInput).value = '';
 
             const container = document.getElementById(containerId);
-            if (container) container.innerHTML = '<div style="text-align:center; padding:20px;">📚 正在加载媒体库...</div>';
+            if (container) container.innerHTML = '<div class="empty-state">正在读取媒体库…</div>';
 
             try {
                 await loadLibrary();
@@ -266,7 +267,7 @@ App.MediaLibrary = (function(app) {
             document.getElementById(searchInput).value = '';
 
             const container = document.getElementById(containerId);
-            if (container) container.innerHTML = '<div style="text-align:center; padding:20px;">📚 正在加载媒体库...</div>';
+            if (container) container.innerHTML = '<div class="empty-state">正在读取媒体库…</div>';
 
             try {
                 await loadLibrary();
@@ -286,7 +287,7 @@ App.MediaLibrary = (function(app) {
             document.getElementById(searchInput).value = '';
 
             const container = document.getElementById(containerId);
-            if (container) container.innerHTML = '<div style="text-align:center; padding:20px;">📚 正在加载媒体库...</div>';
+            if (container) container.innerHTML = '<div class="empty-state">正在读取媒体库…</div>';
 
             try {
                 await loadLibrary();

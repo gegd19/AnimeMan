@@ -1,18 +1,19 @@
-<div id="failedCacheModal" class="modal">
-    <div class="modal-content">
+<div id="failedCacheModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="failedCacheModalTitle">
+    <div class="modal-content modal-lg" tabindex="-1">
         <div class="modal-header">
-            <h3>⚠️ 处理失败缓存列表</h3>
-            <span onclick="App.FailedCache.closeFailedCacheModal()" style="cursor:pointer;font-size:28px;line-height:1;">&times;</span>
+            <h3 id="failedCacheModalTitle">失败缓存</h3>
+            <button type="button" class="modal-close" aria-label="关闭" onclick="App.FailedCache.closeFailedCacheModal()"><span class="icon i-close" aria-hidden="true"></span></button>
         </div>
         <div class="modal-body">
-            <div style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-                <button onclick="App.FailedCache.clearFailedCache()" class="danger">🗑️ 清空失败缓存</button>
-                <span style="color: #6c757d;">共 <span id="failedCount">0</span> 条失败记录</span>
+            <div class="toolbar">
+                <span class="count">共 <span id="failedCount">0</span> 条失败记录</span>
+                <span class="spacer"></span>
+                <button type="button" onclick="App.FailedCache.clearFailedCache()" class="danger" title="只清空失败记录，不删除任何文件">清空失败缓存</button>
             </div>
-            <div id="failedCacheList" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 10px; background: #f8f9fa;">
-                <div style="padding: 20px; text-align: center; color: #6c757d;">加载中...</div>
+            <div id="failedCacheList" class="list-box">
+                <div class="empty-state">加载中…</div>
             </div>
-            <div class="note" style="margin-top: 12px;">💡 这些文件无法自动处理，请根据原因手动整理。</div>
+            <p class="note">这些文件没能自动识别。可以逐个修正，或按文件夹批量修正。清空失败缓存只移除记录，不删除任何文件。</p>
         </div>
     </div>
 </div>

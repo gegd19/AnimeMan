@@ -2,7 +2,7 @@
   "name": "animeman-ui-tests",
   "private": true,
   "scripts": {
-    "test:ui": "node --test tests/config_ui.cjs tests/task_ui.cjs tests/confidence_ui.cjs tests/frontend_security.cjs"
+    "test:ui": "node --test tests/config_ui.cjs tests/task_ui.cjs tests/confidence_ui.cjs tests/frontend_security.cjs tests/shell_ui.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

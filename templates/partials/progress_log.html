@@ -1,15 +1,84 @@
-<div class="progress-bar">
-    <div id="progressFill" class="progress-fill" style="width:0%">0%</div>
-</div>
-
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-    <span style="font-weight: 500;">📋 任务日志</span>
-    <div style="display: flex; gap: 8px;">
-        <button id="pauseLogsBtn" onclick="App.toggleLogsPause()" class="secondary" style="padding: 6px 12px; font-size: 13px;">⏸️ 暂停日志</button>
-        <button onclick="App.clearLogs()" class="secondary" style="padding: 6px 12px; font-size: 13px;">🧹 清空日志</button>
+<div class="view-head">
+    <h1 id="view-home-title">工作台</h1>
+    <div class="view-actions">
+        <button type="button" class="secondary" onclick="App.Task.refreshStatus()" title="重新读取任务状态和已保存的配置（未保存的设置改动会被还原）"><span class="icon i-refresh" aria-hidden="true"></span>刷新状态</button>
     </div>
 </div>
 
-<div class="log-box" id="logBox">
-    <div style="color:#8a95a5;">✨ 准备就绪</div>
+<!-- 首次使用引导。显示与否由 App.Config.checkOnboarding 决定 -->
+<section id="onboardingBanner" class="onboarding" style="display: none;" aria-labelledby="onboardingTitle">
+    <div class="onboarding-main">
+        <div>
+            <h2 id="onboardingTitle">还差几步就可以开始整理</h2>
+            <p id="onboardingMessage">检测到尚未完成基本配置。</p>
+        </div>
+        <div class="toolbar">
+            <button type="button" onclick="App.Config.scrollToConfig()" class="primary">去设置</button>
+            <button type="button" onclick="App.Config.toggleTutorial()" class="secondary">查看步骤</button>
+            <button type="button" onclick="App.Config.dismissOnboarding()" class="ghost">不再提示</button>
+        </div>
+    </div>
+    <div id="tutorialPanel" class="tutorial" style="display: none;">
+        <ol class="steps">
+            <li>
+                <h3>获取 TMDB API Key</h3>
+                <p>在 <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">TMDB 官网</a>注册并申请 API 密钥（免费）。</p>
+            </li>
+            <li>
+                <h3>填写路径和密钥</h3>
+                <p>在「设置」里填入 TMDB API Key、源文件夹，以及剧集和电影的目标文件夹。</p>
+            </li>
+            <li>
+                <h3>保存并测试连接</h3>
+                <p>点击「保存配置」，再点「测试连接」确认能访问 TMDB。</p>
+            </li>
+            <li>
+                <h3>开始处理</h3>
+                <p>点击顶部的「开始处理」，AnimeMan 会扫描源文件夹并整理到媒体库。</p>
+            </li>
+            <li class="is-optional">
+                <h3>启用 AI 解析（可选）</h3>
+                <p>文件名不规范时由 AI 辅助识别。需要填写 AI API Key；未填写时自动回退到规则解析。建议同时开启「文件夹批量解析」以节省调用次数。</p>
+            </li>
+        </ol>
+    </div>
+</section>
+
+<div class="home-grid">
+    <section class="sheet" aria-labelledby="logTitle">
+        <div class="sheet-head">
+            <h2 id="logTitle">任务日志</h2>
+            <div class="toolbar">
+                <button type="button" id="pauseLogsBtn" onclick="App.toggleLogsPause()" class="secondary btn-sm">暂停日志</button>
+                <button type="button" onclick="App.clearLogs()" class="secondary btn-sm">清空日志</button>
+                <button type="button" onclick="App.Task.viewFullLog()" class="secondary btn-sm">完整日志</button>
+            </div>
+        </div>
+        <div class="log-box" id="logBox" role="log" aria-live="off" aria-label="任务日志" tabindex="0">
+            <div class="log-empty">准备就绪。开始处理后，日志会显示在这里。</div>
+        </div>
+    </section>
+
+    <div class="home-side">
+        <section class="sheet" aria-labelledby="runSummaryTitle">
+            <div class="sheet-head"><h2 id="runSummaryTitle">本次运行</h2></div>
+            <dl class="stat-list">
+                <div><dt>进度</dt><dd id="statProgress">—</dd></div>
+                <div><dt>运行方式</dt><dd id="statMode">—</dd></div>
+                <div><dt>成功</dt><dd id="statSuccess">—</dd></div>
+                <div><dt>失败</dt><dd id="statFailed">—</dd></div>
+            </dl>
+        </section>
+        <section class="sheet" aria-labelledby="recordsTitle">
+            <div class="sheet-head"><h2 id="recordsTitle">处理记录</h2></div>
+            <div class="link-list">
+                <button type="button" class="link-row" onclick="App.FailedCache.viewFailedCache()">
+                    <b>失败缓存</b><small>没能自动识别的文件，在这里手动修正</small><span class="icon i-chevron" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="link-row" onclick="App.ProcessedCache.viewProcessedCache()">
+                    <b>已处理缓存</b><small>查看、修正或移除已入库的记录</small><span class="icon i-chevron" aria-hidden="true"></span>
+                </button>
+            </div>
+        </section>
+    </div>
 </div>

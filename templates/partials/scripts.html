@@ -1,4 +1,5 @@
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shell.js') }}"></script>
 <script src="{{ url_for('static', filename='js/config.js') }}"></script>
 <script src="{{ url_for('static', filename='js/task.js') }}"></script>
 <script src="{{ url_for('static', filename='js/failedCache.js') }}"></script>
@@ -15,6 +16,8 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // 先建立导航、主题和弹窗的键盘管理，再加载数据；Shell.init 可重复调用且不发请求。
+        if (typeof App.Shell !== 'undefined') App.Shell.init();
         App.init();
         if (typeof App.MediaManager !== 'undefined') {
             App.MediaManager.init();

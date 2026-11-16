@@ -24,7 +24,7 @@ App.Correction = (function(app) {
             // 显示文件名
             document.getElementById('correctionFileName').replaceChildren(
                 document.createTextNode(String(fileName ?? '') + ' '),
-                app.el('span', {text: `(源文件: ${srcFileName})`, style: 'color:#6c757d;font-weight:normal;'}));
+                app.el('span', {text: `(源文件: ${srcFileName})`, className: 'text-muted', style: 'font-weight:normal;'}));
 
             // 解析目录层级并显示位置
             const pathParts = srcPath.replace(/\\/g, '/').split('/');
@@ -44,7 +44,7 @@ App.Correction = (function(app) {
 
             // 重置搜索相关
             document.getElementById('tmdbSearchInput').value = '';
-            document.getElementById('tmdbResultsBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">输入关键词搜索</td></tr>';
+            document.getElementById('tmdbResultsBody').innerHTML = '<tr><td colspan="5">输入关键词搜索</td></tr>';
             document.getElementById('selectedTmdbInfo').style.display = 'none';
             app.selectedTmdbId = null;
             document.getElementById(modalId).style.display = 'block';
@@ -67,7 +67,7 @@ App.Correction = (function(app) {
             searchBtn.textContent = '搜索中...';
 
             const tbody = document.getElementById('tmdbResultsBody');
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">🔍 正在搜索 TMDB...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5">正在搜索 TMDB…</td></tr>';
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 25000);
@@ -89,7 +89,7 @@ App.Correction = (function(app) {
                 }
 
                 if (!data.results || data.results.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">❌ 无搜索结果</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5">没有搜索结果，换个关键词试试</td></tr>';
                     app.showToast(`未找到与 "${query}" 相关的${mediaType === 'tv' ? '剧集' : '电影'}`, 'warning');
                     return;
                 }
@@ -102,7 +102,7 @@ App.Correction = (function(app) {
                     thead.innerHTML = '<tr><th>海报</th><th>标题</th><th>年份</th><th>季集数</th><th>操作</th></tr>';
                 }
 
-                app.showToast(`✅ 找到 ${data.results.length} 个结果`, 'success');
+                app.showToast(`找到 ${data.results.length} 个结果`, 'success');
 
             } catch (e) {
                 clearTimeout(timeoutId);
@@ -112,7 +112,7 @@ App.Correction = (function(app) {
                 } else {
                     errorMsg = e.message || '网络错误';
                 }
-                app.tableMessage(tbody, '❌ ' + errorMsg);
+                app.tableMessage(tbody, '搜索失败：' + errorMsg);
                 app.showToast(errorMsg, 'error');
             } finally {
                 searchBtn.disabled = false;
@@ -149,7 +149,7 @@ App.Correction = (function(app) {
             const confirmBtn = document.querySelector(`#${modalId} .success`);
             const originalText = confirmBtn.textContent;
             confirmBtn.disabled = true;
-            confirmBtn.textContent = '⏳ 处理中...';
+            confirmBtn.textContent = '处理中...';
             try {
                 const resp = await app.fetch('/api/failed_cache/correct', {
                     method: 'POST',
@@ -158,13 +158,13 @@ App.Correction = (function(app) {
                 });
                 const data = await resp.json();
                 if (data.status === 'success') {
-                    app.showToast(data.dry_run ? '🔍 模拟修正完成，未修改文件或缓存' : '✅ 修正成功！文件已重新处理。', 'success');
+                    app.showToast(data.dry_run ? '模拟修正完成，未修改文件或缓存' : '修正成功！文件已重新处理。', 'success');
                     _closeModal();
                     if (typeof App.FailedCache !== 'undefined') App.FailedCache.loadFailedCache();
                     if (typeof App.History !== 'undefined') App.History.loadProcessedHistory();
                     if (typeof App.MediaManager !== 'undefined') App.MediaManager.refreshLibrary();
                 } else {
-                    app.showToast('❌ 修正失败：' + (data.message || '未知错误'), 'error');
+                    app.showToast('修正失败：' + (data.message || '未知错误'), 'error');
                 }
             } catch (e) {
                 app.showToast('请求失败：' + e.message, 'error');

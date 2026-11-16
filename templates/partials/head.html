@@ -1,4 +1,14 @@
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>AnimeMan · 番剧智能管家</title>
+<script>
+    // 在样式加载前确定主题，避免闪烁。只读取界面偏好，不涉及任何配置或密钥。
+    (function () {
+        var choice = 'system';
+        try { choice = localStorage.getItem('animeman.theme') || 'system'; } catch (error) { /* 隐私模式下忽略 */ }
+        var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+</script>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
