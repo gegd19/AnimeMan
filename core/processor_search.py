@@ -323,113 +323,48 @@ def search_tmdb_with_fallback(
             log_func(f"🔖 命中内置别名映射: {search_title} → TMDB ID {tmdb_id}", LOG_SUCCESS)
         return {"id": tmdb_id}, forced_type, 0
 
-    # 2. 生成多级候选搜索词
-    candidates = search_enhancer.generate_search_candidates(search_title)
-    for alt in alt_titles:
-        if alt and alt not in candidates:
-            candidates.append(alt)
-    if title_for_attempts and title_for_attempts not in candidates:
-        candidates.append(title_for_attempts)
-
-    primary_type = media_type
-    secondary_type = "movie" if media_type == "tv" else "tv"
-    if duration_hint and duration_hint != media_type:
-        primary_type, secondary_type = secondary_type, primary_type
-        if log_func:
-            log_func(f"🔄 根据时长调整搜索优先级: 先搜 {primary_type}，再搜 {secondary_type}", LOG_INFO)
-
-    languages_to_try = [language] if language == "en-US" else [language, "en-US"]
-
-    for lang in languages_to_try:
-        for mtype in (primary_type, secondary_type):
-            for candidate in candidates:
-                if not candidate:
+    # Gather a bounded set of result pages before choosing; identical IDs are
+    # deduplicated, while aliases from different languages remain evidence.
+    from .candidate_evaluator import evaluate_candidates
+    from .failure_policy import note_error
+    queries = []
+    for value in [search_title, *alt_titles, title_for_attempts, *search_enhancer.generate_search_candidates(search_title)]:
+        if isinstance(value, str) and value.strip() and value not in queries:
+            queries.append(value)
+    queries = queries[:4]
+    languages = list(dict.fromkeys([language, 'en-US']))
+    titles = list(dict.fromkeys(value for value in [search_title, title_for_attempts, *alt_titles] if isinstance(value, str) and value.strip()))
+    merged = {}
+    for lang in languages:
+        for query in queries:
+            try:
+                items = tmdb_client.search_tmdb_multi(media_type, query, search_year, api_key, lang, log_func, proxy=proxy)
+            except (CacheCorruptionError, ProcessingCancelled):
+                raise
+            except Exception as error:
+                note_error(error)
+                logger.warning(f"TMDB 搜索异常: {error}")
+                continue
+            for item in items:
+                if not isinstance(item, dict) or type(item.get('id')) is not int or item['id'] <= 0:
                     continue
-                try:
-                    raw_results = tmdb_client.search_tmdb_multi(
-                        mtype, candidate, search_year, api_key, lang, log_func, proxy=proxy
-                    )
-                except CacheCorruptionError:
-                    raise
-                except ProcessingCancelled:
-                    raise
-                except Exception as e:
-                    logger.warning(f"TMDB 搜索异常: {e}")
-                    continue
-                if raw_results:
-                    candidate_count = len(raw_results)
-                    if candidate_count > 1 and log_func:
-                        log_func(f"⚠️ TMDB 搜索到 {candidate_count} 个可能的结果", LOG_WARNING)
-
-                    # 标题可信度验证
-                    if (candidate_count >= MIN_CANDIDATES_FOR_TITLE_CHECK and
-                        config.get("ai_parser", {}).get("enabled") and
-                        src is not None):
-                        top_score = 0
-                        for item in raw_results[:5]:
-                            title = item.get("title") or item.get("name")
-                            score = 0.0
-                            if title:
-                                if candidate.lower() == title.lower():
-                                    score += 20
-                                elif candidate.lower() in title.lower() or title.lower() in candidate.lower():
-                                    score += 10
-                            top_score = max(top_score, score)
-
-                        if top_score < LOW_SCORE_THRESHOLD:
-                            corrected = ai_verify_and_correct_title(
-                                src, candidate, raw_results, config, log_func
-                            )
-                            if corrected and corrected != candidate:
-                                if log_func:
-                                    log_func(f"🔄 使用修正后的标题重新搜索: {corrected}", LOG_INFO)
-                                return search_tmdb_with_fallback(
-                                    media_type, corrected, search_year, alt_titles,
-                                    config, log_func, src, duration_hint, title_for_attempts, base_confidence
-                                )
-
-                    # AI 辅助多结果选择
-                    if candidate_count > 1 and config.get("ai_parser", {}).get("enabled") and src is not None:
-                        ai_selected = ai_select_best_match(
-                            src, raw_results, candidate, mtype, config, log_func, base_confidence
-                        )
-                        if ai_selected:
-                            if lang != language and log_func:
-                                log_func(f"🌐 使用 {lang} 搜索成功: {candidate}", LOG_SUCCESS)
-                            if mtype != media_type and log_func:
-                                log_func(f"🔄 使用备选类型 {mtype} 搜索成功", LOG_SUCCESS)
-                            return ai_selected, mtype, candidate_count
-
-                    # 回退到加权评分
-                    top_candidates = raw_results[:5]
-                    scored = []
-                    for item in top_candidates:
-                        title = item.get("title") or item.get("name")
-                        score = 0.0
-                        if title:
-                            score -= len(title) * 0.5
-                            if candidate.lower() == title.lower():
-                                score += 20
-                            candidate_lower = candidate.lower()
-                            title_lower = title.lower()
-                            if candidate_lower in title_lower or title_lower in candidate_lower:
-                                score += 10
-                            if any(word in title_lower for word in TECH_NOISE_WORDS):
-                                score -= 15
-                        item_year = (item.get("release_date") if mtype=="movie" else item.get("first_air_date") or "")[:4]
-                        if search_year and item_year == str(search_year):
-                            score += 30
-                        scored.append((score, item))
-                    scored.sort(key=lambda x: x[0], reverse=True)
-                    best = scored[0][1]
-
-                    if lang != language and log_func:
-                        log_func(f"🌐 使用 {lang} 搜索成功: {candidate}", LOG_SUCCESS)
-                    if mtype != media_type and log_func:
-                        log_func(f"🔄 使用备选类型 {mtype} 搜索成功", LOG_SUCCESS)
-                    if len(scored) > 1 and log_func:
-                        log_func(f"🎯 从 {candidate_count} 个结果中优选: {best.get('title') or best.get('name')}", LOG_INFO)
-                    return best, mtype, candidate_count
+                key = (media_type, item['id'])
+                if key not in merged:
+                    merged[key] = dict(item)
+                else:
+                    previous = merged[key]
+                    # Preserve localized titles as additional original-title evidence.
+                    for name in ('name', 'title', 'original_name', 'original_title'):
+                        value = item.get(name)
+                        if value and value not in [previous.get('name'), previous.get('title'), previous.get('original_name'), previous.get('original_title')]:
+                            empty = next((k for k in ('original_name','original_title','name','title') if not previous.get(k)), None)
+                            if empty:
+                                previous[empty] = value
+    decision = evaluate_candidates(list(merged.values()), media_type, titles, search_year)
+    if decision['selected']:
+        return decision['selected'], media_type, len(merged)
+    if log_func and merged:
+        log_func('TMDB 候选证据不足或存在歧义，需要人工确认', LOG_WARNING)
 
     # 5. TVmaze 备选
     if media_type == "tv" and config.get("ai_parser", {}).get("enabled"):
