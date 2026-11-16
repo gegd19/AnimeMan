@@ -9,6 +9,7 @@ TMDB搜索与AI辅助选择
 - 代理支持：所有TMDB请求均传递proxy参数
 """
 
+from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import ProcessingCancelled
 from .parse_identity import tmdb_scope
@@ -180,7 +181,7 @@ TMDB 搜索返回的部分候选结果（前5个）：
     except Exception as e:
         logger.warning(f"AI 标题验证失败: {e}")
         if log_func:
-            log_func(f"⚠️ AI 标题验证失败: {e}", LOG_WARNING)
+            log_func(f"⚠️ AI 标题验证失败: {redact(e)}", LOG_WARNING)
     return None
 
 

@@ -13,6 +13,7 @@
 - 代理支持：所有 TMDB 请求均传递 proxy 参数
 """
 
+from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import ProcessingCancelled
 from .parse_identity import tmdb_scope
@@ -68,7 +69,7 @@ def _search_tmdb_for_folder(
     except Exception as e:
         logger.warning(f"TMDB 搜索失败: {e}")
         if log_func:
-            log_func(f"⚠️ TMDB 搜索失败: {e}", "warning")
+            log_func(f"⚠️ TMDB 搜索失败: {redact(e)}", "warning")
         return None
 
 
@@ -136,7 +137,7 @@ def _ai_select_tmdb_series(
     except Exception as e:
         logger.warning(f"AI 选择 TMDB 剧集失败: {e}")
         if log_func:
-            log_func(f"⚠️ AI 选择 TMDB 剧集失败: {e}", "warning")
+            log_func(f"⚠️ AI 选择 TMDB 剧集失败: {redact(e)}", "warning")
     return None
 
 
@@ -183,7 +184,7 @@ def _get_tmdb_structure(
     except Exception as e:
         logger.warning(f"获取 TMDB 结构失败: {e}")
         if log_func:
-            log_func(f"⚠️ 获取 TMDB 结构失败: {e}", "warning")
+            log_func(f"⚠️ 获取 TMDB 结构失败: {redact(e)}", "warning")
         return None
 
 
@@ -366,6 +367,6 @@ def try_folder_ai_batch(
     except Exception as e:
         logger.warning(f"单文件 AI 解析失败: {e}")
         if log_func:
-            log_func(f"❌ 单文件 AI 解析失败: {e}", "error")
+            log_func(f"❌ 单文件 AI 解析失败: {redact(e)}", "error")
 
     return None

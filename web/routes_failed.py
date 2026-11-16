@@ -13,6 +13,7 @@ import threading
 from core.cancellation import ProcessingCancelled
 from pathlib import Path
 from flask import request, jsonify
+from core.log_redaction import redact
 from .task_state import request_config
 from . import task_state
 from core.path_safety import UnsafePathError, source_roots
@@ -65,7 +66,7 @@ def register(app):
         except ProcessingCancelled:
             raise
         except Exception as e:
-            return jsonify({"failed": [], "error": str(e)}), 500
+            return jsonify({"failed": [], "error": redact(e)}), 500
 
     @app.route('/api/failed_cache/clusters', methods=['GET'])
     def get_failed_clusters():
@@ -101,7 +102,7 @@ def register(app):
         except ProcessingCancelled:
             raise
         except Exception as e:
-            return jsonify({"clusters": [], "error": str(e)}), 500
+            return jsonify({"clusters": [], "error": redact(e)}), 500
 
     @app.route('/api/failed_cache/clear', methods=['POST'])
     def clear_failed_cache():
@@ -117,7 +118,7 @@ def register(app):
         except ProcessingCancelled:
             raise
         except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({"status": "error", "message": redact(e)}), 500
 
     @app.route('/api/failed_cache/folder_details', methods=['GET'])
     def get_folder_details():
@@ -252,7 +253,7 @@ def register(app):
         except ProcessingCancelled:
             raise
         except Exception as e:
-            error_msg = f"TMDB 请求失败: {str(e)}"
+            error_msg = f"TMDB 请求失败: {redact(e)}"
             return jsonify({"results": [], "error": error_msg}), 500
 
         # ---------- 3. 格式化搜索结果 ----------
@@ -362,7 +363,7 @@ def register(app):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return jsonify({"status": "error", "message": f"服务器内部错误: {str(e)}"}), 500
+            return jsonify({"status": "error", "message": f"服务器内部错误: {redact(e)}"}), 500
 
     @app.route('/api/failed_cache/batch_correct', methods=['POST'])
     def batch_correct_failed_items():
@@ -506,7 +507,7 @@ def register(app):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({"status": "error", "message": redact(e)}), 500
 
     @app.route('/api/processed_history', methods=['GET'])
     def get_processed_history():
@@ -572,4 +573,4 @@ def register(app):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return jsonify({"status": "error", "message": f"服务器内部错误: {str(e)}"}), 500
+            return jsonify({"status": "error", "message": f"服务器内部错误: {redact(e)}"}), 500

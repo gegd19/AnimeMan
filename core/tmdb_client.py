@@ -5,6 +5,7 @@ TMDB API 客户端封装（完整代理支持）
 所有网络请求均支持可选的 HTTP/SOCKS5 代理，且不受系统环境变量代理干扰。
 """
 
+from .log_redaction import redact
 from .cancellation import check_cancelled, ProcessingCancelled
 from .cancellation import current_event
 import time
@@ -57,7 +58,6 @@ def create_session(proxy: Optional[str] = None) -> requests.Session:
     代理格式: http://127.0.0.1:7890 或 socks5://127.0.0.1:1080
     关键设置: trust_env=False 强制忽略系统环境变量代理。
     """
-    print(f"[TMDB SESSION] 传入代理参数: {proxy}")
 
     session = requests.Session()
     session.trust_env = False  # 禁用环境变量代理，完全由代码控制
@@ -67,9 +67,6 @@ def create_session(proxy: Optional[str] = None) -> requests.Session:
         if not proxy.startswith(('http://', 'https://', 'socks5://')):
             proxy = 'http://' + proxy
         session.proxies = {"http": proxy, "https": proxy}
-        print(f"[TMDB SESSION] 已设置代理: {session.proxies}")
-    else:
-        print("[TMDB SESSION] 未设置代理，将直连 TMDB")
 
     retries = Retry(
         total=3,
@@ -147,9 +144,9 @@ def search_tmdb(
             raise
         except Exception as e:
             note_error(e)
-            logger.warning(f"TMDB 请求失败: {e}")
+            logger.warning(f"TMDB 请求失败: {redact(e)}")
             if log_func:
-                log_func(f"⚠️ TMDB 请求失败: {e}", LOG_WARNING)
+                log_func(f"⚠️ TMDB 请求失败: {redact(e)}", LOG_WARNING)
         return None
 
     years_to_try = [year] if year and year != "null" else [None]
@@ -215,7 +212,7 @@ def search_tmdb_multi(
     except Exception as e:
         note_error(e)
         if log_func:
-            log_func(f"⚠️ TMDB 多结果搜索失败: {e}", LOG_WARNING)
+            log_func(f"⚠️ TMDB 多结果搜索失败: {redact(e)}", LOG_WARNING)
         return []
 
 
@@ -252,7 +249,7 @@ def get_tmdb_details(
     except Exception as e:
         note_error(e)
         if log_func:
-            log_func(f"❌ 获取 TMDB 详情失败: {e}", LOG_ERROR)
+            log_func(f"❌ 获取 TMDB 详情失败: {redact(e)}", LOG_ERROR)
         return None
 
 
@@ -291,7 +288,7 @@ def get_tv_season_episodes(
     except Exception as e:
         note_error(e)
         if log_func:
-            log_func(f"❌ 获取季 {season_num} 信息失败: {e}", LOG_ERROR)
+            log_func(f"❌ 获取季 {season_num} 信息失败: {redact(e)}", LOG_ERROR)
         if season_num == 0:
             return [{"episode_number": 1, "name": "特辑", "overview": "", "air_date": "", "still_path": None}]
         return []
@@ -337,7 +334,7 @@ def download_image(
         except Exception as e:
             note_error(e)
             if log_func:
-                log_func(f"❌ 图片下载失败 ({url}): {e}", LOG_ERROR)
+                log_func(f"❌ 图片下载失败 ({redact(url)}): {redact(e)}", LOG_ERROR)
             return False
 
 

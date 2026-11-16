@@ -8,6 +8,7 @@ import time
 
 import requests
 from . import cache_manager
+from .log_redaction import redact
 
 _current = ContextVar('animeman_failure', default=None)
 _CATEGORIES = {'transient', 'no_match', 'invalid_input', 'conflict'}
@@ -51,7 +52,7 @@ def error_summary(error):
     if isinstance(error, requests.RequestException):
         code = getattr(getattr(error, 'response', None), 'status_code', None)
         return f'{type(error).__name__}: HTTP {code}' if code is not None else f'{type(error).__name__}: 网络请求失败'
-    return str(error)[:500]
+    return redact(error)[:500]
 
 
 @dataclass
@@ -90,7 +91,8 @@ def make_failure(src, reason, config=None, *, previous=None, category=None, erro
     attempts = (previous.get('attempt_count', 0) if _same_inputs(src, previous, config) else 0) + 1
     maximum, delay = _retry_limits(config)
     diagnostic = error or (state.error if state else None) or reason
-    safe_reason = (state.error if state else None) or reason
+    safe_reason = redact((state.error if state else None) or reason)
+    diagnostic = redact(diagnostic)
     return {'target':'', 'source_path':str(src.resolve()), 'media_type':'failed', 'title':src.name,
             'fingerprint':cache_manager.get_file_fingerprint(src),
             'file_fingerprint':cache_manager.get_file_fingerprint_strong(src),

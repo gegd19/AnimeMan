@@ -3,6 +3,8 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import threading
+import traceback
+from .log_redaction import redact
 from pathlib import Path
 from .runtime_paths import log_file, writable
 
@@ -11,11 +13,27 @@ _logger_configured = False
 _logger_lock = threading.RLock()
 
 
+class _RedactFilter(logging.Filter):
+    def filter(self, record):
+        record.msg = redact(record.getMessage())
+        record.args = ()
+        if record.exc_info:
+            record.exc_text = redact("".join(traceback.format_exception(*record.exc_info)))
+            record.exc_info = None
+        elif record.exc_text:
+            record.exc_text = redact(record.exc_text)
+        if record.stack_info:
+            record.stack_info = redact(record.stack_info)
+        return True
+
+
 def setup_logging():
     global _logger_configured
     target = log_file()
     with _logger_lock:
         logger = logging.getLogger('emby_auto')
+        if not any(isinstance(f, _RedactFilter) for f in logger.filters):
+            logger.addFilter(_RedactFilter())
         owned = [handler for handler in logger.handlers if getattr(handler, '_animeman_handler', False)]
         if any(isinstance(handler, RotatingFileHandler) and Path(handler.baseFilename) == target for handler in owned):
             return

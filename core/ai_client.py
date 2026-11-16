@@ -12,6 +12,7 @@ AI 统一客户端
 import json
 from .cancellation import check_cancelled, ProcessingCancelled
 from .parse_contract import normalize_media,normalize_folder,file_id
+from .log_redaction import redact
 from .failure_policy import note_error
 import time
 import re
@@ -103,7 +104,7 @@ def call_ai_api_with_messages(
     except Exception as e:
         note_error(e)
         if log_func:
-            log_func(f"❌ AI API 调用失败: {e}", LOG_ERROR)
+            log_func(f"❌ AI API 调用失败: {redact(e)}", LOG_ERROR)
         return None
 
 

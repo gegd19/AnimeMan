@@ -4,7 +4,7 @@ from urllib.parse import unquote
 
 _QUERY = re.compile(r'(?i)([?&;])([^=&#;\s]+)=([^&#;\s\'"<>]+)')
 _USERINFO = re.compile(r'(?i)(\b(?:https?|socks5)://)[^\s/@]+@')
-_AUTH = re.compile(r'(?i)(\bauthorization\s*[:=]\s*)(?:bearer\s+)?[^\s,;\'"}]+')
+_AUTH = re.compile(r'''(?i)(\bauthorization[\"']?\s*[:=]\s*[\"']?)(?:bearer\s+)?[^\s,;\"'}]+''')
 _BEARER = re.compile(r'(?i)(\bbearer\s+)[^\s,;\'"}]+')
 _SECRET_KEYS = {'api_key', 'apikey', 'token', 'access_token', 'authorization'}
 

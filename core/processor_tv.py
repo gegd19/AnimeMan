@@ -7,6 +7,7 @@
 """
 
 from .failure_policy import note_error
+from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import check_cancelled, ProcessingCancelled
 import os
@@ -250,7 +251,7 @@ TMDB 搜索结果：
                     note_error(e)
                     logger.warning(f"AI 修正响应解析失败: {e}")
                     if log_func:
-                        log_func(f"❌ AI 修正响应解析失败: {e}", LOG_WARNING)
+                        log_func(f"❌ AI 修正响应解析失败: {redact(e)}", LOG_WARNING)
 
         if not ep_data:
             save_failed_cache(src, f"TMDB中无 S{season:02d}E{episode:02d} 数据", cache_dict, log_func)
