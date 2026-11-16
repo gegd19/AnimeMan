@@ -78,3 +78,23 @@ def test_type_conflict_never_silently_switches(monkeypatch):
     cfg={'tmdb_api':{'api_key':'synthetic'},'ai_parser':{'enabled':False}}
     result,_,_=processor_search.search_tmdb_with_fallback('tv','Target',None,[],cfg)
     assert result is None
+
+
+def test_unknown_type_with_two_exact_candidates_is_ambiguous(monkeypatch):
+    from core import processor_search, search_enhancer, tmdb_client
+    monkeypatch.setattr(processor_search,'_lookup_local_alias',lambda *_:None)
+    monkeypatch.setattr(search_enhancer,'lookup_local_alias',lambda *_:None)
+    monkeypatch.setattr(tmdb_client,'search_tmdb_multi',lambda kind,*a,**k:[{'id':7,'name':'Target','title':'Target'}])
+    cfg={'tmdb_api':{'api_key':'synthetic'},'ai_parser':{'enabled':False}}
+    result,_,_=processor_search.search_tmdb_with_fallback('unknown','Target',None,[],cfg)
+    assert result is None
+
+
+def test_unknown_type_with_one_reliable_candidate(monkeypatch):
+    from core import processor_search, search_enhancer, tmdb_client
+    monkeypatch.setattr(processor_search,'_lookup_local_alias',lambda *_:None)
+    monkeypatch.setattr(search_enhancer,'lookup_local_alias',lambda *_:None)
+    monkeypatch.setattr(tmdb_client,'search_tmdb_multi',lambda kind,*a,**k:[{'id':7,'name':'Target'}] if kind=='tv' else [])
+    cfg={'tmdb_api':{'api_key':'synthetic'},'ai_parser':{'enabled':False}}
+    result,kind,_=processor_search.search_tmdb_with_fallback('unknown','Target',None,[],cfg)
+    assert result['id']==7 and kind=='tv'

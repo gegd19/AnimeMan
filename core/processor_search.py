@@ -335,34 +335,40 @@ def search_tmdb_with_fallback(
     languages = list(dict.fromkeys([language, 'en-US']))
     titles = list(dict.fromkeys(value for value in [search_title, title_for_attempts, *alt_titles] if isinstance(value, str) and value.strip()))
     merged = {}
-    for lang in languages:
-        for query in queries:
-            try:
-                items = tmdb_client.search_tmdb_multi(media_type, query, search_year, api_key, lang, log_func, proxy=proxy)
-            except (CacheCorruptionError, ProcessingCancelled):
-                raise
-            except Exception as error:
-                note_error(error)
-                logger.warning(f"TMDB 搜索异常: {error}")
-                continue
-            for item in items:
-                if not isinstance(item, dict) or type(item.get('id')) is not int or item['id'] <= 0:
+    types = [media_type] if media_type in ('tv', 'movie') else ['tv', 'movie']
+    for result_type in types:
+        for lang in languages:
+            for query in queries:
+                try:
+                    items = tmdb_client.search_tmdb_multi(result_type, query, search_year, api_key, lang, log_func, proxy=proxy)
+                except (CacheCorruptionError, ProcessingCancelled):
+                    raise
+                except Exception as error:
+                    note_error(error)
+                    logger.warning(f"TMDB 搜索异常: {error}")
                     continue
-                key = (media_type, item['id'])
-                if key not in merged:
-                    merged[key] = dict(item)
-                else:
-                    previous = merged[key]
-                    # Preserve localized titles as additional original-title evidence.
-                    for name in ('name', 'title', 'original_name', 'original_title'):
-                        value = item.get(name)
-                        if value and value not in [previous.get('name'), previous.get('title'), previous.get('original_name'), previous.get('original_title')]:
-                            empty = next((k for k in ('original_name','original_title','name','title') if not previous.get(k)), None)
-                            if empty:
-                                previous[empty] = value
-    decision = evaluate_candidates(list(merged.values()), media_type, titles, search_year)
-    if decision['selected']:
-        return decision['selected'], media_type, len(merged)
+                for item in items:
+                    if not isinstance(item, dict) or type(item.get('id')) is not int or item['id'] <= 0:
+                        continue
+                    key = (result_type, item['id'])
+                    if key not in merged:
+                        merged[key] = dict(item)
+                    else:
+                        previous = merged[key]
+                        for name in ('name', 'title', 'original_name', 'original_title'):
+                            value = item.get(name)
+                            if value and value not in [previous.get('name'), previous.get('title'), previous.get('original_name'), previous.get('original_title')]:
+                                empty = next((k for k in ('original_name','original_title','name','title') if not previous.get(k)), None)
+                                if empty:
+                                    previous[empty] = value
+    ranked = []
+    for result_type in types:
+        items = [item for (kind, _), item in merged.items() if kind == result_type]
+        decision = evaluate_candidates(items, result_type, titles, search_year)
+        ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
+    ranked.sort(key=lambda entry: -entry['score'])
+    if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
+        return ranked[0]['item'], ranked[0]['media_type'], len(merged)
     if log_func and merged:
         log_func('TMDB 候选证据不足或存在歧义，需要人工确认', LOG_WARNING)
 
