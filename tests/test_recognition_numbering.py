@@ -56,3 +56,52 @@ def test_unambiguous_episode_not_blocked(tmp_path, config_file, filename):
     result = parser_manager.parse_filename(src, cfg)
     assert result.get('reason_code') != 'unsupported_episode_numbering'
     assert result.get('episode') in (1, 2)
+
+
+def test_numeric_file_uses_bounded_series_parent(tmp_path, config_file):
+    from core import config_manager, parser_manager
+    root = tmp_path / 'library'; src = root / 'Example' / 'Season 02' / '01.mkv'
+    src.parent.mkdir(parents=True); src.write_bytes(b'synthetic')
+    cfg = config_manager.load_config(config_file); cfg['source_folders'] = [str(root)]
+    result = parser_manager.parse_filename(src, cfg)
+    assert (result['title'], result['season'], result['episode']) == ('Example', 2, 1)
+
+
+def test_numeric_file_does_not_use_ancestor_outside_source(tmp_path, config_file):
+    from core import config_manager, parser_manager
+    root = tmp_path / 'SecretSeries' / 'Season 02'; src = root / '01.mkv'
+    src.parent.mkdir(parents=True); src.write_bytes(b'synthetic')
+    cfg = config_manager.load_config(config_file); cfg['source_folders'] = [str(root)]
+    result = parser_manager.parse_filename(src, cfg)
+    assert result['media_type'] == 'unknown'
+    assert result.get('reason_code') == 'missing_series_title'
+
+
+def test_conflicting_file_and_directory_seasons_require_review(tmp_path, config_file, monkeypatch):
+    from core import config_manager, parser_manager, processor_core
+    root = tmp_path / 'Example'; src = root / 'Season 02' / 'Example S01E01.mkv'
+    src.parent.mkdir(parents=True); src.write_bytes(b'synthetic')
+    cfg = config_manager.load_config(config_file); cfg['source_folders'] = [str(root)]
+    result = parser_manager.parse_filename(src, cfg)
+    assert result.get('reason_code') == 'conflicting_season_evidence'
+    monkeypatch.setattr(processor_core, 'search_tmdb_with_fallback', lambda *a, **k: pytest.fail('must not search on conflicting season evidence'))
+    cache = {}
+    assert not processor_core.process_video(src, cfg, cache)
+    assert cache[str(src.resolve())]['media_type'] == 'failed'
+
+
+def test_numeric_bdrip_folder_preserves_zero_season(tmp_path, config_file):
+    from core import config_manager, parser_manager
+    root = tmp_path / 'Example'; src = root / 'Season 00' / 'BDRip' / '02.mkv'
+    src.parent.mkdir(parents=True); src.write_bytes(b'synthetic')
+    cfg = config_manager.load_config(config_file); cfg['source_folders'] = [str(root)]
+    result = parser_manager.parse_filename(src, cfg)
+    assert (result['title'], result['season'], result['episode']) == ('Example', 0, 2)
+
+
+def test_conflicting_directory_seasons_require_review(tmp_path, config_file):
+    from core import config_manager, parser_manager
+    root = tmp_path / 'Example'; src = root / 'Season 01' / 'Season 02' / '01.mkv'
+    src.parent.mkdir(parents=True); src.write_bytes(b'synthetic')
+    cfg = config_manager.load_config(config_file); cfg['source_folders'] = [str(root)]
+    assert parser_manager.parse_filename(src, cfg).get('reason_code') == 'conflicting_season_evidence'

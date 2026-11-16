@@ -71,10 +71,17 @@ def process_video(
         force_tmdb_id, force_media_type, force_season, force_episode = apply_special_mapping(src, config, wrapped_log)
         info = parse_filename_info(src, config, wrapped_log, force_tmdb_id, force_media_type, force_season, force_episode)
 
-        if info.get("reason_code") == "unsupported_episode_numbering":
-            save_failed_cache(src, "unsupported_episode_numbering: 集号范围或小数需要人工确认", cache_dict, wrapped_log)
+        review_reasons = {
+            "unsupported_episode_numbering": "集号范围或小数需要人工确认",
+            "conflicting_season_evidence": "文件名与目录季号冲突，需要人工确认",
+            "missing_series_title": "源目录内缺少可确认的剧集标题",
+        }
+        reason_code = info.get("reason_code")
+        if reason_code in review_reasons:
+            message = f"{reason_code}: {review_reasons[reason_code]}"
+            save_failed_cache(src, message, cache_dict, wrapped_log)
             if config.get("dry_run") and wrapped_log:
-                wrapped_log("集号范围或小数需要人工确认", LOG_WARNING)
+                wrapped_log(message, LOG_WARNING)
             return False
 
         # 文件夹级 AI 批量解析

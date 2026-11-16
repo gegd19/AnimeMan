@@ -13,9 +13,9 @@ from .execution_mode import skip_preview_write
 from .json_store import CacheCorruptionError
 from .parse_cache import update_record
 from .parse_contract import normalize_media,normalize_folder,file_id
-from .parser_helpers import get_ai_parse_cache_key
+from .parser_helpers import get_ai_parse_cache_key, clean_parent_dir_name
 from .parser_anitopy import parse_with_anitopy,ANITOPY_AVAILABLE
-from .parser_regex import parse_with_regex
+from .parser_regex import parse_with_regex, explicit_season_number
 from .runtime_paths import cache_file
 
 AI_CACHE={}
@@ -146,6 +146,36 @@ def parse_filename(file_path,config,log_func=None):
         return {'media_type':'unknown','reason_code':'unsupported_episode_numbering'}
     key=get_ai_parse_cache_key(str(file_path),config)
     enabled=config.get('ai_parser',{}).get('enabled',False)
+    resolved_folder=folder.resolve()
+    roots=[Path(root).resolve() for root in config.get('source_folders',[]) if isinstance(root,str) and root.strip()]
+    matching=[root for root in roots if resolved_folder == root or root in resolved_folder.parents]
+    root=max(matching,key=lambda path:len(path.parts)) if matching else None
+    ancestors=[]
+    current=resolved_folder
+    if root is not None:
+        for _ in range(4):
+            ancestors.append(current)
+            if current==root:break
+            current=current.parent
+    file_season=explicit_season_number(stem)
+    dir_seasons=[value for value in (explicit_season_number(path.name) for path in ancestors) if value is not None]
+    if file_season is not None and any(value != file_season for value in dir_seasons):
+        return {'media_type':'unknown','reason_code':'conflicting_season_evidence'}
+    if re.fullmatch(r'\d+',stem):
+        generic=re.compile(r'(?i)^(?:season\s*\d+|s\d+|第\s*[零一二两三四五六七八九十\d]+\s*季|bdrip|bluray|web-?dl|library|media)$')
+        title=next((clean_parent_dir_name(path.name) for path in ancestors
+                    if not generic.fullmatch(path.name.strip())
+                    and clean_parent_dir_name(path.name).strip()),None)
+        if not title:
+            return {'media_type':'unknown','reason_code':'missing_series_title'}
+        if len(set(dir_seasons))>1:
+            return {'media_type':'unknown','reason_code':'conflicting_season_evidence'}
+        season=dir_seasons[0] if dir_seasons else 1
+        info=_tag({'media_type':'tv','title':title,'season':season,'episode':int(stem),
+                   'explicit_season':season},'anitopy')
+        if info:
+            parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+        return {'media_type':'unknown'}
     # An explicit Chinese season and episode are stronger than a partial movie parse.
     if (re.search(r'第\s*[零一二两三四五六七八九十\d]+\s*季', file_path.stem)
             and re.search(r'第\s*\d{1,4}\s*[集話话](?!\d)', file_path.stem)):
