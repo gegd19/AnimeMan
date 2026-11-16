@@ -25,4 +25,4 @@
 
 本地发布前重跑：Python **691 passed**；Node/Chromium **38 passed**，无跳过。Python/JS 语法、依赖一致性与工作流静态检查通过。Docker 28.5.2 rootless / Compose 2.40.3 已验证构建上下文排除、认证、单任务与进程互斥、源只读、提交持久化、取消/超时等待、容器重建及 UID/GID 1000:1000、1026:100。
 
-远程 Linux、Docker 和 Windows 验证以本次发布提交的 GitHub Actions 结果为准，全部要求通过后再创建正式 Release。Windows 本机未运行；真实 AI/TMDB、用户媒体、NAS/SMB/NFS、其他架构与断电场景未验证。测试只使用临时合成文件和虚拟凭据，AI/TMDB 请求使用 mock。
+远程 Linux、Docker 和 Windows 验证以本次发布提交的 GitHub Actions 结果为准，全部要求通过后再创建正式 Release。Linux/Docker 使用 Python 3.12.15，Windows 路径探针使用官方提供安装包的 3.12.10。Windows 本机未运行；真实 AI/TMDB、用户媒体、NAS/SMB/NFS、其他架构与断电场景未验证。测试只使用临时合成文件和虚拟凭据，AI/TMDB 请求使用 mock。
