@@ -59,7 +59,7 @@ def test_ai_second_pass_below_threshold_does_not_write(tmp_path, config_file, mo
     config['ai_parser'].update(enabled=True, api_key='synthetic')
     responses = iter([[{'episode_number': 2}], [{'episode_number': 1, 'name': 'Example'}]])
     monkeypatch.setattr(tmdb_client, 'get_tv_season_episodes', lambda *a, **k: next(responses))
-    monkeypatch.setattr(ai_client, 'call_ai_api', lambda *a, **k: '{"corrected_season":1,"corrected_episode":1}')
+    monkeypatch.setattr(ai_client, 'call_ai_api', lambda *a, **k: '{"corrected_season":1,"corrected_episode":1,"reason":"synthetic"}')
     cache = {}
     assert not process_tv_branch(src, config, cache, None, 'Show', '2020', 42,
                                  {'seasons': [{'season_number': 1}]},

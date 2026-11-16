@@ -13,6 +13,7 @@
 - 代理支持：所有 TMDB 请求均传递 proxy 参数
 """
 
+from .ai_budget import AIBudgetExceeded, with_recognition_budget
 from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import ProcessingCancelled
@@ -62,6 +63,8 @@ def _search_tmdb_for_folder(
                 log_func(f"⚠️ TMDB 搜索无结果: {clean_name}", "warning")
             return None
         return results
+    except AIBudgetExceeded:
+        raise
     except ProcessingCancelled:
         raise
     except CacheCorruptionError:
@@ -73,6 +76,7 @@ def _search_tmdb_for_folder(
         return None
 
 
+@with_recognition_budget
 def _ai_select_tmdb_series(
     folder_path: Path,
     candidates: List[Dict],
@@ -99,7 +103,7 @@ def _ai_select_tmdb_series(
     try:
         response = ai_client.call_ai_api(prompt, ai_cfg, log_func)
         return accepted_suggestion(response, limited_candidates, 'tv', [folder_path.name])
-    except (ProcessingCancelled, CacheCorruptionError):
+    except (AIBudgetExceeded, ProcessingCancelled, CacheCorruptionError):
         raise
     except Exception as error:
         logger.warning(f"AI 选择 TMDB 剧集失败: {error}")
@@ -144,6 +148,8 @@ def _get_tmdb_structure(
         structure_text = f"剧集: {title}\n" + "\n".join(structure_lines) + f"\n总计: {len(structure_lines)}季, {total_episodes}集"
         return structure_text
 
+    except AIBudgetExceeded:
+        raise
     except ProcessingCancelled:
         raise
     except CacheCorruptionError:
@@ -315,6 +321,8 @@ def try_folder_ai_batch(
             if log_func:
                 log_func(f"✅ 单文件 AI 解析成功", "success")
             return single_result
+    except AIBudgetExceeded:
+        raise
     except ProcessingCancelled:
         raise
     except CacheCorruptionError:

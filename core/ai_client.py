@@ -10,6 +10,7 @@ AI 统一客户端
 """
 
 import json
+from .ai_budget import consume_recognition_call, with_recognition_budget
 from .cancellation import check_cancelled, ProcessingCancelled
 from .parse_contract import normalize_media,normalize_folder,file_id
 from .log_redaction import redact
@@ -89,6 +90,7 @@ def call_ai_api_with_messages(
         "max_tokens": max_tokens
     }
 
+    consume_recognition_call()
     session = create_session()
     try:
         start = time.time()
@@ -240,6 +242,7 @@ def _clean_folder_name_for_ai(raw_name: str) -> str:
 
 # ========== 业务函数 ==========
 
+@with_recognition_budget
 def parse_folder_with_ai(
     folder_path: Path,
     video_files: List[Path],
@@ -271,6 +274,7 @@ def parse_folder_with_ai(
         return {}
 
 
+@with_recognition_budget
 def parse_filename_with_ai(
     file_path: Path,
     config: Dict[str, Any],

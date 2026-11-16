@@ -10,6 +10,7 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Optional, Tuple, List, Any
 
+from .ai_budget import AIBudgetExceeded
 from .cancellation import ProcessingCancelled
 from .json_store import CacheCorruptionError
 from .special_mapping import match_special_mapping
@@ -159,7 +160,7 @@ def parse_filename_info(src: Path, config: dict, log_func,
                         force_season=None, force_episode=None) -> Dict[str, Any]:
     try:
         info = parser_manager.parse_filename(src, config, log_func)
-    except (ProcessingCancelled,CacheCorruptionError,OSError):
+    except (AIBudgetExceeded,ProcessingCancelled,CacheCorruptionError,OSError):
         raise
     except Exception as e:
         logger.error(f"文件名解析失败 {src}: {e}", exc_info=True)

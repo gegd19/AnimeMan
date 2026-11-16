@@ -7,12 +7,12 @@
 """
 
 from .failure_policy import note_error
+from .ai_budget import AIBudgetExceeded
 from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import check_cancelled, ProcessingCancelled
 import os
 import time
-import json
 from pathlib import Path
 from .path_safety import absolute_link_path, validate_target_path
 from typing import Dict, Optional, Callable
@@ -170,20 +170,14 @@ TMDB 搜索结果：
 - 该剧集共有季：{season_info}
 - 但在第 {season} 季中未找到第 {episode} 集。
 
-请根据以上信息推断出正确的季号和集号。注意：
-1. **季号可能是正确的，不要盲目修改**。只有当该季确实不存在于 TMDB 中（例如只有一季却被标为 S02）时才修正季号。
-2. 集号很可能是从第一季开始累计的总集数，请根据 TMDB 各季集数进行换算。
-3. **特辑/OVA/SP 必须归为第 0 季**。以下情况应优先修正为 season=0：
-   - 文件名中包含 ".5"、".9" 等小数（如 36.5、24.5）。
-   - 文件名中包含方括号数字如 [01]、[02]、[03]，且目录名中有 "SS"、"Case"、"Sinners" 等词。此时 episode 取方括号内的数字。
-   - 文件名或目录名中包含 "OVA"、"OAD"、"SP"、"特典"、"番外"、"剧场版" 等关键词。
-4. **如果文件是剧场版/电影，应返回 season=0, episode=1**。
-5. 如果根据 TMDB 各季集数换算后仍无法匹配，且原始集号格式异常（含小数点、方括号数字或超出总集数），则**默认归为第 0 季**。
+请仅在证据充分时建议季集，不得猜测或默认第 0 季或第 1 集；
+如果无法确认，将 corrected_season 与 corrected_episode 均设为 null。
+不要改变已有明确季号。候选季集仍须通过 TMDB 验证。
 
 请直接返回 JSON 格式：
 {{
-  "corrected_season": 数字,
-  "corrected_episode": 数字,
+  "corrected_season": 整数或 null,
+  "corrected_episode": 整数或 null,
   "reason": "简短修正理由"
 }}
 只返回 JSON，不要任何额外解释。"""
@@ -192,13 +186,20 @@ TMDB 搜索结果：
             ai_resp = ai_client.call_ai_api(context_prompt, ai_cfg, log_func)
             if ai_resp:
                 try:
-                    start = ai_resp.find('{')
-                    end = ai_resp.rfind('}')
-                    json_str = ai_resp[start:end+1] if (start != -1 and end != -1) else ai_resp.strip().strip('`').strip('json')
-                    correction = json.loads(json_str)
-                    new_season = correction.get("corrected_season", season)
-                    new_episode = correction.get("corrected_episode", episode)
-                    reason = correction.get("reason", "")
+                    from .validation import strict_loads
+                    correction = strict_loads(ai_resp)
+                    if not isinstance(correction, dict) or set(correction) != {"corrected_season", "corrected_episode", "reason"}:
+                        raise ValueError("AI 季集建议格式无效")
+                    new_season = correction["corrected_season"]
+                    new_episode = correction["corrected_episode"]
+                    reason = correction["reason"]
+                    if new_season is None and new_episode is None:
+                        save_failed_cache(src, "AI 无法确认季集，需要人工确认", cache_dict, log_func)
+                        return False
+                    if (type(new_season) is not int or not 0 <= new_season <= 99
+                            or type(new_episode) is not int or not 1 <= new_episode <= 9999
+                            or not isinstance(reason, str)):
+                        raise ValueError("AI 季集建议无效")
                     if log_func:
                         log_func(f"🤖 AI 修正建议: S{new_season:02d}E{new_episode:02d} ({reason})", LOG_INFO)
 
@@ -305,6 +306,8 @@ TMDB 搜索结果：
         if log_func:
             log_func(f"💾 缓存已保存 (准确率: {confidence}%)", LOG_SUCCESS)
         return True
+    except AIBudgetExceeded:
+        raise
     except ProcessingCancelled:
         raise
     except CacheCorruptionError:

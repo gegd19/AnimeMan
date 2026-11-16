@@ -9,6 +9,7 @@ TMDB搜索与AI辅助选择
 - 代理支持：所有TMDB请求均传递proxy参数
 """
 
+from .ai_budget import AIBudgetExceeded, with_recognition_budget
 from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import ProcessingCancelled
@@ -89,7 +90,7 @@ def original_search_tmdb(
             result = tmdb_client.search_tmdb(mtype, query, year, api_key, language, log_func, alt_titles, proxy=proxy)
             if result and evaluate_candidates([result], mtype, [search_title, *alt_titles], search_year)['selected']:
                 return result, mtype, 1
-        except (CacheCorruptionError, ProcessingCancelled):
+        except (AIBudgetExceeded, CacheCorruptionError, ProcessingCancelled):
             raise
         except Exception as error:
             note_error(error)
@@ -98,6 +99,7 @@ def original_search_tmdb(
     return None, media_type, 0
 
 
+@with_recognition_budget
 def ai_verify_and_correct_title(
     src: Path,
     original_title: str,
@@ -115,7 +117,7 @@ def ai_verify_and_correct_title(
     top_titles = []
     for item in candidates[:5]:
         title = item.get("title") or item.get("name")
-        year = (item.get("release_date") if item.get("media_type") == "movie" else item.get("first_air_date") or "")[:4]
+        year = ((item.get("release_date") if item.get("media_type") == "movie" else item.get("first_air_date")) or "")[:4]
         top_titles.append(f"- {title} ({year})")
 
     titles_text = "\n".join(top_titles)
@@ -152,13 +154,15 @@ TMDB 搜索返回的部分候选结果（前5个）：
         if resp:
             parts = resp.strip().split('|')
             if len(parts) >= 2:
-                is_trusted = parts[0].strip().lower() == '可信'
+                status = parts[0].strip()
                 corrected_title = parts[1].strip()
-                if not is_trusted and corrected_title and corrected_title != original_title:
+                if status == '不可信' and corrected_title and corrected_title != original_title:
                     if log_func:
                         log_func(f"🔧 AI 修正剧名: {original_title} → {corrected_title}", LOG_SUCCESS)
                     return corrected_title
     except CacheCorruptionError:
+        raise
+    except AIBudgetExceeded:
         raise
     except ProcessingCancelled:
         raise
@@ -169,6 +173,7 @@ TMDB 搜索返回的部分候选结果（前5个）：
     return None
 
 
+@with_recognition_budget
 def ai_select_best_match(
     src: Path,
     candidates: List[Dict],
@@ -195,7 +200,7 @@ def ai_select_best_match(
     try:
         response = ai_client.call_ai_api(prompt, ai_cfg, log_func)
         return accepted_suggestion(response, top_candidates, media_type, [search_title])
-    except (CacheCorruptionError, ProcessingCancelled):
+    except (AIBudgetExceeded, CacheCorruptionError, ProcessingCancelled):
         raise
     except Exception as error:
         logger.warning(f"AI 辅助选择失败: {error}")
@@ -204,6 +209,7 @@ def ai_select_best_match(
         return None
 
 
+@with_recognition_budget
 def search_tmdb_with_fallback(
     media_type: str,
     search_title: str,
@@ -259,7 +265,7 @@ def search_tmdb_with_fallback(
             for query in queries:
                 try:
                     items = tmdb_client.search_tmdb_multi(result_type, query, search_year, api_key, lang, log_func, proxy=proxy)
-                except (CacheCorruptionError, ProcessingCancelled):
+                except (AIBudgetExceeded, CacheCorruptionError, ProcessingCancelled):
                     raise
                 except Exception as error:
                     note_error(error)
@@ -287,6 +293,44 @@ def search_tmdb_with_fallback(
     ranked.sort(key=lambda entry: -entry['score'])
     if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
         return ranked[0]['item'], ranked[0]['media_type'], len(merged)
+    # Corrected titles are search hints only; original evidence remains mandatory.
+    if not ranked and merged and config.get('ai_parser', {}).get('enabled') and src is not None:
+        import unicodedata
+        def normalized(value):
+            return unicodedata.normalize('NFKC', value).strip().casefold()
+        current = search_title
+        seen = {normalized(current)}
+        for _ in range(2):
+            corrected = ai_verify_and_correct_title(src, current, list(merged.values()), config, log_func)
+            if not isinstance(corrected, str) or not corrected.strip():
+                break
+            corrected = corrected.strip()
+            key = normalized(corrected)
+            if key in seen:
+                break
+            seen.add(key)
+            current = corrected
+            for result_type in types:
+                for lang in languages:
+                    try:
+                        items = tmdb_client.search_tmdb_multi(result_type, corrected, search_year, api_key, lang, log_func, proxy=proxy)
+                    except (AIBudgetExceeded, CacheCorruptionError, ProcessingCancelled):
+                        raise
+                    except Exception as error:
+                        note_error(error)
+                        logger.warning(f"TMDB 搜索异常: {error}")
+                        continue
+                    for item in items:
+                        if isinstance(item, dict) and type(item.get('id')) is int and item['id'] > 0:
+                            merged.setdefault((result_type, item['id']), dict(item))
+            ranked = []
+            for result_type in types:
+                items = [item for (kind, _), item in merged.items() if kind == result_type]
+                decision = evaluate_candidates(items, result_type, titles, search_year)
+                ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
+            ranked.sort(key=lambda entry: -entry['score'])
+            if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
+                return ranked[0]['item'], ranked[0]['media_type'], len(merged)
     if log_func and merged:
         log_func('TMDB 候选证据不足或存在歧义，需要人工确认', LOG_WARNING)
 

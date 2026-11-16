@@ -11,6 +11,7 @@
 - processor_folder_ai.py：文件夹级AI批量解析
 """
 
+from .ai_budget import AIBudgetExceeded, with_recognition_budget
 from .failure_policy import note_error
 from .parse_identity import tmdb_scope,with_identity_scope
 from .json_store import CacheCorruptionError
@@ -57,6 +58,7 @@ _folder_tmdb_cache_lock = threading.RLock()
 
 @execution_scope
 @with_identity_scope
+@with_recognition_budget
 def process_video(
     src: Path,
     config: Dict[str, Any],
@@ -269,8 +271,12 @@ def process_video(
         else:
             return process_tv_branch(src, config, cache_dict, wrapped_log, official_title, official_year, tmdb_id, details, final_info, confidence)
 
+    except AIBudgetExceeded:
+        save_failed_cache(src, "AI 调用预算已耗尽，需要人工确认", cache_dict, wrapped_log)
+        if config.get("dry_run") and wrapped_log:
+            wrapped_log("AI 调用预算已耗尽，需要人工确认", LOG_WARNING)
+        return False
     except ProcessingCancelled:
-
         raise
 
     except CacheCorruptionError:

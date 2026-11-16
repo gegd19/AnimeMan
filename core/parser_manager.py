@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import threading
 
+from .ai_budget import AIBudgetExceeded, with_recognition_budget
 from . import ai_client,cache_manager,folder_ai_cache,parse_identity
 from .cancellation import check_cancelled,wait_for,ProcessingCancelled
 from .execution_mode import skip_preview_write
@@ -74,6 +75,7 @@ def _extract_file_info_from_offline_cache(file_path,parse_result,log_func=None):
 
 
 @parse_identity.with_identity_scope
+@with_recognition_budget
 def _get_or_wait_folder_parse(folder_path,config,log_func=None,tmdb_structure=''):
     check_cancelled()
     folder_path=Path(folder_path);config=deepcopy(config)
@@ -134,6 +136,7 @@ def _tag(raw,source):
 
 
 @parse_identity.with_identity_scope
+@with_recognition_budget
 def parse_filename(file_path,config,log_func=None):
     from .offline_ai_preparser import get_cached_preparse,parse_folder_on_demand,load_raw_cache
     _ensure_persistent_cache();check_cancelled()
@@ -195,7 +198,7 @@ def parse_filename(file_path,config,log_func=None):
         _,files=parse_identity.folder_snapshot(folder,config)
         if len(files)>=2:
             try:batch=_get_or_wait_folder_parse(folder,config,log_func)
-            except (ProcessingCancelled,CacheCorruptionError,OSError):raise
+            except (AIBudgetExceeded,ProcessingCancelled,CacheCorruptionError,OSError):raise
             except Exception as exc:
                 if log_func:log_func(f'文件夹解析异常，交给回退：{exc}','warning')
                 batch=None

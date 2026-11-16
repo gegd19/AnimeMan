@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import time
+from .ai_budget import with_recognition_budget
 from . import ai_client,parse_identity
 from .parse_contract import normalize_header
 from .parse_cache import update_record
@@ -19,6 +20,7 @@ def load_folder_cache():return read_json(cache_file(FOLDER_CACHE_FILE))
 def save_folder_cache(cache):write_json(cache_file(FOLDER_CACHE_FILE),cache)
 
 
+@with_recognition_budget
 def parse_folder_with_ai(folder_path,config,log_func=None):
     files=parse_identity.folder_files(folder_path,config)
     if not files or not config.get('ai_parser',{}).get('enabled'):return None
@@ -29,6 +31,7 @@ def parse_folder_with_ai(folder_path,config,log_func=None):
 
 
 @parse_identity.with_identity_scope
+@with_recognition_budget
 def get_folder_meta(folder_path,config,log_func=None):
     folder_path=Path(folder_path);identity=parse_identity.folder_identity(folder_path,config)
     entry=load_folder_cache().get(str(folder_path.resolve()),{})
