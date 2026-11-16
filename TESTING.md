@@ -116,8 +116,10 @@ python tools/compose_smoke.py animeman:verification
 
 ## 界面美化（ui/visual-refresh）
 
-`npm run test:ui` 现在还会运行 `tests/shell_ui.cjs`：16 项真实 Chromium 用例，覆盖页面导航与状态保持、任务条在各页面的停止中/失败状态、`task_id` 停止请求、模拟运行标记、环境变量只读路径、密钥不进入页面与浏览器存储、弹窗的名称/焦点/Escape、日志暂停与清空、错误提示、缺图占位、主题偏好，以及 375 / 768 / 1280 像素下无整页横向溢出。原有 38 项保持不变；`frontend_security.cjs` 只增加了进入对应页面的真实导航点击。
+`npm run test:ui` 现在还会运行 `tests/shell_ui.cjs`：17 项真实 Chromium 用例，覆盖页面导航与状态保持、任务条在各页面的停止中/失败状态、`task_id` 停止请求、模拟运行标记、环境变量只读路径、密钥不进入页面与浏览器存储、弹窗的名称/焦点/Escape、日志暂停与清空、错误提示、缺图占位、主题偏好，以及 375 / 768 / 1280 像素下无整页横向溢出。原有 38 项保持不变；`frontend_security.cjs` 只增加了进入对应页面的真实导航点击。
 
 `node tests/ui_preview.cjs <输出目录>` 用同样的请求拦截和合成数据生成桌面 / 手机 / 平板、浅色 / 深色截图，供人工检查；它不是测试，不在 `test:ui` 里。可用 `UI_PREVIEW_ONLY='^phone-library$'` 只生成部分场景。
 
 本次实际结果、环境差异和未测项见 UI-REFRESH-NOTES.md。
+
+发布复核增加“运行中的旧任务与新保存的模拟配置必须区分”的手机回归，同时检查状态文字未被配置徽标遮挡。最终前端 55 项、Python 691 项通过；原作者环境差异与审查修复见 UI-REFRESH-NOTES.md 第 8 节。

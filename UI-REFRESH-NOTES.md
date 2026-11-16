@@ -2,6 +2,8 @@
 
 基线：`v1.0.0` / `7581e03d30221160cc6648d3261b79a10c2ddc54`。本次只改前端呈现；没有推送、没有发布、没有移动 `v1.0.0` 标签。
 
+> 第 1–7 节保留原作者交付时的记录；其中未推送、环境差异和未测状态属于当时状态。锁定环境复核和发布准备见第 8 节。
+
 ## 1. 设计方向：「作画台」
 
 风格来自动画制作本身：定位纸、透写台、彩色铅笔。
@@ -119,3 +121,39 @@ git revert <本次提交>        # 或直接不合并 ui/visual-refresh 分支
 ```
 
 回滚只影响 `static/`、`templates/`、`tests/`、`package.json` 和本说明文件；不涉及缓存、配置和运行目录，不触碰任何媒体。浏览器里残留的 `animeman.theme` 对旧界面没有影响。不要对已有工作区使用 `reset --hard` 或 `clean -fdx`。
+
+
+## 8. 发布前复核（v1.1.0）
+
+原补丁已在独立工作副本、v1.0.0 基线上应用，并保留作者署名单独提交；没有改动 core/、web/、依赖锁、Dockerfile、打包规则或 CI 配置。
+
+### 发现并修复的提示问题
+
+原任务条“模拟运行”徽标及“本次运行 → 运行方式”读取最新 `/api/config`，但正在执行的任务使用启动时的冻结配置。正式任务运行中保存模拟配置，会让页面错误暗示该任务已经不再写文件。
+
+先增加真实浏览器回归，验证在任务仍运行时保存 dry_run；原实现因仍显示“模拟运行”而失败。最小修复仅调整展示：徽标改为“已保存：模拟”，任务概览字段改为“已保存配置”，并说明正在执行的任务仍使用启动时配置。没有猜测当前任务模式，也没有改变后台任务配置。
+
+375px 回归进一步发现徽标会挤压状态文字，已允许任务状态区域换行，确保“运行中”仍完整可见。新增用例同时断言任务仍忙、启动按钮禁用、保存配置没有发起运行或停止请求。
+
+### 锁定环境与检查
+
+- Python 3.12.15、Node 26.13.1、Playwright 1.62.1、Chromium 157.0.8103.38。
+- 完整 Python 691 项通过；前端 55 项通过（原有 38 + 原补丁 16 + 审查追加 1），无跳过。
+- 实际 Jinja 渲染比对原有 DOM ID；核对敏感请求体、只读路径、确认操作、类型海报与安全文本渲染。
+- 生成并人工抽查桌面/手机、浅色/深色和弹窗截图；47 个合成场景无整页横向溢出、无意外控制台错误。手机与桌面的部分表格使用局部滚动，不据此宣称全设备可访问性认证。
+- 生产镜像构建、构建上下文排除、Docker 双停机场景、Compose 非 root/只读源/无限停机等待检查均执行；具体结果以本次发布提交的 CI 和随附复核报告为准。
+- 首次交付时的 6 个 Python 失败在完整锁定环境中没有复现。
+
+```bash
+npm ci --ignore-scripts
+PYTHONDONTWRITEBYTECODE=1 /home/su/venvs/animeman-t15-locked/bin/python -m pytest -q --tb=short
+CHROMIUM_PATH=/usr/bin/chromium ANIMEMAN_TEST_PYTHON=/home/su/venvs/animeman-t15-locked/bin/python npm run test:ui
+python tools/check_dependencies.py
+python tools/check_syntax.py
+find static/js tests -name '*.js' -o -name '*.cjs' | xargs -n1 node --check
+git diff --check
+```
+
+Python/Node 的实际安装和锁文件依照项目既有要求，以上绝对路径仅记录本机环境。全部媒体与 API 数据仍为临时合成或 mock；没有使用真实密钥/媒体，也没有执行真实库迁移。iOS Safari、Android 实机、Firefox、读屏软件及真实 NAS 环境仍未验证。
+
+发布使用新版本 v1.1.0，保留 v1.0.0 标签。撤回时完整回退 v1.0.0 到 v1.1.0 的全部 UI 提交（原补丁与审查修复分别提交），保留业务数据和运行卷；浏览器主题偏好可保留，不需要清空配置或缓存。

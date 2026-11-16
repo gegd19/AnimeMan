@@ -168,6 +168,39 @@ test('dry-run is labelled as a simulation only when the saved configuration says
     assert.equal(await preview.page.locator('#statMode').textContent(), '模拟');
 });
 
+test('saving dry-run during a real task labels configuration without promising the active task is simulated', async t => {
+    let savedDryRun = false;
+    const {page, requests} = await setup(t, {
+        viewport: {width: 375, height: 700},
+        status: {running: true, status: 'running', task_id: 'already-writing', progress: 1, total: 4, log: []},
+        overrides: {'/api/config': (route, req) => {
+            if (req.method() === 'POST') {
+                savedDryRun = req.postDataJSON().dry_run;
+                return route.fulfill({json: {status: 'success'}});
+            }
+            return route.fulfill({json: {source_folders: ['/src'], tv_target_folder: '/tv', movie_target_folder: '/movies',
+                auth: {}, ai_parser: {}, ai_plot_enhance: {}, tmdb_api: {api_key: '', api_key_configured: true}, dry_run: savedDryRun}});
+        }}
+    });
+    await openView(page, 'settings');
+    await page.locator('#dryRunCheck').check();
+    await page.locator('#configForm .savebar button').click();
+    await page.locator('#dryRunBadge').waitFor({state: 'visible'});
+    assert.match(await page.locator('#dryRunBadge').textContent(), /已保存.*模拟/);
+    assert.match(await page.locator('#dryRunBadge').getAttribute('title'), /启动时.*配置/);
+    await openView(page, 'home');
+    assert.match(await page.locator('#statMode').evaluate(node => node.parentElement.querySelector('dt').textContent), /已保存配置/);
+    assert.match(await page.locator('#statusText').textContent(), /运行中/);
+    assert.equal(await page.locator('#runBtn').isDisabled(), true);
+    assert.equal(await page.locator('#statusText').evaluate(node => {
+        const range = document.createRange();
+        range.setStart(node.firstChild, 0); range.setEnd(node.firstChild, 3);
+        const box = node.getBoundingClientRect();
+        return [...range.getClientRects()].every(part => part.bottom <= box.bottom + 1 && part.right <= box.right + 1);
+    }), true, 'the active task label remains readable beside the saved-configuration badge on a phone');
+    assert.equal(requests.filter(req => req.url.startsWith('/api/run') || req.url.startsWith('/api/stop')).length, 0);
+});
+
 test('environment-managed paths are really read-only and explained', async t => {
     const {page} = await setup(t, {config: {environment_managed: ['tv_target_folder']}});
     await openView(page, 'settings');

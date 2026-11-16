@@ -346,7 +346,7 @@ input[type="range"] { width: 100%; min-height: 28px; accent-color: var(--blue-so
     background: var(--sheet); border-bottom: 1px solid var(--rule);
 }
 .taskbar .brand-mark { display: none; }
-.task-state { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 260px; }
+.task-state { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; flex: 1 1 260px; }
 .task-dot {
     flex: none; width: 10px; height: 10px; border-radius: 50%;
     border: 2px solid var(--ink-3); background: transparent;
@@ -358,7 +358,7 @@ input[type="range"] { width: 100%; min-height: 28px; accent-color: var(--blue-so
 .taskbar[data-state="cancelled"] .task-dot { border-color: var(--ink-3); background: var(--ink-3); }
 @keyframes pulse { 50% { opacity: .35; } }
 
-.status { min-width: 0; }
+.status { min-width: 0; flex: 1 1 48px; }
 #statusText {
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     font-weight: 600; line-height: 1.35; overflow-wrap: anywhere;
