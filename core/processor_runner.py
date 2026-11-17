@@ -122,6 +122,22 @@ def _run_with_config(config, progress_callback, repair_mode):
     total_files = len(video_files)
     wrapped_log(f"🔍 扫描完成，共 {total_files} 个视频文件", LOG_SUCCESS)
 
+    # Build bounded evidence only from this run's existing scan inventory.
+    from .folder_evidence import collect_folder_evidence
+    scanned_by_folder = {}
+    for item in video_files:
+        scanned_by_folder.setdefault(item.parent, []).append(item)
+    folder_evidence = {}
+    for folder, files in scanned_by_folder.items():
+        if core_stop.is_set():
+            break
+        try:
+            folder_evidence[folder] = collect_folder_evidence(folder, files, config)
+        except ProcessingCancelled:
+            if not core_stop.is_set():
+                raise
+            break
+
     # 增量过滤
     to_process = []
     for src in video_files:
@@ -175,7 +191,7 @@ def _run_with_config(config, progress_callback, repair_mode):
         previous = deepcopy(cache.get(key, {}))
         previous_failure = previous.get("last_failure", previous)
         with failure_scope(config, previous_failure) as failure:
-            effective = dict(config)
+            effective = dict(config, _folder_evidence=folder_evidence.get(src.parent))
             if not is_preview(config):
                 # A publication is not successful until its record is durable.
                 effective['_commit_entry'] = lambda entry: cache_manager.update_records({key:entry})

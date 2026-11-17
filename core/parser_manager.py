@@ -149,6 +149,8 @@ def parse_filename(file_path,config,log_func=None):
         return {'media_type':'unknown','reason_code':'unsupported_episode_numbering'}
     key=get_ai_parse_cache_key(str(file_path),config)
     enabled=config.get('ai_parser',{}).get('enabled',False)
+    evidence=config.get('_folder_evidence')
+    shared_allowed = not evidence or (evidence.get('complete') and evidence.get('identity_status') != 'conflict' and not evidence.get('unknown'))
     resolved_folder=folder.resolve()
     roots=[Path(root).resolve() for root in config.get('source_folders',[]) if isinstance(root,str) and root.strip()]
     matching=[root for root in roots if resolved_folder == root or root in resolved_folder.parents]
@@ -186,7 +188,7 @@ def parse_filename(file_path,config,log_func=None):
         info=_tag(parse_with_regex(file_path.name,folder.name),'regex')
         if info:
             parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
-    if enabled:
+    if enabled and shared_allowed:
         for source,result in [('offline_ai',get_cached_preparse(folder,config)),
                               ('ai_folder',folder_ai_cache.get_cached_folder_parse(folder,config))]:
             info=_extract_file_info_from_offline_cache(file_path,result)
@@ -207,7 +209,7 @@ def parse_filename(file_path,config,log_func=None):
         local_info=_tag(parse_with_regex(file_path.name,folder.name),'regex')
         if local_info and local_info.get('media_type') == 'tv':
             parse_identity.assert_file_current(file_path);_save_parse_result(key,local_info);return local_info
-    if enabled and config.get('ai_parser',{}).get('batch_folder_enabled',True):
+    if enabled and shared_allowed and config.get('ai_parser',{}).get('batch_folder_enabled',True):
         _,files=parse_identity.folder_snapshot(folder,config)
         if len(files)>=2:
             try:batch=_get_or_wait_folder_parse(folder,config,log_func)
@@ -223,7 +225,7 @@ def parse_filename(file_path,config,log_func=None):
     if (not enabled and anime is not None
             and not config.get('anime_parser',{}).get('fallback_to_regex',True)):
         return {'media_type':'unknown'}
-    if enabled and str(folder.resolve()) in load_raw_cache():
+    if enabled and shared_allowed and str(folder.resolve()) in load_raw_cache():
         result=parse_folder_on_demand(folder,config,log_func=log_func)
         info=_extract_file_info_from_offline_cache(file_path,result)
         if info:

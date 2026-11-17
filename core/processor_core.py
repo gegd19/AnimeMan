@@ -159,7 +159,9 @@ def process_video(
                 info.update(season=user_rule['season'], episode=user_rule['episode'])
 
         # 文件夹级 AI 批量解析
-        updated_info = (None if info.get("_explicit_identity") else
+        folder_evidence = config.get('_folder_evidence')
+        shared_allowed = not folder_evidence or (folder_evidence.get('complete') and folder_evidence.get('identity_status') != 'conflict' and not folder_evidence.get('unknown'))
+        updated_info = (None if info.get("_explicit_identity") or not shared_allowed else
                         try_folder_ai_batch(src, config, info, force_tmdb_id, wrapped_log))
         if updated_info:
             info = updated_info

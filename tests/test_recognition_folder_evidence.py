@@ -59,3 +59,23 @@ def test_outside_source_and_symlink_are_not_evidence(tmp_path):
     link=folder/'Other S01E01.mkv';link.symlink_to(other)
     result=collect_folder_evidence(folder, files+[other,link], {'source_folders':[str(root)]})
     assert result['sampled']==1 and len(result['groups'])==1
+
+
+def test_mixed_folder_disables_shared_ai_evidence(tmp_path,config_file,monkeypatch):
+    from core import ai_client,config_manager,parser_manager
+    root,folder,files=make_files(tmp_path,['Show S01E01.mkv','Other S01E01.mkv'])
+    cfg=config_manager.load_config(config_file)
+    cfg.update(source_folders=[str(root)], ai_parser={'enabled':True,'batch_folder_enabled':True},
+               _folder_evidence={'identity_status':'conflict','fingerprint':'mixed'})
+    monkeypatch.setattr(ai_client,'parse_folder_with_ai',lambda *a,**k: (_ for _ in ()).throw(AssertionError('shared AI must not run in mixed folder')))
+    monkeypatch.setattr(parser_manager.folder_ai_cache,'get_cached_folder_parse',lambda *a,**k: (_ for _ in ()).throw(AssertionError('shared cache must not run in mixed folder')))
+    result=parser_manager.parse_filename(files[0],cfg)
+    assert result.get('title')=='Show' and result.get('episode')==1
+
+
+def test_evidence_fingerprint_changes_parser_policy(tmp_path,config_file):
+    from core import config_manager,parse_identity
+    cfg=config_manager.load_config(config_file)
+    a=dict(cfg,_folder_evidence={'identity_status':'unconfirmed','fingerprint':'first'})
+    b=dict(cfg,_folder_evidence={'identity_status':'unconfirmed','fingerprint':'second'})
+    assert parse_identity.policy_key(a)!=parse_identity.policy_key(b)

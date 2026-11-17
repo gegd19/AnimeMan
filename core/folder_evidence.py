@@ -22,11 +22,15 @@ def collect_folder_evidence(folder, scanned_files, config, *, limit=MAX_SAMPLES)
         raise ValueError('目录证据超出源目录范围')
     # The caller provides the scan inventory; this function never walks directories.
     candidates = set()
+    missing = 0
     for item in scanned_files:
         check_cancelled()
         path = Path(item).absolute()
         if path.parent == folder and not path.is_symlink() and path.resolve() == path:
-            candidates.add(path)
+            if path.is_file():
+                candidates.add(path)
+            else:
+                missing += 1
     ordered = sorted(candidates, key=lambda path: path.name)
     samples = ordered[:limit]
     groups = {}
@@ -45,7 +49,7 @@ def collect_folder_evidence(folder, scanned_files, config, *, limit=MAX_SAMPLES)
         group = groups.setdefault(key, {'title':title, 'year':parsed.get('year'), 'files':[]})
         group['files'].append(path.name)
     group_list = [groups[key] for key in sorted(groups, key=lambda value:(value[0],value[1] or ''))]
-    fingerprint = hashlib.sha256(json.dumps([str(folder), len(ordered), signatures], ensure_ascii=False).encode()).hexdigest()
-    return {'groups':group_list, 'sampled':len(samples), 'complete':len(ordered) <= limit,
-            'unknown':unknown, 'identity_status':'conflict' if len(group_list)>1 else 'unconfirmed',
+    fingerprint = hashlib.sha256(json.dumps([str(folder), len(ordered), missing, signatures], ensure_ascii=False).encode()).hexdigest()
+    return {'groups':group_list, 'sampled':len(samples), 'complete':len(ordered) <= limit and missing == 0,
+            'unknown':unknown + missing, 'identity_status':'conflict' if len(group_list)>1 else 'unconfirmed',
             'fingerprint':fingerprint}
