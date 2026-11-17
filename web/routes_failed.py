@@ -45,6 +45,10 @@ def _wrap_callback(cb):
 def register(app):
     config_path = app.config.get("CONFIG_PATH", CONFIG_PATH)
 
+    def pending_for(src, entry):
+        from core.folder_evidence import current_pending_identity
+        return current_pending_identity(src, request_config(config_path), entry.get('recognition_pending'))
+
     @app.route('/api/failed_cache', methods=['GET'])
     def get_failed_cache():
         """获取所有处理失败的文件记录"""
@@ -58,6 +62,7 @@ def register(app):
                         "path": src_str,
                         "name": path.name,
                         "reason": entry.get("failed_reason", "未知原因"),
+                        "recognition_pending": pending_for(src_str, entry),
                         "failed_time": entry.get("failed_time", 0),
                         **{field:entry.get(field) for field in ("failure_category", "attempt_count", "last_error", "retry_after", "no_retry")}
                     })
@@ -85,6 +90,7 @@ def register(app):
                     "path": src_str,
                     "name": Path(src_str).name,
                     "reason": entry.get("failed_reason", "未知原因"),
+                    "recognition_pending": pending_for(src_str, entry),
                     "failed_time": entry.get("failed_time", 0)
                 })
 
@@ -198,6 +204,7 @@ def register(app):
                     "path": abs_path,
                     "name": f.name,
                     "status": "failed",
+                    "recognition_pending": pending_for(abs_path, entry),
                     "reason": entry.get("failed_reason", "未知原因"),
                     "failed_time": entry.get("failed_time", 0)
                 })
@@ -351,6 +358,11 @@ def register(app):
                 return jsonify({"status": "error", "message": "源文件不存在"}), 404
 
             config = request_config(config_path)
+            if data.get('use_pending_identity') is True:
+                previous = cache_manager.load_cache().get(str(src.resolve()), {})
+                pending = pending_for(src, previous)
+                if not pending or pending['tmdb_id'] != tmdb_id or pending['media_type'] != media_type:
+                    return jsonify({'status':'error', 'message':'保存的作品身份已失效，请重新选择'}), 409
             success, code = reprocess_safely(
                 src, config, lambda effective, result: process_video_with_manual_correction(
                     src, effective, result, tmdb_id, media_type, season, episode, progress_callback))

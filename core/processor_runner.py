@@ -214,6 +214,8 @@ def _run_with_config(config, progress_callback, repair_mode):
                     replacement = make_failure(src, reason, config, previous=previous_failure,
                         category=observed.get('failure_category') or failure.category,
                         error=failure.error or observed.get('last_error'))
+                    if observed.get('recognition_pending'):
+                        replacement['recognition_pending'] = deepcopy(observed['recognition_pending'])
                     if observed.get('error_code'):
                         replacement['error_code'] = observed['error_code']
                     if entry.get('target') and entry.get('media_type') != 'failed':

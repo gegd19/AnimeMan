@@ -414,3 +414,23 @@ test('manual correction reports rule save failure without repeating media operat
     assert.match(await page.evaluate(() => window.capturedRuleToast), /修正成功.*synthetic failure/);
     assert.equal(requests.filter(r => r.url === '/api/failed_cache/correct').length, 1);
 });
+
+test('confirmed identity with unknown numbering requires explicit season and episode', async t => {
+    const {page, requests} = await setup(t, {overrides:{
+        '/api/failed_cache/correct': route => route.fulfill({json:{status:'success'}})
+    }});
+    await page.evaluate(() => App.Correction.openCorrectionModal('/src/Show/Show OVA.mkv', 'Show OVA.mkv',
+        {identity_status:'confirmed', numbering_status:'unknown', tmdb_id:42, media_type:'tv'}));
+    assert.equal(await page.locator('#correctionSeason').inputValue(), '');
+    assert.equal(await page.locator('#correctionEpisode').inputValue(), '');
+    await page.evaluate(() => App.Correction.executeCorrection());
+    assert.equal(requests.filter(r => r.url === '/api/failed_cache/correct').length, 0);
+    await page.locator('#correctionSeason').fill('0');
+    await page.locator('#correctionEpisode').fill('3');
+    await page.evaluate(() => App.Correction.executeCorrection());
+    const req=requests.find(r=>r.url==='/api/failed_cache/correct');
+    assert.equal(req.body.tmdb_id,42);
+    assert.equal(req.body.use_pending_identity,true);
+    assert.equal(req.body.season,0);
+    assert.equal(req.body.episode,3);
+});

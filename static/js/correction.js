@@ -14,7 +14,7 @@ App.Correction = (function(app) {
     }
 
     return {
-        openCorrectionModal: function(srcPath, fileName) {
+        openCorrectionModal: function(srcPath, fileName, pending) {
             app.currentCorrectionPath = srcPath;
             document.getElementById('correctionSrcPath').value = srcPath;
 
@@ -47,6 +47,15 @@ App.Correction = (function(app) {
             document.getElementById('tmdbResultsBody').innerHTML = '<tr><td colspan="5">输入关键词搜索</td></tr>';
             document.getElementById('selectedTmdbInfo').style.display = 'none';
             app.selectedTmdbId = null;
+            document.getElementById('correctionSeason').value = '';
+            document.getElementById('correctionEpisode').value = '';
+            app.pendingRecognitionIdentity = false;
+            if (pending && pending.identity_status === 'confirmed' && pending.numbering_status === 'unknown' && pending.media_type === 'tv' && Number.isSafeInteger(pending.tmdb_id) && pending.tmdb_id > 0) {
+                App.Correction.selectTmdbForCorrection(pending.tmdb_id, `已确认的作品（TMDB ${pending.tmdb_id}）`, 'tv');
+                app.pendingRecognitionIdentity = true;
+                document.getElementById('correctionSeason').value = '';
+                document.getElementById('correctionEpisode').value = '';
+            }
             document.getElementById('correctionRuleScope').value = 'none';
             document.getElementById('correctionRulePreview').textContent = '仅修正当前文件，不保存规则。';
             document.getElementById(modalId).style.display = 'block';
@@ -124,6 +133,7 @@ App.Correction = (function(app) {
 
         selectTmdbForCorrection: function(id, title, mediaType) {
             app.selectedTmdbId = id;
+            app.pendingRecognitionIdentity = false;
             app.selectedMediaType = mediaType;
             document.getElementById('selectedTmdbTitle').innerText = title;
             document.getElementById('selectedTmdbId').innerText = id;
@@ -199,6 +209,7 @@ App.Correction = (function(app) {
                 src_path: srcPath,
                 tmdb_id: app.selectedTmdbId,
                 media_type: app.selectedMediaType,
+                use_pending_identity: !!app.pendingRecognitionIdentity,
                 save_rule_scope: document.getElementById('correctionRuleScope').value,
                 season: app.selectedMediaType === 'tv' ? season : null,
                 episode: app.selectedMediaType === 'tv' ? episode : null

@@ -158,6 +158,8 @@ for(const batch of [false,true]) test(`${batch?'batch':'single'} TMDB search tre
     await page.locator(scope+' button').click();
     assert.equal(await page.locator(batch?'#batchSelectedTmdbTitle':'#selectedTmdbTitle').textContent(),title);
     if(!batch) {
+        await page.locator('#correctionSeason').fill('1');
+        await page.locator('#correctionEpisode').fill('1');
         const body=await requestBody(page,requests,'/api/failed_cache/correct',()=>page.evaluate(()=>App.Correction.executeCorrection()));
         assert.equal(body.src_path,tricky);
     }

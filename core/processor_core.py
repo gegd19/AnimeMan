@@ -80,6 +80,11 @@ def process_video(
                 local_config = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
                 local_info = parse_filename_info(src, local_config, wrapped_log)
                 user_rule = match_rule(src, config, local_info)
+                if (user_rule is None and not local_info.get('reason_code') and local_info.get('episode') is None):
+                    from .folder_evidence import special_series_hint
+                    hint = special_series_hint(src)
+                    if hint:
+                        user_rule = match_rule(src, config, hint)
                 if user_rule and user_rule.get('_lower_priority_conflict') and wrapped_log:
                     wrapped_log(user_rule['_lower_priority_conflict'], LOG_WARNING)
                 if user_rule and force_tmdb_id is not None:
@@ -127,6 +132,16 @@ def process_video(
         if hint_id is not None or user_rule:
             parse_config = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
         info = parse_filename_info(src, parse_config, wrapped_log, force_tmdb_id, force_media_type, force_season, force_episode)
+
+        if (user_rule and user_rule['media_type'] == 'tv'
+                and info.get('reason_code') is None and info.get('episode') is None):
+            from .folder_evidence import pending_file_identity
+            save_failed_cache(src, "作品身份已确认，季集需要人工确认", cache_dict, wrapped_log)
+            if not is_preview(config):
+                entry = cache_dict.get(str(src.resolve()), {})
+                if entry.get('media_type') == 'failed':
+                    entry['recognition_pending'] = pending_file_identity(src, config, user_rule)
+            return False
 
         review_reasons = {
             "unsupported_episode_numbering": "集号范围或小数需要人工确认",

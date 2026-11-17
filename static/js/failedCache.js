@@ -27,7 +27,7 @@ App.FailedCache = (function(app) {
     }
 
     function _correctionButton(file, label = '修正', className = 'warning') {
-        return app.button(label, () => App.Correction.openCorrectionModal(file.path, file.name), className);
+        return app.button(label, () => App.Correction.openCorrectionModal(file.path, file.name, file.recognition_pending), className);
     }
 
     function _error(error) {
