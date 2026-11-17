@@ -29,16 +29,18 @@ def test_alias_preview_requires_auth_and_writes_nothing(client,config_file,tmp_p
 
 
 def test_explicit_confirmation_saves_scoped_evidence_atomically_and_enables_matching(client,config_file,tmp_path,monkeypatch):
-    from core import config_manager,recognition_aliases as aliases,processor_search,tmdb_client
+    from core import config_manager,recognition_aliases as aliases,processor_search,tmdb_client,parse_identity
     root,scope,source=setup_source(tmp_path,config_file)
     detail={'id':42,'name':'空の旅','original_name':'空の旅','first_air_date':'2020-01-01'}
     monkeypatch.setattr(tmdb_client,'get_tmdb_details',lambda *a,**k:detail)
     monkeypatch.setattr(tmdb_client,'search_tmdb_multi',lambda *a,**k:[])
     payload={'scope':str(scope),'name':'Sora no Tabi','media_type':'tv','tmdb_id':42}
+    active_cfg=config_manager.load_config(config_file);active_cfg['recognition_aliases']={'enabled':True}
+    policy_before=parse_identity.policy_key(active_cfg)
     preview=client.post('/api/recognition_aliases/preview',json=payload,headers=auth()).get_json()
     payload['preview_token']=preview['preview_token']
     result=client.post('/api/recognition_aliases',json=payload,headers=auth())
-    assert result.status_code==200
+    assert result.status_code==200 and parse_identity.policy_key(active_cfg)!=policy_before
     records=aliases.all_aliases(src=source)
     assert {(r['name'],r['source']) for r in records}=={('Sora no Tabi','manual'),('空の旅','tmdb')}
     cfg=config_manager.load_config(config_file);cfg['recognition_aliases']={'enabled':True}
