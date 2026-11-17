@@ -61,36 +61,18 @@ def lookup_local_alias(query: str) -> Optional[Dict]:
     return aliases.get(key)
 
 def generate_search_candidates(raw_title: str) -> List[str]:
-    candidates = []
+    """Preserve semantic title tokens; only strip well-known technical tags."""
+    from .constants import TECH_NOISE_WORDS
+    if not isinstance(raw_title, str) or not raw_title.strip():
+        return []
     title = raw_title.strip()
-    if title:
-        candidates.append(title)
+    cleaned = title
+    for word in sorted(TECH_NOISE_WORDS, key=len, reverse=True):
+        cleaned = re.sub(r'(?<!\w)' + re.escape(word) + r'(?!\w)', '', cleaned, flags=re.I)
+    cleaned = re.sub(r'\[\s*\]|\(\s*\)', '', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return [title, cleaned] if cleaned and cleaned != title else [title]
 
-    suffixes = [
-        r'\s+Majin Boo Hen',
-        r'\s+The Final Chapters',
-        r'\s+Final Chapters',
-        r'\s+Season\s*\d+',
-        r'\s+Part\s*\d+',
-        r'\s+Arc',
-        r'\s+TV Series',
-        r'\s*[-–:]\s*Part\s*\d+',
-        r'\s*[-–:]\s*Season\s*\d+',
-    ]
-    for pattern in suffixes:
-        cleaned = re.sub(pattern, '', title, flags=re.I).strip()
-        if cleaned and cleaned != title and cleaned not in candidates:
-            candidates.append(cleaned)
-
-    main_title = re.split(r'[-:–—]', title)[0].strip()
-    if main_title and main_title != title and main_title not in candidates:
-        candidates.append(main_title)
-
-    year_removed = re.sub(r'\s*[\[\(]?\d{4}[\]\)]?\s*$', '', title).strip()
-    if year_removed and year_removed not in candidates:
-        candidates.append(year_removed)
-
-    return candidates
 
 def search_tvmaze(query: str, config=None) -> Optional[int]:
     requests = _get_requests()

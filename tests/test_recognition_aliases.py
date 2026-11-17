@@ -68,3 +68,21 @@ def test_duplicate_records_are_idempotent(tmp_path):
     before=aliases.revision()
     aliases.add_alias('Show','tv',42,'manual')
     assert aliases.revision()==before and len(aliases.find_aliases('Show'))==1
+
+
+def test_search_variants_keep_original_and_sequel_chapter_tokens():
+    from core.processor_helpers import prepare_search_query
+    from core.search_enhancer import generate_search_candidates
+    title='Example II: 终章 1080p'
+    original,query,year,alternatives=prepare_search_query({'title':title,'search_title':title}, {'1080p'})
+    assert original==title and query==title
+    assert any('Example II: 终章' == item for item in alternatives)
+    assert all('II' in item and '终章' in item for item in generate_search_candidates(title))
+
+
+def test_variants_are_deduplicated_and_bounded():
+    from core.processor_helpers import prepare_search_query
+    values=['ＡＢＣ','abc','Other',' Other ','Third','Fourth','Fifth','Sixth']
+    _,query,_,alternatives=prepare_search_query({'title':'ABC','alternative_titles':values}, set())
+    normalized=[item.casefold().strip() for item in [query,*alternatives]]
+    assert len(alternatives)<=8 and len(normalized)==len(set(normalized))

@@ -188,18 +188,27 @@ def compute_confidence(info: Dict[str, Any], has_force_tmdb: bool) -> int:
 
 
 def prepare_search_query(info: Dict[str, Any], tech_noise_words: set) -> Tuple[str, str, Optional[str], List[str]]:
+    from .recognition_aliases import normalize
     title = info.get("title") or ""
     search_title = info.get("search_title") or title
-    for word in tech_noise_words:
-        search_title = re.sub(rf'\b{word}\b', '', search_title, flags=re.I)
-    search_title = re.sub(r'[：:\s]+[^：:]*[篇章部季卷]$', '', search_title).strip()
-    if not search_title or len(search_title) < 2:
-        search_title = title
+    cleaned = search_title
+    for word in sorted(tech_noise_words, key=len, reverse=True):
+        cleaned = re.sub(r'(?<!\w)' + re.escape(word) + r'(?!\w)', '', cleaned, flags=re.I)
+    cleaned = re.sub(r'\[\s*\]|\(\s*\)', '', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     year = info.get("year")
     year_guess = info.get("year_guess")
     search_year = year if year and year != "null" else (year_guess if year_guess else None)
-    alt_titles = info.get("alternative_titles", [])
-    return title, search_title, search_year, alt_titles
+    given = info.get("alternative_titles", [])
+    given = given if isinstance(given, list) else []
+    alternatives, seen = [], {normalize(search_title)}
+    for value in [cleaned, title, *given]:
+        key = normalize(value)
+        if key and key not in seen:
+            alternatives.append(value.strip()); seen.add(key)
+        if len(alternatives) >= 8:
+            break
+    return title, search_title, search_year, alternatives
 
 
 def extract_all_alternative_titles(details: Dict[str, Any], official_title: str) -> List[str]:
