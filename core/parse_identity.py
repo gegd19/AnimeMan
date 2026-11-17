@@ -51,6 +51,8 @@ def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_a
 def policy_key(config):
     fields=['ai_parser','anime_parser','video_extensions','ignore_patterns','scan_policy','special_mappings','source_folders','parse_rules_version','parse_context','identity_hints']
     values = {field:config.get(field) for field in fields}
+    from .recognition_aliases import revision as alias_revision
+    values['alias_revision'] = alias_revision()
     if isinstance(config.get('_folder_evidence'), dict):
         values['folder_evidence'] = config['_folder_evidence'].get('fingerprint')
     if config.get('user_rules', {}).get('enabled') is True:

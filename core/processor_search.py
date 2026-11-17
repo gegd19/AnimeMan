@@ -38,27 +38,12 @@ _alias_path = None
 
 
 def _load_aliases() -> Dict[str, Dict]:
-    global _alias_cache, _alias_path
+    # Compatibility view of the legacy file; re-read so edits take effect.
+    from .json_store import read_json
     path = cache_file(ALIAS_FILE.name)
-    if path == _alias_path:
-        return _alias_cache
-    _alias_path = path
-    _alias_cache = {}
-    if path.exists():
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                _alias_cache = json.load(f)
-                _alias_cache = {k.lower(): v for k, v in _alias_cache.items()}
-        except OSError:
-            _alias_path = None
-            raise
-        except CacheCorruptionError:
-            raise
-        except ProcessingCancelled:
-            raise
-        except Exception:
-            _alias_cache = {}
-    return _alias_cache
+    if path.is_symlink():
+        raise ValueError('旧别名文件不能是符号链接')
+    return {k.lower(): v for k, v in read_json(path).items() if isinstance(k,str)}
 
 
 def _lookup_local_alias(query: str) -> Optional[Dict]:
@@ -231,34 +216,56 @@ def search_tmdb_with_fallback(
     except ImportError:
         return original_search_tmdb(media_type, search_title, search_year, alt_titles, config, log_func, duration_hint)
 
-    # A saved alias is a hint, not a bypass around candidate validation.
-    for alias in (_lookup_local_alias(search_title), search_enhancer.lookup_local_alias(search_title)):
-        if not isinstance(alias, dict):
+    from . import recognition_aliases
+    records = recognition_aliases.all_aliases(src=src)
+    requested = {recognition_aliases.normalize(value) for value in [search_title, title_for_attempts, *alt_titles]
+                 if recognition_aliases.normalize(value)}
+    relevant = [r for r in records if r['trusted'] and recognition_aliases.normalize(r['name']) in requested
+                and (media_type not in ('tv','movie') or r['media_type'] == media_type)
+                and (not search_year or not r['year'] or r['year'] == str(search_year))]
+    identities = list(dict.fromkeys((r['media_type'],r['tmdb_id']) for r in relevant))
+    if len(identities) > 4:
+        if log_func: log_func('别名关联作品过多，需要人工确认', LOG_WARNING)
+        return None, media_type, 0
+    trusted_names = {}
+    for kind, ident in identities:
+        trusted_names[(kind,ident)] = [r['name'] for r in records if r['trusted'] and r['media_type'] == kind
+                                       and r['tmdb_id'] == ident and (not search_year or not r['year'] or r['year'] == str(search_year))]
+    legacy = (_lookup_local_alias(search_title), search_enhancer.lookup_local_alias(search_title))
+    legacy_ids = [(a.get('media_type'),a.get('tmdb_id')) for a in legacy if isinstance(a,dict)
+                  and a.get('media_type') in ('tv','movie') and type(a.get('tmdb_id')) is int and a['tmdb_id'] > 0
+                  and (media_type not in ('tv','movie') or a.get('media_type') == media_type)]
+    requested_ids = list(dict.fromkeys(identities + legacy_ids))[:4]
+    alias_results = {}
+    for kind, ident in requested_ids:
+        details = tmdb_client.get_tmdb_details(kind, ident, api_key, language, log_func, proxy=proxy)
+        if not isinstance(details,dict) or details.get('id') != ident or not isinstance(details.get('name' if kind == 'tv' else 'title'),str):
             continue
-        alias_id = alias.get('tmdb_id')
-        alias_type = alias.get('media_type', media_type)
-        if type(alias_id) is not int or alias_id <= 0 or alias_type not in ('tv','movie'):
+        date = details.get('first_air_date' if kind == 'tv' else 'release_date')
+        actual_year = date[:4] if isinstance(date,str) else None
+        declared = {r['year'] for r in relevant if r['media_type']==kind and r['tmdb_id']==ident and r['year']}
+        if len(declared) > 1 or (actual_year and declared and actual_year not in declared):
+            trusted_names.pop((kind,ident), None)
             continue
-        if media_type in ('tv','movie') and alias_type != media_type:
-            continue
-        details = tmdb_client.get_tmdb_details(alias_type, alias_id, api_key, language, log_func, proxy=proxy)
-        if not isinstance(details, dict) or details.get('id') != alias_id:
-            continue
-        if evaluate_candidates([details], alias_type, [search_title, title_for_attempts, *alt_titles], search_year)['selected']:
-            return details, alias_type, 1
+        alias_results[(kind,ident)] = details
 
     # Gather a bounded set of result pages before choosing; identical IDs are
     # deduplicated, while aliases from different languages remain evidence.
     from .candidate_evaluator import evaluate_candidates
     from .failure_policy import note_error
-    queries = []
-    for value in [search_title, *alt_titles, title_for_attempts, *search_enhancer.generate_search_candidates(search_title)]:
-        if isinstance(value, str) and value.strip() and value not in queries:
-            queries.append(value)
+    queries, seen_queries = [], set()
+    hint_ids = {(r['media_type'], r['tmdb_id']) for r in records if r['source'] == 'ai'
+                and recognition_aliases.normalize(r['name']) in requested
+                and (media_type not in ('tv','movie') or r['media_type'] == media_type)}
+    hint_names = [r['name'] for r in records if r['trusted'] and (r['media_type'],r['tmdb_id']) in hint_ids]
+    for value in [search_title, *alt_titles, title_for_attempts, *hint_names, *search_enhancer.generate_search_candidates(search_title)]:
+        key = recognition_aliases.normalize(value)
+        if key and key not in seen_queries:
+            queries.append(value.strip()); seen_queries.add(key)
     queries = queries[:4]
     languages = list(dict.fromkeys([language, 'en-US']))
     titles = list(dict.fromkeys(value for value in [search_title, title_for_attempts, *alt_titles] if isinstance(value, str) and value.strip()))
-    merged = {}
+    merged = dict(alias_results)
     types = [media_type] if media_type in ('tv', 'movie') else ['tv', 'movie']
     for result_type in types:
         for lang in languages:
@@ -288,8 +295,11 @@ def search_tmdb_with_fallback(
     ranked = []
     for result_type in types:
         items = [item for (kind, _), item in merged.items() if kind == result_type]
-        decision = evaluate_candidates(items, result_type, titles, search_year)
-        ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
+        for item in items:
+            identity = (result_type, item['id'])
+            candidate_titles = titles + trusted_names.get(identity, [])
+            decision = evaluate_candidates([item], result_type, candidate_titles, search_year)
+            ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
     ranked.sort(key=lambda entry: -entry['score'])
     if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
         return ranked[0]['item'], ranked[0]['media_type'], len(merged)
@@ -326,8 +336,10 @@ def search_tmdb_with_fallback(
             ranked = []
             for result_type in types:
                 items = [item for (kind, _), item in merged.items() if kind == result_type]
-                decision = evaluate_candidates(items, result_type, titles, search_year)
-                ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
+                for item in items:
+                    identity = (result_type, item['id'])
+                    decision = evaluate_candidates([item], result_type, titles + trusted_names.get(identity, []), search_year)
+                    ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
             ranked.sort(key=lambda entry: -entry['score'])
             if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
                 return ranked[0]['item'], ranked[0]['media_type'], len(merged)

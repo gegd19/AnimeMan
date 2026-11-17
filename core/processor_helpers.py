@@ -220,13 +220,15 @@ def extract_all_alternative_titles(details: Dict[str, Any], official_title: str)
         titles.add(original_title.strip())
     alt_titles = details.get("alternative_titles", {})
     if isinstance(alt_titles, dict):
-        results = alt_titles.get("titles", [])
-    else:
-        results = alt_titles.get("titles", [])
-    for item in results:
-        t = item.get("title") or item.get("name")
-        if t:
-            titles.add(t.strip())
+        for key in ("titles", "results"):
+            items = alt_titles.get(key, [])
+            if not isinstance(items, list):
+                continue
+            for item in items[:100]:
+                if isinstance(item, dict):
+                    t = item.get("title") or item.get("name")
+                    if isinstance(t, str) and t.strip():
+                        titles.add(t.strip())
     return [t for t in titles if t]
 
 

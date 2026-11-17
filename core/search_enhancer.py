@@ -37,23 +37,13 @@ _alias_cache: Dict[str, Dict] = {}
 _alias_path = None
 
 def load_aliases() -> Dict[str, Dict]:
-    global _alias_cache, _alias_path
+    # Compatibility view of the legacy file; re-read so edits take effect.
+    from .json_store import read_json
     path = cache_file(ALIAS_FILE.name)
-    if path == _alias_path:
-        return _alias_cache
-    _alias_path = path
-    _alias_cache = {}
-    if path.exists():
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                _alias_cache = json.load(f)
-                _alias_cache = {k.lower(): v for k, v in _alias_cache.items()}
-        except OSError:
-            _alias_path = None
-            raise
-        except Exception:
-            _alias_cache = {}
-    return _alias_cache
+    if path.is_symlink():
+        raise ValueError('旧别名文件不能是符号链接')
+    return {k.lower(): v for k, v in read_json(path).items() if isinstance(k,str)}
+
 
 def lookup_local_alias(query: str) -> Optional[Dict]:
     aliases = load_aliases()

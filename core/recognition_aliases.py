@@ -31,7 +31,7 @@ def _validated(record):
         raise ValueError('别名身份或来源无效')
     if year is not None and (not isinstance(year,str) or not re.fullmatch(r'(?:18|19|20|21)\d{2}',year)):
         raise ValueError('别名年份无效')
-    if scope is not None and (not isinstance(scope,str) or not Path(scope).is_absolute() or str(Path(scope)) != scope):
+    if scope is not None and (not isinstance(scope,str) or not Path(scope).is_absolute() or str(Path(scope)) != scope or Path(scope).resolve() != Path(scope)):
         raise ValueError('别名作用域必须是规范绝对目录')
     return {'name':name.strip(), 'media_type':kind, 'tmdb_id':ident, 'source':source, 'year':year, 'scope':scope}
 
