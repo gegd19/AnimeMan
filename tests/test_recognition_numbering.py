@@ -26,7 +26,9 @@ def test_valid_numbering_preserved(filename, season, episode):
     assert (result['season'], result['episode']) == (season, episode)
 
 
-@pytest.mark.parametrize('filename', ['Example - 12.5.mkv', 'Example - 01-02.mkv', 'Example S01E01-E02.mkv', 'Example [12.5].mkv'])
+@pytest.mark.parametrize('filename', ['Example - 12.5.mkv', 'Example - 01-02.mkv', 'Example S01E01-E02.mkv', 'Example [12.5].mkv',
+                                      'Example - 12.125.mkv', 'Example [12.125].mkv', 'Example.S01E07.125.1080p.mkv', 'Example - 12.125v2.mkv',
+                                      'Example - 12.5v2.mkv', 'Example E07.5.mkv', 'Example.S01E07.5.1080p.mkv'])
 @pytest.mark.parametrize('ai_enabled', [False, True])
 def test_ambiguous_numbering_never_reaches_tmdb(tmp_path, config_file, monkeypatch, filename, ai_enabled):
     from core import config_manager, parser_manager, processor_core
@@ -46,7 +48,10 @@ def test_ambiguous_numbering_never_reaches_tmdb(tmp_path, config_file, monkeypat
     assert not list((tmp_path / 'tv').rglob('*.mkv'))
 
 
-@pytest.mark.parametrize('filename', ['Show - 01v2.mkv', 'Show S01E02 [1080p].mkv', 'Show (2020) S01E02.mkv'])
+@pytest.mark.parametrize('filename', ['Show - 01v2.mkv', 'Show S01E02 [1080p].mkv', 'Show (2020) S01E02.mkv',
+                                      # dot-separated scene names: the resolution after the episode is not a decimal episode
+                                      'Show.S01E02.1080p.BluRay.Remux.FLAC.2.0.H.264-Grp.mkv', 'Show.S01E01.2160p.WEB-DL.mkv',
+                                      'Show.S01E02.720p.HDTV.x264.mkv', 'Show.S01E01.480p.mkv', 'Show.S01E02.4K.HDR.mkv', 'Show.S01E01.10bit.mkv'])
 def test_unambiguous_episode_not_blocked(tmp_path, config_file, filename):
     from core import config_manager, parser_manager
     src = tmp_path / 'Show' / filename
