@@ -196,7 +196,7 @@ def process_video(
             if local_duration is not None and wrapped_log:
                 wrapped_log(f"⏱️ 视频时长: {local_duration:.1f} 分钟", LOG_INFO)
 
-            title_orig, search_title, search_year, alt_titles = prepare_search_query(current_info, TECH_NOISE_WORDS)
+            title_orig, search_title, search_year, alt_titles = prepare_search_query(current_info, TECH_NOISE_WORDS, aliases_enabled=config.get('recognition_aliases', {}).get('enabled') is True)
 
             cache_key = None
             if "tmdb_id" in current_info and current_info["tmdb_id"]:

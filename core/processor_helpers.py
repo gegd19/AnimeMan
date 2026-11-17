@@ -187,7 +187,21 @@ def compute_confidence(info: Dict[str, Any], has_force_tmdb: bool) -> int:
     return 70
 
 
-def prepare_search_query(info: Dict[str, Any], tech_noise_words: set) -> Tuple[str, str, Optional[str], List[str]]:
+def prepare_search_query(info: Dict[str, Any], tech_noise_words: set, *, aliases_enabled=False) -> Tuple[str, str, Optional[str], List[str]]:
+    if not aliases_enabled:
+        title = info.get("title") or ""
+        search_title = info.get("search_title") or title
+        for word in tech_noise_words:
+            search_title = re.sub(rf'\b{word}\b', '', search_title, flags=re.I)
+        search_title = re.sub(r'[：:\s]+[^：:]*[篇章部季卷]$', '', search_title).strip()
+        if not search_title or len(search_title) < 2:
+            search_title = title
+        year = info.get("year")
+        year_guess = info.get("year_guess")
+        search_year = year if year and year != "null" else (year_guess if year_guess else None)
+        alt_titles = info.get("alternative_titles", [])
+        return title, search_title, search_year, alt_titles
+
     from .recognition_aliases import normalize
     title = info.get("title") or ""
     search_title = info.get("search_title") or title

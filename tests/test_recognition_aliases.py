@@ -74,22 +74,22 @@ def test_search_variants_keep_original_and_sequel_chapter_tokens():
     from core.processor_helpers import prepare_search_query
     from core.search_enhancer import generate_search_candidates
     title='Example II: 终章 1080p'
-    original,query,year,alternatives=prepare_search_query({'title':title,'search_title':title}, {'1080p'})
+    original,query,year,alternatives=prepare_search_query({'title':title,'search_title':title}, {'1080p'}, aliases_enabled=True)
     assert original==title and query==title
     assert any('Example II: 终章' == item for item in alternatives)
-    assert all('II' in item and '终章' in item for item in generate_search_candidates(title))
+    assert all('II' in item and '终章' in item for item in generate_search_candidates(title, aliases_enabled=True))
 
 
 def test_variants_are_deduplicated_and_bounded():
     from core.processor_helpers import prepare_search_query
     values=['ＡＢＣ','abc','Other',' Other ','Third','Fourth','Fifth','Sixth']
-    _,query,_,alternatives=prepare_search_query({'title':'ABC','alternative_titles':values}, set())
+    _,query,_,alternatives=prepare_search_query({'title':'ABC','alternative_titles':values}, set(), aliases_enabled=True)
     normalized=[item.casefold().strip() for item in [query,*alternatives]]
     assert len(alternatives)<=8 and len(normalized)==len(set(normalized))
 
 
 def search_cfg():
-    return {'tmdb_api':{'api_key':'synthetic'},'ai_parser':{'enabled':False}}
+    return {'tmdb_api':{'api_key':'synthetic'},'ai_parser':{'enabled':False},'recognition_aliases':{'enabled':True}}
 
 
 def test_trusted_multilingual_aliases_are_bound_to_the_verified_identity(monkeypatch):
@@ -126,7 +126,7 @@ def test_ai_generated_alias_cannot_establish_identity(monkeypatch):
 def test_alias_revision_invalidates_parser_policy_and_legacy_readers_refresh(tmp_path):
     import json
     from core import recognition_aliases as aliases,parse_identity,processor_search,search_enhancer
-    cfg={};before=parse_identity.policy_key(cfg)
+    cfg={'recognition_aliases':{'enabled':True}};before=parse_identity.policy_key(cfg)
     aliases.add_alias('Show','tv',42,'manual')
     assert parse_identity.policy_key(cfg)!=before
     path=tmp_path/'tmdb_aliases.json'
@@ -166,16 +166,16 @@ def test_tmdb_alternative_titles_from_both_supported_shapes_are_evidence():
     from core.candidate_evaluator import evaluate_candidates
     from core.processor_helpers import extract_all_alternative_titles
     item={'id':42,'name':'作品','alternative_titles':{'results':[{'title':'Sakuhin'}], 'titles':[{'title':'The Work'}]}}
-    assert evaluate_candidates([item],'tv',['Sakuhin'])['selected']['id']==42
+    assert evaluate_candidates([item],'tv',['Sakuhin'],include_alternatives=True)['selected']['id']==42
     assert set(extract_all_alternative_titles(item,'作品')) >= {'作品','Sakuhin','The Work'}
-    assert evaluate_candidates([item],'tv',['Other'])['selected'] is None
+    assert evaluate_candidates([item],'tv',['Other'],include_alternatives=True)['selected'] is None
 
 
 def test_tmdb_generic_alias_does_not_override_explicit_sequel_title():
     from core.candidate_evaluator import evaluate_candidates
     item={'id':42,'name':'Show II','alternative_titles':{'results':[{'title':'Show'}]}}
-    assert evaluate_candidates([item],'tv',['Show'])['selected'] is None
-    assert evaluate_candidates([item],'tv',['Show II'])['selected']['id']==42
+    assert evaluate_candidates([item],'tv',['Show'],include_alternatives=True)['selected'] is None
+    assert evaluate_candidates([item],'tv',['Show II'],include_alternatives=True)['selected']['id']==42
 
 
 def test_scoped_alias_rejects_parent_traversal_and_symlink(tmp_path):
@@ -193,3 +193,21 @@ def test_alias_record_year_must_agree_with_tmdb_details(monkeypatch):
     monkeypatch.setattr(tmdb_client,'get_tmdb_details',lambda *a,**k:{'id':42,'name':'Original','first_air_date':'2002-01-01'})
     monkeypatch.setattr(tmdb_client,'search_tmdb_multi',lambda *a,**k:[{'id':42,'name':'Original','first_air_date':'2002-01-01'}])
     assert processor_search.search_tmdb_with_fallback('tv','Alias',None,[],search_cfg())[0] is None
+
+
+def test_versioned_alias_feature_is_disabled_without_explicit_boolean(monkeypatch):
+    from core import recognition_aliases as aliases,processor_search,tmdb_client
+    aliases.add_alias('Sakuhin','tv',42,'manual')
+    aliases.add_alias('作品','tv',42,'tmdb')
+    monkeypatch.setattr(tmdb_client,'get_tmdb_details',lambda *a,**k:pytest.fail('disabled alias must not fetch'))
+    monkeypatch.setattr(tmdb_client,'search_tmdb_multi',lambda *a,**k:[])
+    cfg={'tmdb_api':{'api_key':'synthetic'},'ai_parser':{'enabled':False}}
+    assert processor_search.search_tmdb_with_fallback('tv','Sakuhin',None,[],cfg)[0] is None
+
+
+def test_alias_enabled_setting_requires_a_real_boolean():
+    from core.validation import validate_config,ValidationError
+    from core.config_manager import DEFAULT_CONFIG
+    from copy import deepcopy
+    cfg=deepcopy(DEFAULT_CONFIG);cfg['recognition_aliases']={'enabled':'true'}
+    with pytest.raises(ValidationError):validate_config(cfg)

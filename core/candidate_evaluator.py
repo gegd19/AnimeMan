@@ -10,7 +10,7 @@ def _normalize(value):
     return re.sub(r'[^\w]+', '', value)
 
 
-def evaluate_candidates(candidates, media_type, titles, year=None):
+def evaluate_candidates(candidates, media_type, titles, year=None, *, include_alternatives=False):
     queries = {_normalize(title) for title in titles if _normalize(title)}
     results = []
     for candidate in candidates:
@@ -21,7 +21,7 @@ def evaluate_candidates(candidates, media_type, titles, year=None):
         else:
             names = {candidate.get(key) for key in ('name','title','original_name','original_title') if isinstance(candidate.get(key),str)}
             alternatives = candidate.get('alternative_titles')
-            if isinstance(alternatives, dict):
+            if include_alternatives and isinstance(alternatives, dict):
                 for field in ('titles', 'results'):
                     items = alternatives.get(field, [])
                     if isinstance(items, list):
@@ -35,7 +35,7 @@ def evaluate_candidates(candidates, media_type, titles, year=None):
             suffix_matches = (not suffix or any(isinstance(title,str) and re.search(r'(?i)\s+' + re.escape(suffix.group(1)) + r'\s*$', title) for title in titles))
             if not queries.intersection(normalized):
                 reason = 'title_mismatch'
-            elif suffix and not suffix_matches and _normalize(primary) not in queries:
+            elif include_alternatives and suffix and not suffix_matches and _normalize(primary) not in queries:
                 reason = 'sequel_conflict'
             else:
                 score = 100

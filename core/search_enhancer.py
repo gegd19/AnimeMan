@@ -50,8 +50,39 @@ def lookup_local_alias(query: str) -> Optional[Dict]:
     key = query.lower().strip()
     return aliases.get(key)
 
-def generate_search_candidates(raw_title: str) -> List[str]:
+def generate_search_candidates(raw_title: str, *, aliases_enabled=False) -> List[str]:
     """Preserve semantic title tokens; only strip well-known technical tags."""
+    if not aliases_enabled:
+        candidates = []
+        title = raw_title.strip()
+        if title:
+            candidates.append(title)
+
+        suffixes = [
+            r'\s+Majin Boo Hen',
+            r'\s+The Final Chapters',
+            r'\s+Final Chapters',
+            r'\s+Season\s*\d+',
+            r'\s+Part\s*\d+',
+            r'\s+Arc',
+            r'\s+TV Series',
+            r'\s*[-–:]\s*Part\s*\d+',
+            r'\s*[-–:]\s*Season\s*\d+',
+        ]
+        for pattern in suffixes:
+            cleaned = re.sub(pattern, '', title, flags=re.I).strip()
+            if cleaned and cleaned != title and cleaned not in candidates:
+                candidates.append(cleaned)
+
+        main_title = re.split(r'[-:–—]', title)[0].strip()
+        if main_title and main_title != title and main_title not in candidates:
+            candidates.append(main_title)
+
+        year_removed = re.sub(r'\s*[\[\(]?\d{4}[\]\)]?\s*$', '', title).strip()
+        if year_removed and year_removed not in candidates:
+            candidates.append(year_removed)
+
+        return candidates
     from .constants import TECH_NOISE_WORDS
     if not isinstance(raw_title, str) or not raw_title.strip():
         return []

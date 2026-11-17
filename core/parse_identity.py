@@ -52,7 +52,9 @@ def policy_key(config):
     fields=['ai_parser','anime_parser','video_extensions','ignore_patterns','scan_policy','special_mappings','source_folders','parse_rules_version','parse_context','identity_hints']
     values = {field:config.get(field) for field in fields}
     from .recognition_aliases import revision as alias_revision
-    values['alias_revision'] = alias_revision()
+    aliases_enabled = config.get('recognition_aliases', {}).get('enabled') is True
+    values['alias_revision'] = alias_revision(include_new=aliases_enabled)
+    values['aliases_enabled'] = aliases_enabled
     if isinstance(config.get('_folder_evidence'), dict):
         values['folder_evidence'] = config['_folder_evidence'].get('fingerprint')
     if config.get('user_rules', {}).get('enabled') is True:

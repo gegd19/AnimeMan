@@ -63,8 +63,8 @@ def _legacy():
     return records
 
 
-def revision():
-    paths=[cache_file(ALIASES_FILE), cache_file(LEGACY_FILE)]
+def revision(*, include_new=True):
+    paths=([cache_file(ALIASES_FILE)] if include_new else []) + [cache_file(LEGACY_FILE)]
     raw=[]
     for path in paths:
         if path.is_symlink():raise ValueError('别名文件不能是符号链接')

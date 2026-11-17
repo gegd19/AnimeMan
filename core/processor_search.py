@@ -217,7 +217,8 @@ def search_tmdb_with_fallback(
         return original_search_tmdb(media_type, search_title, search_year, alt_titles, config, log_func, duration_hint)
 
     from . import recognition_aliases
-    records = recognition_aliases.all_aliases(src=src)
+    aliases_enabled = config.get('recognition_aliases', {}).get('enabled') is True
+    records = recognition_aliases.all_aliases(src=src) if aliases_enabled else []
     requested = {recognition_aliases.normalize(value) for value in [search_title, title_for_attempts, *alt_titles]
                  if recognition_aliases.normalize(value)}
     relevant = [r for r in records if r['trusted'] and recognition_aliases.normalize(r['name']) in requested
@@ -258,7 +259,7 @@ def search_tmdb_with_fallback(
                 and recognition_aliases.normalize(r['name']) in requested
                 and (media_type not in ('tv','movie') or r['media_type'] == media_type)}
     hint_names = [r['name'] for r in records if r['trusted'] and (r['media_type'],r['tmdb_id']) in hint_ids]
-    for value in [search_title, *alt_titles, title_for_attempts, *hint_names, *search_enhancer.generate_search_candidates(search_title)]:
+    for value in [search_title, *alt_titles, title_for_attempts, *hint_names, *search_enhancer.generate_search_candidates(search_title, aliases_enabled=aliases_enabled)]:
         key = recognition_aliases.normalize(value)
         if key and key not in seen_queries:
             queries.append(value.strip()); seen_queries.add(key)
@@ -298,7 +299,7 @@ def search_tmdb_with_fallback(
         for item in items:
             identity = (result_type, item['id'])
             candidate_titles = titles + trusted_names.get(identity, [])
-            decision = evaluate_candidates([item], result_type, candidate_titles, search_year)
+            decision = evaluate_candidates([item], result_type, candidate_titles, search_year, include_alternatives=aliases_enabled)
             ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
     ranked.sort(key=lambda entry: -entry['score'])
     if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
@@ -338,7 +339,7 @@ def search_tmdb_with_fallback(
                 items = [item for (kind, _), item in merged.items() if kind == result_type]
                 for item in items:
                     identity = (result_type, item['id'])
-                    decision = evaluate_candidates([item], result_type, titles + trusted_names.get(identity, []), search_year)
+                    decision = evaluate_candidates([item], result_type, titles + trusted_names.get(identity, []), search_year, include_alternatives=aliases_enabled)
                     ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
             ranked.sort(key=lambda entry: -entry['score'])
             if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
