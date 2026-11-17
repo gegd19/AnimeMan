@@ -3,7 +3,7 @@
 """anitopy 动漫文件名解析器（增强版）
 优化：
 - 纯数字文件名时直接从父目录提取标题和季号
-- 罗马数字转阿拉伯数字（支持1-30季）
+- 保留标题中的罗马数字，避免更改作品身份
 - 当文件名信息不足时，用目录信息补充标题和季号
 - 罗马数字季号（如 III）自动转换为 Sxx 格式便于 anitopy 识别
 """
@@ -122,15 +122,6 @@ def parse_with_anitopy(
             )
             if log_func:
                 log_func(f"🔤 检测到罗马数字季号: {roman} → S{int(arabic):02d}", LOG_INFO)
-
-    # ========== 其他罗马数字转阿拉伯数字（如文件名其他部分的 II、V 等） ==========
-    for roman, arabic in ROMAN_TO_ARABIC.items():
-        processed_filename = re.sub(
-            rf'(?<![a-zA-Z0-9]){re.escape(roman)}(?![a-zA-Z0-9])',
-            arabic,
-            processed_filename,
-            flags=re.I
-        )
 
     cleaned_filename = processed_filename
     if log_func and cleaned_filename != filename:

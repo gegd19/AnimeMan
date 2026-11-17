@@ -16,6 +16,7 @@ class ParseInputChanged(OSError):
 
 
 RULE_VERSION='e01b-v1'
+ROMAN_TITLE_POLICY='preserve-title-v1'
 _memo=ContextVar('animeman_parse_identity',default=None)
 
 
@@ -51,6 +52,7 @@ def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_a
 def policy_key(config):
     fields=['ai_parser','anime_parser','video_extensions','ignore_patterns','scan_policy','special_mappings','source_folders','parse_rules_version','parse_context','identity_hints']
     values = {field:config.get(field) for field in fields}
+    values['roman_title_policy'] = ROMAN_TITLE_POLICY
     from .recognition_aliases import revision as alias_revision
     aliases_enabled = config.get('recognition_aliases', {}).get('enabled') is True
     values['alias_revision'] = alias_revision(include_new=aliases_enabled)
