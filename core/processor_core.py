@@ -24,7 +24,7 @@ from pathlib import Path
 from .execution_mode import execution_scope, is_preview
 from typing import Dict, Any, Optional, Callable, List, Tuple
 
-from . import cache_manager
+from . import cache_manager, parse_identity
 from . import tmdb_client
 from . import nfo_writer
 from . import file_linker
@@ -123,6 +123,7 @@ def process_video(
 
             title_orig, search_title, search_year, alt_titles = prepare_search_query(current_info, TECH_NOISE_WORDS)
 
+            cache_key = None
             if "tmdb_id" in current_info and current_info["tmdb_id"]:
                 tmdb_id = current_info["tmdb_id"]
                 media_type = current_info["media_type"]
@@ -141,6 +142,9 @@ def process_video(
                     cached_type = cached.get("media_type") if isinstance(cached, dict) else None
                     cached_count = cached.get("candidate_count") if isinstance(cached, dict) else None
                     validated = (cached_type == media_type and isinstance(cached_item, dict)
+                                 and cached.get("validation_stage") == "details_verified"
+                                 and cached.get("rule_version") == parse_identity.RULE_VERSION
+                                 and cached.get("ambiguity") == "resolved" and bool(cached.get("evidence"))
                                  and type(cached_count) is int and cached_count >= 1
                                  and evaluate_candidates([cached_item], cached_type,
                                      [search_title, title_orig, *alt_titles], search_year)['selected'])
@@ -158,13 +162,6 @@ def process_video(
                         src=src, duration_hint=duration_hint, title_for_attempts=title_orig,
                         base_confidence=confidence
                     )
-                    if tmdb_result:
-                        tmdb_id = tmdb_result.get("id")
-                        if type(tmdb_id) is int and tmdb_id>0 and media_type in ("tv","movie") and not is_preview():
-                            with _folder_tmdb_cache_lock:
-                                _folder_tmdb_cache[cache_key] = {"id":tmdb_id,"media_type":media_type,
-                                    "candidate":dict(tmdb_result),"candidate_count":candidate_count}
-
                 if not tmdb_result:
                     return (False, None, None, None, None, None, confidence, current_info)
 
@@ -225,6 +222,21 @@ def process_video(
                         if wrapped_log:
                             wrapped_log(f"⚠️ 时长差异较大，置信度 -5", LOG_WARNING)
 
+            # Cache only an independently validated decision with matching details.
+            if (cache_key is not None and not is_preview()
+                    and type(tmdb_id) is int and tmdb_id > 0
+                    and isinstance(details, dict) and details.get("id") == tmdb_id
+                    and type(candidate_count) is int and candidate_count >= 1):
+                assessment = evaluate_candidates([tmdb_result], media_type,
+                    [search_title, title_orig, *alt_titles], search_year)
+                if assessment['selected']:
+                    evidence = assessment['candidates'][0]['evidence']
+                    with _folder_tmdb_cache_lock:
+                        _folder_tmdb_cache[cache_key] = {
+                            "id": tmdb_id, "media_type": media_type,
+                            "candidate": dict(tmdb_result), "candidate_count": candidate_count,
+                            "rule_version": parse_identity.RULE_VERSION, "evidence": list(evidence),
+                            "ambiguity": "resolved", "validation_stage": "details_verified"}
             return (True, details, media_type, tmdb_id, official_title, official_year, confidence, current_info)
 
         initial_confidence = compute_confidence(info, force_tmdb_id is not None)

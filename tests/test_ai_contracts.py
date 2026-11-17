@@ -166,7 +166,7 @@ def test_tmdb_cache_keeps_validated_media_type(config_file,tmp_path,monkeypatch)
     monkeypatch.setattr(core.video_info,'get_video_duration',lambda *a:None)
     searches=[];types=[]
     monkeypatch.setattr(core,'search_tmdb_with_fallback',lambda *a,**k:(searches.append(1) or {'id':7,'title':'Show','release_date':'2024-01-01'},'movie',1))
-    monkeypatch.setattr(core.tmdb_client,'get_tmdb_details',lambda **k:types.append(k['media_type']) or {'title':'Film'})
+    monkeypatch.setattr(core.tmdb_client,'get_tmdb_details',lambda **k:types.append(k['media_type']) or {'id':7,'title':'Film'})
     monkeypatch.setattr(core,'process_movie_branch',lambda *a:True)
     for src in files:assert core.process_video(src,cfg,{})
     assert searches==[1] and types==['movie','movie']
@@ -336,7 +336,7 @@ def test_tmdb_cache_keys_include_language_and_year(config_file,tmp_path,monkeypa
     monkeypatch.setattr(core,'try_folder_ai_batch',lambda *a:None)
     monkeypatch.setattr(core.video_info,'get_video_duration',lambda *a:None)
     monkeypatch.setattr(core,'search_tmdb_with_fallback',lambda *a,**k:(calls.append(1) or {'id':7,'title':'Show','release_date':year[0]+'-01-01'},'movie',1))
-    monkeypatch.setattr(core.tmdb_client,'get_tmdb_details',lambda **k:{'title':'Film'})
+    monkeypatch.setattr(core.tmdb_client,'get_tmdb_details',lambda **k:{'id':7,'title':'Film'})
     monkeypatch.setattr(core,'process_movie_branch',lambda *a:True)
     assert core.process_video(src,cfg,{}) and core.process_video(src,cfg,{}) and len(calls)==1
     cfg['tmdb_api']['language']='ja-JP'

@@ -17,6 +17,7 @@ from .ai_budget import AIBudgetExceeded, with_recognition_budget
 from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import ProcessingCancelled
+from . import parse_identity
 from .parse_identity import tmdb_scope
 import re
 import json
@@ -127,7 +128,7 @@ def _get_tmdb_structure(
 
     try:
         details = tmdb_client.get_tmdb_details("tv", tmdb_id, api_key, language, log_func, proxy=proxy)
-        if not details:
+        if not isinstance(details, dict) or type(details.get("id")) is not int or details["id"] != tmdb_id:
             return None
 
         title = details.get("name") or details.get("original_name")
@@ -200,7 +201,7 @@ def _get_tmdb_info_for_folder(
     如果 info 提供且标题疑似缩写，强制触发 TMDB 搜索。
     返回 (tmdb_id, structure_text)，失败返回 (None, None)。
     """
-    folder_key = tmdb_scope(folder_path,config)
+    folder_scope = tmdb_scope(folder_path,config)
 
     from .candidate_evaluator import evaluate_candidates
     titles = [folder_path.name]
@@ -208,10 +209,13 @@ def _get_tmdb_info_for_folder(
         titles.extend([info.get('title', ''), info.get('search_title', '')])
         titles.extend(info.get('alternative_titles', []))
     year = info.get('year') if info else None
+    folder_key = (folder_scope, tuple(str(title).strip().casefold() for title in titles), str(year or ''))
     cached = _tmdb_search_cache.get(folder_key)
     if cached:
-        candidate = {'id': cached.get('id'), 'name': cached.get('title'), 'first_air_date': cached.get('first_air_date')}
-        if cached.get('media_type') == 'tv' and evaluate_candidates([candidate], 'tv', titles, year)['selected']:
+        candidate = cached.get('candidate')
+        if (isinstance(candidate, dict) and cached.get('media_type') == 'tv' and cached.get('rule_version') == parse_identity.RULE_VERSION
+                and cached.get('validation_stage') == 'structure_verified' and cached.get('ambiguity') == 'resolved'
+                and cached.get('evidence') and evaluate_candidates([candidate], 'tv', titles, year)['selected']):
             return cached['id'], cached.get('structure_text')
 
     candidates = _search_tmdb_for_folder(folder_path.name, config, log_func)
@@ -219,6 +223,9 @@ def _get_tmdb_info_for_folder(
         return None, None
     decision = evaluate_candidates(candidates, 'tv', titles, year)
     selected = decision['selected']
+    info_title = info.get('title') if info else None
+    if selected and info_title and not evaluate_candidates([selected], 'tv', [info_title], year)['selected']:
+        selected = None
     if not selected:
         if log_func:
             log_func('文件夹候选证据不足或存在歧义，需要人工确认', 'warning')
@@ -229,13 +236,20 @@ def _get_tmdb_info_for_folder(
     # 获取结构信息
     structure_text = _get_tmdb_structure(tmdb_id, config, log_func)
 
+    if not structure_text:
+        return None, None
+
     # 写入缓存
     if not is_preview():
         _tmdb_search_cache[folder_key] = {
             "id": tmdb_id,
             "media_type":"tv",
+            "candidate": dict(selected),
             "title": title,
             "first_air_date": selected.get("first_air_date"),
+            "rule_version": parse_identity.RULE_VERSION,
+            "evidence": decision['candidates'][next(i for i, item in enumerate(candidates) if item is selected)]['evidence'],
+            "ambiguity": "resolved", "validation_stage": "structure_verified",
             "structure_text": structure_text
         }
 
