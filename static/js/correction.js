@@ -143,7 +143,7 @@ App.Correction = (function(app) {
 
         updateRulePreview: function() {
             const scope = document.getElementById('correctionRuleScope').value;
-            const selected = app.selectedTmdbId ? `TMDB ${app.selectedMediaType} / ${app.selectedTmdbId}` : '尚未选择 TMDB 条目';
+            const selected = app.selectedTmdbId ? `${app.mediaTypeLabel(app.selectedMediaType)} · TMDB ${app.selectedTmdbId}` : '尚未选择 TMDB 条目';
             const path = String(app.currentCorrectionPath || '').replace(/\\/g, '/');
             const directory = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
             const description = scope === 'file' ? `仅此文件：${path}；${selected}` :
@@ -154,20 +154,30 @@ App.Correction = (function(app) {
 
         loadRules: async function() {
             const container = document.getElementById('recognitionRulesList');
+            if (!container) return;
             try {
                 const response = await app.fetch('/api/recognition_rules');
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.message || '无法读取规则');
-                container.replaceChildren();
-                if (!data.rules.length) container.textContent = '暂无规则';
-                for (const rule of data.rules) {
-                    const row = app.el('div', {className:'note'});
-                    row.append(app.el('span', {text:`${rule.enabled ? '启用' : '停用'} · ${rule.scope === 'file' ? '单文件' : '系列目录'} · ${rule.path} · ${rule.media_type} / ${rule.tmdb_id}`}));
-                    row.append(app.button(rule.enabled ? '停用' : '启用', () => App.Correction.setRuleState(rule.id, !rule.enabled)));
-                    row.append(app.button('删除规则', () => App.Correction.deleteRule(rule.id), 'danger'));
-                    container.append(row);
+                if (!response.ok || !Array.isArray(data.rules)) throw new Error(data.message || '无法读取规则');
+                app.setRuleCount('user', data.rules.length);
+                if (!data.rules.length) {
+                    app.ruleEmpty(container, '还没有人工识别规则。修正文件时选择「记住此文件」或「记住此系列目录」即可添加。');
+                    return;
                 }
-            } catch (error) { app.showToast(error.message || '读取规则失败', 'error'); }
+                container.replaceChildren(...data.rules.map(rule => app.ruleRow({
+                    enabled: !!rule.enabled,
+                    toggleLabel: `${rule.scope === 'file' ? '单文件' : '系列目录'}规则：${rule.path}`,
+                    onToggle: enabled => App.Correction.setRuleState(rule.id, enabled),
+                    title: `${app.mediaTypeLabel(rule.media_type)} · TMDB ${rule.tmdb_id}`,
+                    tags: [{text: rule.scope === 'file' ? '单文件' : '系列目录', kind: rule.scope === 'file' ? '' : 'blue'}],
+                    pathLabel: rule.scope === 'file' ? '文件' : '目录',
+                    path: rule.path,
+                    actions: [app.button('删除规则', () => App.Correction.deleteRule(rule.id, rule.path), 'danger btn-sm')],
+                })));
+            } catch (error) {
+                app.ruleEmpty(container, '读取规则失败：' + (error.message || '未知错误'));
+                app.showToast(error.message || '读取规则失败', 'error');
+            }
         },
 
         setRuleState: async function(id, enabled) {
@@ -179,7 +189,8 @@ App.Correction = (function(app) {
             } catch (error) { app.showToast(error.message || '更新规则失败', 'error'); }
         },
 
-        deleteRule: async function(id) {
+        deleteRule: async function(id, path) {
+            if (!confirm(`删除这条人工识别规则？\n${path || ''}\n\n只删除规则本身，不会改动已入库的文件。`)) return;
             try {
                 const response = await app.fetch('/api/recognition_rules/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
                 const data = await response.json();

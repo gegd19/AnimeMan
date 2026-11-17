@@ -34,7 +34,7 @@ test('manual confirmation is displayed without inventing an algorithm percentage
     app.ProcessedCache.viewProcessedCache();
     await app.FailedCache.showAllFilesInFolder('/source');
     for (const id of ['historyBody','processedCacheBody','failedCacheList']) {
-        assert.match(element(id).innerHTML,/人工确认/);
+        assert.match(element(id).innerHTML,/人工指定/);
         assert.doesNotMatch(element(id).innerHTML,/(?:100|0|null)%/);
     }
 });

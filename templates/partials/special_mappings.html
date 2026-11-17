@@ -1,12 +1,37 @@
-<section class="sheet" aria-labelledby="mappingTitle">
+<!-- 识别规则：四类规则集中在这里管理。标签切换只改 hidden，草稿与列表不会丢失。 -->
+<section class="sheet rules-hub" aria-labelledby="rulesHubTitle">
     <div class="sheet-head">
         <div>
-            <h2 id="mappingTitle">特辑 / OVA 映射规则</h2>
-            <p>文件名命中关键词时，直接使用指定的 TMDB ID 和季集，优先级最高。</p>
+            <h2 id="rulesHubTitle">识别规则</h2>
+            <p class="hint" id="rulesHubHint" data-hint-for="rulesHubTitle">自动识别不准时，用这些规则直接告诉 AnimeMan 答案。除特辑映射外，每类规则都要先在「设置」里启用才会生效。</p>
         </div>
-        <button type="button" onclick="App.MappingRules.openMappingModal()" class="success"><span class="icon i-plus" aria-hidden="true"></span>新增规则</button>
     </div>
-    <div class="sheet-body">
+
+    <div class="rule-tabs" role="tablist" aria-label="规则类型">
+        <button type="button" role="tab" id="ruleTab-mappings" aria-controls="rulePanel-mappings" aria-selected="true" data-rule-tab="mappings">
+            <span class="rule-tab-name">特辑 / OVA 映射</span>
+            <span class="rule-tab-meta"><span class="rule-count" data-rule-count="mappings"></span><span class="rule-state is-on" data-rule-state="mappings">始终生效</span></span>
+        </button>
+        <button type="button" role="tab" id="ruleTab-user" aria-controls="rulePanel-user" aria-selected="false" tabindex="-1" data-rule-tab="user">
+            <span class="rule-tab-name">人工识别规则</span>
+            <span class="rule-tab-meta"><span class="rule-count" data-rule-count="user"></span><span class="rule-state" data-rule-state="user">未启用</span></span>
+        </button>
+        <button type="button" role="tab" id="ruleTab-aliases" aria-controls="rulePanel-aliases" aria-selected="false" tabindex="-1" data-rule-tab="aliases">
+            <span class="rule-tab-name">作品别名</span>
+            <span class="rule-tab-meta"><span class="rule-count" data-rule-count="aliases"></span><span class="rule-state" data-rule-state="aliases">未启用</span></span>
+        </button>
+        <button type="button" role="tab" id="ruleTab-numbering" aria-controls="rulePanel-numbering" aria-selected="false" tabindex="-1" data-rule-tab="numbering">
+            <span class="rule-tab-name">季集编号映射</span>
+            <span class="rule-tab-meta"><span class="rule-count" data-rule-count="numbering"></span><span class="rule-state" data-rule-state="numbering">未启用</span></span>
+        </button>
+    </div>
+
+    <!-- 1. 特辑 / OVA 映射 -->
+    <div class="rule-panel" role="tabpanel" id="rulePanel-mappings" aria-labelledby="ruleTab-mappings" tabindex="0">
+        <div class="rule-panel-head">
+            <p id="mappingTitle">文件名命中关键词时，直接使用指定的 TMDB 条目和季集，优先级最高。</p>
+            <button type="button" onclick="App.MappingRules.openMappingModal()" class="success"><span class="icon i-plus" aria-hidden="true"></span>新增规则</button>
+        </div>
         <div class="table-wrap">
             <table class="failed-table" id="mappingRulesTable">
                 <thead>
@@ -17,5 +42,116 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- 2. 人工识别规则：在修正文件时选择「记住此文件 / 系列目录」创建 -->
+    <div class="rule-panel" role="tabpanel" id="rulePanel-user" aria-labelledby="ruleTab-user" tabindex="0" hidden>
+        <div class="rule-switch-bar" data-rule-switch="user">
+            <span class="rule-switch-text">已保存的规则<b data-rule-state-text="user">未启用</b></span>
+            <button type="button" class="ghost btn-sm" data-enable-in-settings="userRulesEnabledCheck">在设置中更改</button>
+        </div>
+        <div class="rule-panel-head">
+            <p>修正文件时选择「记住此文件」或「记住此系列目录的作品身份」，规则会出现在这里。</p>
+            <button type="button" class="ghost btn-sm" onclick="App.Correction.loadRules()"><span class="icon i-refresh" aria-hidden="true"></span>刷新</button>
+        </div>
+        <div id="recognitionRulesList" class="rule-list" aria-live="polite"></div>
+    </div>
+
+    <!-- 3. 作品别名 -->
+    <div class="rule-panel" role="tabpanel" id="rulePanel-aliases" aria-labelledby="ruleTab-aliases" tabindex="0" hidden>
+        <div class="rule-switch-bar" data-rule-switch="aliases">
+            <span class="rule-switch-text">已确认的作品别名<b data-rule-state-text="aliases">未启用</b></span>
+            <button type="button" class="ghost btn-sm" data-enable-in-settings="recognitionAliasesEnabledCheck">在设置中更改</button>
+        </div>
+        <div id="recognitionAliasesDetails" class="rule-editor" data-independent-settings>
+            <div class="rule-editor-head">
+                <h3 id="aliasEditorTitle">新增别名</h3>
+                <p class="hint" id="aliasEditorHint" data-hint-for="aliasEditorTitle">把文件名里的原文标题（如日文罗马音）对应到一部 TMDB 作品。只在所选源目录及其子目录内生效。预览会核验 TMDB 身份；不同作品使用同一别名时，会交给你人工确认。</p>
+            </div>
+            <ol class="editor-steps">
+                <li class="editor-step">
+                    <span class="editor-step-title">填写</span>
+                    <div class="field"><label for="recognitionAliasScope">源目录作用域</label>
+                        <div class="path-input-group"><input id="recognitionAliasScope" type="text" autocomplete="off" spellcheck="false" placeholder="/downloads/anime">
+                            <button type="button" class="browse" onclick="App.Browse.openBrowser('alias_scope')">浏览</button></div></div>
+                    <div class="field"><label for="recognitionAliasName">原文标题或别名</label><input id="recognitionAliasName" type="text" maxlength="256" autocomplete="off" spellcheck="false" placeholder="例如 Sora no Tabi"></div>
+                    <div class="field"><label for="recognitionAliasType">作品类型</label><select id="recognitionAliasType"><option value="tv">剧集</option><option value="movie">电影</option></select></div>
+                    <div class="field"><label for="recognitionAliasId">TMDB ID</label><input id="recognitionAliasId" type="number" class="field-inline" min="1" max="2147483647" inputmode="numeric"></div>
+                </li>
+                <li class="editor-step">
+                    <span class="editor-step-title">预览并核验</span>
+                    <div class="editor-step-row">
+                        <button type="button" id="recognitionAliasPreview" class="secondary">预览并验证作品</button>
+                        <p class="preview-box" id="recognitionAliasPreviewResult" role="status" data-state="empty">尚未预览。</p>
+                    </div>
+                </li>
+                <li class="editor-step">
+                    <span class="editor-step-title">保存</span>
+                    <div class="editor-step-row">
+                        <button type="button" id="recognitionAliasSave" class="success primary" disabled>确认保存别名</button>
+                        <span class="field-hint">只有预览过、且之后没有修改的内容才能保存。已有的失败条目可能需要手动重试。</span>
+                    </div>
+                </li>
+            </ol>
+        </div>
+        <div class="rule-panel-head">
+            <h3>已保存的别名</h3>
+            <button type="button" id="recognitionAliasRefresh" class="ghost btn-sm"><span class="icon i-refresh" aria-hidden="true"></span>刷新</button>
+        </div>
+        <div id="recognitionAliasList" class="rule-list" aria-live="polite"></div>
+    </div>
+
+    <!-- 4. 季集编号映射 -->
+    <div class="rule-panel" role="tabpanel" id="rulePanel-numbering" aria-labelledby="ruleTab-numbering" tabindex="0" hidden>
+        <div class="rule-switch-bar" data-rule-switch="numbering">
+            <span class="rule-switch-text">显式季集编号映射<b data-rule-state-text="numbering">未启用</b></span>
+            <button type="button" class="ghost btn-sm" data-enable-in-settings="numberingMapsEnabledCheck">在设置中更改</button>
+        </div>
+        <div id="numberingMapsDetails" class="rule-editor" data-independent-settings data-kind="exact">
+            <div class="rule-editor-head">
+                <h3 id="numberingEditorTitle">新增编号映射</h3>
+                <p class="hint" id="numberingEditorHint" data-hint-for="numberingEditorTitle">文件名里的编号和 TMDB 季集对不上时（例如总集数、12.5 这类小数集），手动指定对应关系。只适用于指定源目录和剧集；多集合并的文件仍需人工处理。</p>
+            </div>
+            <ol class="editor-steps">
+                <li class="editor-step">
+                    <span class="editor-step-title">填写</span>
+                    <div class="field"><label for="numberingScope">源目录作用域</label>
+                        <div class="path-input-group"><input id="numberingScope" type="text" autocomplete="off" spellcheck="false" placeholder="/downloads/anime/某部番">
+                            <button type="button" class="browse" onclick="App.Browse.openBrowser('numbering_scope')">浏览</button></div></div>
+                    <div class="field"><label for="numberingSrcPath">示例文件路径</label><input id="numberingSrcPath" type="text" autocomplete="off" spellcheck="false" placeholder="作用域里的一个视频文件的完整路径">
+                        <p class="field-hint">用来核验这条映射，必须在上面的作用域内。</p></div>
+                    <div class="field"><label for="numberingTmdbId">剧集 TMDB ID</label><input id="numberingTmdbId" type="number" class="field-inline" min="1" max="2147483647" inputmode="numeric"></div>
+                    <div class="field"><label for="numberingKind">映射方式</label><select id="numberingKind"><option value="exact">单个编号（如 12.5、01）</option><option value="range">一段连续编号（如 13–24）</option></select></div>
+                    <div class="field" data-kind-only="exact"><label for="numberingSourceLabel">文件里的编号</label><input id="numberingSourceLabel" type="text" class="field-inline" autocomplete="off" placeholder="例如 12.5 或 01">
+                        <p class="field-hint">按原文填写，会保留小数和前导零。</p></div>
+                    <div class="field" data-kind-only="range"><span class="field-label">文件里的编号范围</span>
+                        <div class="field-control range-pair"><label class="sr-only" for="numberingStart">范围起点</label><input id="numberingStart" type="number" min="0" max="9999" inputmode="numeric" placeholder="起点">
+                            <span aria-hidden="true">至</span><label class="sr-only" for="numberingEnd">范围终点</label><input id="numberingEnd" type="number" min="0" max="9999" inputmode="numeric" placeholder="终点"></div></div>
+                    <div class="field"><span class="field-label">对应到 TMDB</span>
+                        <div class="field-control range-pair"><label class="sr-only" for="numberingTargetSeason">目标季号</label><span class="unit">第</span><input id="numberingTargetSeason" type="number" min="0" max="99" inputmode="numeric" placeholder="季"><span class="unit">季 · 从第</span>
+                            <label class="sr-only" for="numberingTargetEpisode">目标起始集号</label><input id="numberingTargetEpisode" type="number" min="1" max="9999" inputmode="numeric" placeholder="集"><span class="unit">集起</span></div>
+                        <p class="field-hint">特别篇填第 0 季。范围映射时，起点对应这里的起始集，之后依次递增。</p></div>
+                </li>
+                <li class="editor-step">
+                    <span class="editor-step-title">预览并核验</span>
+                    <div class="editor-step-row">
+                        <button type="button" id="numberingPreview" class="secondary">预览并验证</button>
+                        <p class="preview-box" id="numberingPreviewResult" role="status" data-state="empty">尚未预览。</p>
+                    </div>
+                </li>
+                <li class="editor-step">
+                    <span class="editor-step-title">保存</span>
+                    <div class="editor-step-row">
+                        <button type="button" id="numberingSave" class="success primary" disabled>保存已预览映射</button>
+                        <span class="field-hint">只有预览过、且之后没有修改的内容才能保存。</span>
+                    </div>
+                </li>
+            </ol>
+        </div>
+        <div class="rule-panel-head">
+            <h3>已保存的映射</h3>
+            <button type="button" id="numberingRefresh" class="ghost btn-sm"><span class="icon i-refresh" aria-hidden="true"></span>刷新</button>
+        </div>
+        <div id="numberingList" class="rule-list" aria-live="polite"></div>
     </div>
 </section>

@@ -100,11 +100,17 @@ App.Browse = (function(app) {
                 case 'tv_target': inputId = 'tvTargetFolderInput'; break;
                 case 'movie_target': inputId = 'movieTargetFolderInput'; break;
                 case 'sub_source': inputId = 'subSourceFolderInput'; break;
+                case 'alias_scope': inputId = 'recognitionAliasScope'; break;
+                case 'numbering_scope': inputId = 'numberingScope'; break;
                 default: return;
             }
-            document.getElementById(inputId).value = app.currentBrowsePath;
+            const input = document.getElementById(inputId);
+            input.value = app.currentBrowsePath;
+            // 让依赖输入事件的逻辑（未保存提示、预览失效）知道值变了。
+            input.dispatchEvent(new Event('input', {bubbles: true}));
             _closeModal();
-            app.showToast('已填入路径，保存配置后生效', 'info');
+            const isRuleScope = app.targetField === 'alias_scope' || app.targetField === 'numbering_scope';
+            app.showToast(isRuleScope ? '已填入作用域，请重新预览' : '已填入路径，保存配置后生效', 'info');
         }
     };
 })(window.App);

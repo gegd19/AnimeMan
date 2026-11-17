@@ -107,37 +107,10 @@
         <label class="check"><input type="checkbox" id="userRulesEnabledCheck"><span>启用已保存的人工识别规则<small>默认关闭；文件及系列规则仅在配置的源目录内生效。</small></span></label>
         <label class="check"><input type="checkbox" id="numberingMapsEnabledCheck"><span>启用显式季集编号映射<small>默认关闭；映射只适用于指定源目录和剧集。</small></span></label>
         <label class="check"><input type="checkbox" id="recognitionAliasesEnabledCheck"><span>启用已确认的作品别名<small>默认关闭；人工别名仅在所选源目录及其子目录内生效。</small></span></label>
-        <details id="recognitionAliasesDetails" data-independent-settings>
-            <summary>确认跨语言作品别名</summary>
-            <p class="field-hint">请确认别名确实属于所选作品。预览会核验 TMDB 身份；不同作品使用同一别名时会交由人工确认。已有失败条目可能需要手动重试。</p>
-            <div class="field"><label for="recognitionAliasScope">源目录作用域</label><input id="recognitionAliasScope" type="text" autocomplete="off"></div>
-            <div class="field"><label for="recognitionAliasName">已确认的原始标题或别名</label><input id="recognitionAliasName" type="text" maxlength="256" autocomplete="off"></div>
-            <div class="field"><label for="recognitionAliasType">作品类型</label><select id="recognitionAliasType"><option value="tv">剧集</option><option value="movie">电影</option></select></div>
-            <div class="field"><label for="recognitionAliasId">作品 TMDB ID</label><input id="recognitionAliasId" type="number" min="1" max="2147483647"></div>
-            <button type="button" id="recognitionAliasPreview">预览并验证作品</button>
-            <button type="button" id="recognitionAliasSave" disabled>确认保存别名</button>
-            <p class="field-hint" id="recognitionAliasPreviewResult" role="status">尚未预览。</p>
-            <button type="button" id="recognitionAliasRefresh">刷新人工别名</button>
-            <div id="recognitionAliasList"></div>
-        </details>
-        <details id="numberingMapsDetails" data-independent-settings>
-            <summary>管理季集编号映射</summary>
-            <p class="field-hint">先填写并预览；保存前会验证 TMDB 目标季集。多集文件仍需人工处理。</p>
-            <div class="field"><label for="numberingScope">源目录作用域</label><input id="numberingScope" type="text" autocomplete="off"></div>
-            <div class="field"><label for="numberingSrcPath">示例源文件完整路径</label><input id="numberingSrcPath" type="text" autocomplete="off"></div>
-            <div class="field"><label for="numberingTmdbId">剧集 TMDB ID</label><input id="numberingTmdbId" type="number" min="1" max="2147483647"></div>
-            <div class="field"><label for="numberingKind">映射类型</label><select id="numberingKind"><option value="exact">精确编号</option><option value="range">整数范围</option></select></div>
-            <div class="field"><label for="numberingSourceLabel">原始编号（保留原文）</label><input id="numberingSourceLabel" type="text" autocomplete="off" placeholder="例如 12.5 或 01"></div>
-            <div class="field"><label for="numberingStart">范围起点（范围模式）</label><input id="numberingStart" type="number" min="0" max="9999"></div>
-            <div class="field"><label for="numberingEnd">范围终点（范围模式）</label><input id="numberingEnd" type="number" min="0" max="9999"></div>
-            <div class="field"><label for="numberingTargetSeason">目标季号</label><input id="numberingTargetSeason" type="number" min="0" max="99"></div>
-            <div class="field"><label for="numberingTargetEpisode">目标起始集号</label><input id="numberingTargetEpisode" type="number" min="1" max="9999"></div>
-            <button type="button" id="numberingPreview">预览并验证</button>
-            <button type="button" id="numberingSave" disabled>保存已预览映射</button>
-            <p class="field-hint" id="numberingPreviewResult" role="status">尚未预览。</p>
-            <button type="button" id="numberingRefresh">刷新已保存映射</button>
-            <div id="numberingList"></div>
-        </details>
+        <div class="callout rules-link">
+            <span>别名、季集编号映射和人工识别规则在「工具 → 识别规则」里添加和管理；这里的开关决定它们是否生效，保存配置后才会改变。</span>
+            <button type="button" class="secondary btn-sm" data-open-rules="user">管理识别规则</button>
+        </div>
         <h4>AI 解析</h4>
         <label class="check"><input type="checkbox" id="aiParserEnabledCheck"><span>启用 AI 解析</span></label>
         <label class="check"><input type="checkbox" id="aiBatchFolderCheck" checked><span>优先使用文件夹批量解析<small>同一文件夹只调用一次，推荐开启。</small></span></label>
@@ -221,6 +194,14 @@
                 <button type="button" data-theme-choice="light" aria-pressed="false">浅色</button>
                 <button type="button" data-theme-choice="dark" aria-pressed="false">深色</button>
             </div>
+        </div>
+        <div class="field">
+            <span class="field-label" id="densityChoiceLabel">显示密度</span>
+            <div class="segmented" role="group" aria-labelledby="densityChoiceLabel">
+                <button type="button" data-density-choice="comfortable" aria-pressed="true">舒适</button>
+                <button type="button" data-density-choice="compact" aria-pressed="false">紧凑</button>
+            </div>
+            <p class="field-hint">紧凑：海报变小、行距收紧，并隐藏辅助说明；风险提示照常显示。</p>
         </div>
     </div>
 </section>

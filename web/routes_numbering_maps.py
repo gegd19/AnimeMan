@@ -132,3 +132,13 @@ def register(app):
         except maps.MappingConflict as error:return jsonify({'status':'error','message':str(error)}),409
         except ValueError as error:return jsonify({'status':'error','message':str(error)}),400
         return jsonify({'status':'success'})
+
+    @app.route('/api/numbering_maps/delete',methods=['POST'])
+    @require_auth
+    def delete_numbering_map():
+        config=request_config(config_path);data=g.validated_body
+        if config.get('dry_run'):return jsonify({'status':'error','message':'模拟模式下不能修改编号映射'}),409
+        check_cancelled()
+        try:maps.delete_map(data['id'])
+        except ValueError as error:return jsonify({'status':'error','message':str(error)}),400
+        return jsonify({'status':'success'})

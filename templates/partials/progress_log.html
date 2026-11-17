@@ -76,8 +76,9 @@
     </section>
 
     <div class="home-side">
-        <section class="sheet" aria-labelledby="runSummaryTitle">
-            <div class="sheet-head"><h2 id="runSummaryTitle">任务概览</h2></div>
+        <!-- 本次运行：空闲且没有运行结果时隐藏（CSS 按 #view-home[data-task] 控制） -->
+        <section class="sheet run-summary" aria-labelledby="runSummaryTitle">
+            <div class="sheet-head"><h2 id="runSummaryTitle">本次运行</h2></div>
             <dl class="stat-list">
                 <div><dt>进度</dt><dd id="statProgress">—</dd></div>
                 <div><dt>已保存配置</dt><dd id="statMode">—</dd></div>
@@ -88,8 +89,8 @@
         <section class="sheet" aria-labelledby="recordsTitle">
             <div class="sheet-head"><h2 id="recordsTitle">处理记录</h2></div>
             <div class="link-list">
-                <button type="button" class="link-row" onclick="App.FailedCache.viewFailedCache()">
-                    <b>失败缓存</b><small>没能自动识别的文件，在这里手动修正</small><span class="icon i-chevron" aria-hidden="true"></span>
+                <button type="button" class="link-row" id="homeFailedRow" onclick="App.FailedCache.viewFailedCache()">
+                    <b>失败缓存</b><small id="homeFailedHint">没能自动识别的文件，在这里手动修正</small><span class="icon i-chevron" aria-hidden="true"></span>
                 </button>
                 <button type="button" class="link-row" onclick="App.ProcessedCache.viewProcessedCache()">
                     <b>已处理缓存</b><small>查看、修正或移除已入库的记录</small><span class="icon i-chevron" aria-hidden="true"></span>

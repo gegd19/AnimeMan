@@ -3,14 +3,15 @@
 <meta name="color-scheme" content="light dark">
 <title>AnimeMan · 番剧智能管家</title>
 <script>
-    // 在样式加载前确定主题，避免闪烁。只读取界面偏好，不涉及任何配置或密钥。
+    // 在样式加载前确定主题和密度，避免闪烁。只读取界面偏好，不涉及任何配置或密钥。
     (function () {
         var choice = 'system';
         try { choice = localStorage.getItem('animeman.theme') || 'system'; } catch (error) { /* 隐私模式下忽略 */ }
         var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        try { if (localStorage.getItem('animeman.density') === 'compact') document.documentElement.dataset.density = 'compact'; } catch (error) { /* 同上 */ }
     })();
 </script>
 <!-- 网站图标：内嵌 SVG，不新增静态文件。任务进行中时由 shell.js 加上状态点。 -->
-<link rel="icon" id="appFavicon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='3' width='30' height='26' rx='5' fill='%231769AA'/%3E%3Crect x='6' y='8' width='6' height='3' rx='1' fill='%23fff'/%3E%3Ccircle cx='16' cy='9.5' r='2' fill='%23fff'/%3E%3Crect x='20' y='8' width='6' height='3' rx='1' fill='%23fff'/%3E%3Cpath d='M6 24l5.5-6.5 4 4 3-3L26 24' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" id="appFavicon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Cpath fill='%233340B0' fill-rule='evenodd' d='M9 2h16a7 7 0 0 1 7 7v16a7 7 0 0 1-7 7H9a7 7 0 0 1-7-7V9a7 7 0 0 1 7-7zM9.2 7.4h2.6a1.7 1.7 0 0 1 0 3.4H9.2a1.7 1.7 0 0 1 0-3.4zM17 7a2.1 2.1 0 1 1 0 4.2A2.1 2.1 0 1 1 17 7zM22.2 7.4h2.6a1.7 1.7 0 0 1 0 3.4h-2.6a1.7 1.7 0 0 1 0-3.4zM13.6 15.4v11.2l9.6-5.6z'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">

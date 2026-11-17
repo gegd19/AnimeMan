@@ -1,8 +1,5 @@
 <div class="view-head">
-    <div>
-        <h1 id="view-subtitles-title">字幕</h1>
-        <p>把字幕放到对应视频旁边：先扫描文件夹，再匹配，最后确认执行。</p>
-    </div>
+    <h1 id="view-subtitles-title">字幕</h1>
 </div>
 
 <!-- 三个步骤：状态文字由 subtitleCenter.js 根据扫描和匹配结果更新 -->
@@ -14,7 +11,7 @@
 
 <section class="sheet" aria-labelledby="subScanTitle">
     <div class="sheet-head">
-        <h2 id="subScanTitle"><span class="step-tag" aria-hidden="true">1</span>扫描字幕文件夹</h2>
+        <h2 id="subScanTitle">扫描字幕文件夹</h2>
     </div>
     <div class="sheet-body">
         <div class="field">
@@ -34,8 +31,8 @@
 <section class="sheet" aria-labelledby="subMatchTitle">
     <div class="sheet-head">
         <div>
-            <h2 id="subMatchTitle"><span class="step-tag" aria-hidden="true">2</span>匹配到媒体库</h2>
-            <p>自动匹配按标题相似度对应到媒体库条目；认不出来的，可以用下面两种方式指定目标。</p>
+            <h2 id="subMatchTitle">匹配到媒体库</h2>
+            <p class="hint" id="subMatchHint" data-hint-for="subMatchTitle">自动匹配按标题相似度对应到媒体库条目；认不出来的，可以用「其他匹配方式」或每行的「自由选择」指定目标。</p>
         </div>
     </div>
     <div class="sheet-body">
@@ -92,7 +89,7 @@
 <section class="sheet" aria-labelledby="subResultTitle">
     <div class="sheet-head">
         <div>
-            <h2 id="subResultTitle"><span class="step-tag" aria-hidden="true">3</span>确认并执行</h2>
+            <h2 id="subResultTitle">确认并执行</h2>
             <p class="sub-summary" id="subtitleSummary" aria-live="polite"></p>
         </div>
         <div class="toolbar">
@@ -133,7 +130,6 @@
         </div>
         <!-- 分页控件 -->
         <div id="subtitlePagination"></div>
-        <p class="note">勾选字幕后，可以用「自由选择」手动指定目标媒体。</p>
 
         <!-- AI 匹配结果表格 -->
         <div id="aiMatchResultsContainer" class="table-wrap" style="margin-top:15px; display:none;">

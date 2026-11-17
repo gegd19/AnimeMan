@@ -319,3 +319,50 @@ def test_mapping_changed_during_tmdb_validation_stops_before_target(tmp_path,con
     info={'season':2,'episode':1,'explicit_season':2,'numbering_source':'season_relative'}
     assert not processor_tv.process_tv_branch(src,cfg,{},None,'Show','2020',42,{'id':42,'name':'Show','seasons':[{'season_number':1}]},info,80)
     assert src.read_bytes()==b'synthetic'
+
+
+def test_deleted_mapping_stops_matching_and_frees_its_numbers(tmp_path):
+    from core import numbering_maps as maps
+    cfg,folder,src=source(tmp_path)
+    rule=maps.add_exact(cfg,str(folder),42,'1',1,13)
+    with pytest.raises(maps.MappingConflict):maps.add_exact(cfg,str(folder),42,'1',1,14)
+    before=maps.revision()
+    maps.delete_map(rule['id'])
+    assert maps.revision()!=before
+    stored=next(r for r in maps.list_maps() if r['id']==rule['id'])
+    assert stored['deleted'] is True and stored['enabled'] is False
+    assert maps.match(cfg,src,42,'1') is None
+    replacement=maps.add_exact(cfg,str(folder),42,'1',1,14)
+    assert maps.match(cfg,src,42,'1')['id']==replacement['id']
+    with pytest.raises(ValueError):maps.delete_map(rule['id'])
+    with pytest.raises(ValueError):maps.set_enabled(rule['id'],True)
+    with pytest.raises(ValueError):maps.delete_map('missing')
+    assert src.read_bytes()==b'synthetic'
+
+
+def test_delete_api_requires_auth_id_and_live_mode(client,config_file,tmp_path,monkeypatch):
+    import base64
+    from core import config_manager,numbering_maps as maps
+    from web import task_state
+    root=tmp_path/'source';folder=root/'Show';folder.mkdir(parents=True)
+    src=folder/'Show EP01.mkv';src.write_bytes(b'synthetic')
+    config_manager.update_config(lambda c:dict(c,source_folders=[str(root)],dry_run=False),config_file)
+    cfg=config_manager.load_config(config_file)
+    rule=maps.add_exact(cfg,str(folder),42,'1',1,13)
+    auth={'Authorization':'Basic '+base64.b64encode(b'test-user:test-pass').decode()}
+    assert client.post('/api/numbering_maps/delete',json={'id':rule['id']}).status_code==401
+    assert client.post('/api/numbering_maps/delete',json={},headers=auth).status_code==400
+    assert client.post('/api/numbering_maps/delete',json={'id':'x'*65},headers=auth).status_code==400
+    assert client.post('/api/numbering_maps/delete',json={'id':'missing'},headers=auth).status_code==400
+    monkeypatch.setattr(task_state,'is_task_running',lambda:True)
+    assert client.post('/api/numbering_maps/delete',json={'id':rule['id']},headers=auth).status_code==409
+    monkeypatch.setattr(task_state,'is_task_running',lambda:False)
+    config_manager.update_config(lambda c:dict(c,dry_run=True),config_file)
+    assert client.post('/api/numbering_maps/delete',json={'id':rule['id']},headers=auth).status_code==409
+    assert not maps.list_maps()[0]['deleted']
+    config_manager.update_config(lambda c:dict(c,dry_run=False),config_file)
+    response=client.post('/api/numbering_maps/delete',json={'id':rule['id']},headers=auth)
+    assert response.status_code==200 and response.get_json()['status']=='success'
+    assert client.get('/api/numbering_maps',headers=auth).get_json()['rules']==[]
+    assert maps.list_maps()[0]['deleted'] is True
+    assert src.read_bytes()==b'synthetic'

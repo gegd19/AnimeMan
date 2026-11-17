@@ -1,11 +1,8 @@
 <!-- 任务条：在所有页面都可见的任务状态、进度和启停 -->
 <header class="taskbar" id="taskBar" data-state="idle">
     <svg class="brand-mark" viewBox="0 0 34 34" aria-hidden="true" focusable="false">
-        <rect x="2.5" y="4.5" width="29" height="25" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/>
-        <rect x="6.5" y="9" width="6" height="3" rx="1" fill="currentColor"/>
-        <circle cx="17" cy="10.5" r="2" fill="currentColor"/>
-        <rect x="21.5" y="9" width="6" height="3" rx="1" fill="currentColor"/>
-        <path d="M8 24l5-6 4 4 3-3 6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- 定位尺：一张动画纸上方的三个定位孔，下面是播放键。孔和三角是镂空的。 -->
+        <path fill="currentColor" fill-rule="evenodd" d="M9 2h16a7 7 0 0 1 7 7v16a7 7 0 0 1-7 7H9a7 7 0 0 1-7-7V9a7 7 0 0 1 7-7zM9.2 7.4h2.6a1.7 1.7 0 0 1 0 3.4H9.2a1.7 1.7 0 0 1 0-3.4zM17 7a2.1 2.1 0 1 1 0 4.2A2.1 2.1 0 1 1 17 7zM22.2 7.4h2.6a1.7 1.7 0 0 1 0 3.4h-2.6a1.7 1.7 0 0 1 0-3.4zM13.6 15.4v11.2l9.6-5.6z"/>
     </svg>
     <div class="task-state">
         <span class="task-dot" aria-hidden="true"></span>

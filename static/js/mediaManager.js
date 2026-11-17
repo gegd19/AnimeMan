@@ -207,11 +207,11 @@ App.MediaManager = (function(app) {
         const bar = document.getElementById('libraryViewTabs');
         if (!bar) return;
         if (!(fullLibrary.movies || []).length && !(fullLibrary.tv_shows || []).length) { bar.replaceChildren(); return; }
-        const counts = {all: filteredMovies.length + filteredShows.length, movies: filteredMovies.length, tv: filteredShows.length};
+        // 数量只在分区标题里显示一次（「电影 6」「剧集 6」），这里不重复。
         bar.replaceChildren(...[['all', '全部'], ['movies', '电影'], ['tv', '剧集']].map(([mode, text]) =>
             app.el('button', {type: 'button', className: `view-btn ${viewMode === mode ? 'active' : ''}`,
                 dataset: {action: 'switchView', view: mode}, attrs: {'aria-pressed': viewMode === mode}},
-                text, app.el('span', {className: 'view-count', text: String(counts[mode])}))));
+                text)));
     }
 
     function section(title, count, gridId) {

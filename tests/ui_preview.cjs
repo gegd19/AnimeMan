@@ -106,7 +106,7 @@ const statuses = {
     preview: {running: false, status: 'completed', progress: 17, total: 17, result: {success: 17, failed: 0}, message: '模拟运行完成，未修改任何文件', log: logLines},
 };
 
-async function open(browser, {viewport, status = 'running', config = baseConfig, lib = library, overrides = {}, scheme = 'light'}) {
+async function open(browser, {viewport, status = 'running', config = baseConfig, lib = library, overrides = {}, scheme = 'light', density}) {
     const context = await browser.newContext({viewport, deviceScaleFactor: viewport.width < 600 ? 2 : 1,
         colorScheme: scheme, hasTouch: viewport.width < 600, isMobile: viewport.width < 600});
     const page = await context.newPage();
@@ -114,6 +114,7 @@ async function open(browser, {viewport, status = 'running', config = baseConfig,
     page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
     page.on('pageerror', error => consoleErrors.push(String(error)));
     await page.addInitScript(() => { window.alert = () => {}; window.confirm = () => true; });
+    if (density) await page.addInitScript(value => localStorage.setItem('animeman.density', value), density);
     await page.route('**/*', async route => {
         const req = route.request(), url = new URL(req.url());
         if (url.origin !== 'http://animeman.test') return route.abort();
@@ -151,6 +152,13 @@ async function open(browser, {viewport, status = 'running', config = baseConfig,
             '/api/special_mappings': {mappings: [
                 {keyword: '[OVA] 月面便利店 特别篇', tmdb_id: 102, media_type: 'tv', season: 0, episode: 1, enabled: true},
                 {keyword: '午夜放映员 导演剪辑版', tmdb_id: 103, media_type: 'movie', enabled: false}]},
+            '/api/recognition_rules': {rules: [
+                {id: 'preview-rule', enabled: true, scope: 'series', path: '/mnt/source/番剧/群青色的合唱', media_type: 'tv', tmdb_id: 100}]},
+            '/api/recognition_aliases': {aliases: [
+                {name: 'Gunjou no Chorus', media_type: 'tv', tmdb_id: 100, scope: '/mnt/source/番剧/群青色的合唱'}]},
+            '/api/numbering_maps': {rules: [
+                {id: 'preview-numbering', enabled: true, kind: 'range', start: 13, end: 24,
+                    scope: '/mnt/source/番剧/群青色的合唱', tmdb_id: 100, season: 2, episode: 1}]},
             '/api/drives': [{path: '/mnt', name: '/mnt'}, {path: '/library', name: '/library'}],
             '/api/browse': {current: '/mnt/source/番剧/一个很长很长的目录名称 用来检查路径在弹窗里的换行 [BDRip 1080p HEVC-10bit FLAC]', parent: '/mnt/source',
                 dirs: ['[字幕组] 群青色的合唱', '[字幕组] 机巧少女与旧书店', '[Raws] 月面便利店', '北方列车日记 (2023)'].map(name => ({name, path: '/mnt/source/番剧/' + name}))},
@@ -182,7 +190,17 @@ const scenes = [
         await page.evaluate(() => { localStorage.removeItem('onboardingDismissed'); App.Config.checkOnboarding(); });
         await go(page, 'home');
     }],
+    ['home-idle', {status: 'idle'}, async page => go(page, 'home')],
     ['library', {status: 'completed'}, async page => go(page, 'library')],
+    ['library-compact', {status: 'idle', density: 'compact'}, async page => go(page, 'library')],
+    ['library-compact-seasons', {status: 'idle', density: 'compact'}, async page => {
+        await go(page, 'library');
+        const toggle = page.locator('.season-toggle-btn').first();
+        if (await toggle.count()) { await toggle.click(); await page.locator('[data-action="toggleSeasonEpisodes"]').nth(1).click(); }
+    }],
+    ['settings-compact', {status: 'idle', density: 'compact'}, async page => go(page, 'settings')],
+    ['rules-user', {status: 'idle'}, async page => { await go(page, 'tools'); await page.locator('[data-rule-tab="user"]').click(); await page.waitForTimeout(200); }],
+    ['rules-aliases', {status: 'idle'}, async page => { await go(page, 'tools'); await page.locator('[data-rule-tab="aliases"]').click(); await page.waitForTimeout(200); }],
     ['library-spotlight', {status: 'idle'}, async page => {
         await go(page, 'library');
         const thumb = page.locator('.spotlight-thumb').nth(1);
@@ -277,8 +295,8 @@ const scenes = [
         for (const [name, options, act] of scenes) {
             const id = `${device}-${name}`;
             if (only && !only.test(id)) continue;
-            if (!only && device === 'tablet' && !/^(home-running|library|settings)$/.test(name)) continue;
-            if (!only && /dark/.test(device) && !/^(home-running|library|library-spotlight|library-seasons|settings|modal-correction|modal-failed-cache|subtitles)$/.test(name)) continue;
+            if (!only && device === 'tablet' && !/^(home-running|library|library-compact|settings)$/.test(name)) continue;
+            if (!only && /dark/.test(device) && !/^(home-running|home-idle|library|library-compact|library-spotlight|library-seasons|settings|modal-correction|modal-failed-cache|subtitles|rules-user)$/.test(name)) continue;
             const {page, context, consoleErrors} = await open(browser, {viewport, scheme, ...options});
             try {
                 await act(page);
@@ -291,6 +309,8 @@ const scenes = [
                     await page.waitForTimeout(150);
                 }
                 await page.screenshot({path: path.join(out, id + '.png')});
+                const toast = await page.locator('.app-toast-error').allTextContents();
+                if (!name.startsWith('error') && toast.length) problems.push(`${id}: unexpected error toast ${toast.join(' | ')}`);
                 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
                 if (overflow > 1) problems.push(`${id}: page overflows horizontally by ${overflow}px`);
             } catch (error) {

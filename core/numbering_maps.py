@@ -143,6 +143,20 @@ def set_enabled(rule_id,enabled):
     update_json(cache_file(FILE),mutate)
 
 
+def delete_map(rule_id):
+    """Soft-delete one mapping: it stops matching and is hidden from listings.
+
+    Like saved recognition rules, the record stays in the store (disabled and marked
+    deleted) so the revision changes and the history is not silently rewritten.
+    """
+    def mutate(data):
+        state=_load();rule=next((r for r in state['rules'] if r['id']==rule_id and not r['deleted']),None)
+        if not rule:raise ValueError('编号映射不存在')
+        rule['enabled']=False;rule['deleted']=True;state['revision']+=1
+        data.clear();data.update(state)
+    update_json(cache_file(FILE),mutate)
+
+
 def match(config, src, tmdb_id, source_label):
     src=Path(src)
     if not src.is_absolute() or src.resolve()!=src or src.is_symlink() or not src.is_file():

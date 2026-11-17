@@ -57,7 +57,7 @@ def create_app(config_path=None):
             'delete_media_item', 'batch_delete_media_items', 'clear_processed_cache',
             'delete_processed_cache_item', 'batch_delete_processed_cache', 'clear_failed_cache',
             'execute_subtitle', 'batch_rename_subtitles',
-            'set_recognition_rule_state', 'delete_recognition_rule', 'create_numbering_map', 'set_numbering_map_state', 'create_recognition_alias', 'delete_recognition_alias',
+            'set_recognition_rule_state', 'delete_recognition_rule', 'create_numbering_map', 'set_numbering_map_state', 'delete_numbering_map', 'create_recognition_alias', 'delete_recognition_alias',
         }
         asynchronous = {'run_task', 'batch_correct_failed_items', 'offline_preparse_scan',
                         'offline_preparse_parse', 'refresh_poster_cache'}

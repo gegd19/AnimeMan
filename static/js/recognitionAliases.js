@@ -5,9 +5,13 @@ App.RecognitionAliases = (function(app) {
     const byId = id => document.getElementById(id);
     const fields=['recognitionAliasScope','recognitionAliasName','recognitionAliasType','recognitionAliasId'];
     let reviewed=null;
+    function showResult(text, state) {
+        const box=byId('recognitionAliasPreviewResult');
+        box.textContent=text;box.dataset.state=state;
+    }
     function invalidate() {
         reviewed=null;byId('recognitionAliasSave').disabled=true;
-        byId('recognitionAliasPreviewResult').textContent='输入已变化，请重新预览。';
+        showResult('输入已变化，请重新预览。','stale');
     }
     function payload() {
         const raw=byId('recognitionAliasId').value.trim(), ident=Number(raw);
@@ -27,17 +31,20 @@ App.RecognitionAliases = (function(app) {
         const response=await app.fetch('/api/recognition_aliases');
         const result=await response.json();
         if (!response.ok || !Array.isArray(result.aliases)) throw new Error(result.message || '读取别名失败');
-        const list=byId('recognitionAliasList');list.replaceChildren();
-        if (!result.aliases.length) list.textContent='暂无人工别名';
-        for (const record of result.aliases) {
-            const row=app.el('div',{className:'note'});
-            row.append(app.el('span',{text:`${record.name} → ${record.media_type} ${record.tmdb_id} · ${record.scope || '历史未限定范围'}`}));
-            if (record.scope) row.append(app.button('删除人工别名',async () => {
+        const list=byId('recognitionAliasList');
+        app.setRuleCount('aliases',result.aliases.length);
+        if (!result.aliases.length) { app.ruleEmpty(list,'还没有人工别名。在上面填写并预览后保存。'); return; }
+        list.replaceChildren(...result.aliases.map(record => app.ruleRow({
+            title: record.name,
+            facts: [`→ ${app.mediaTypeLabel(record.media_type)} · TMDB ${record.tmdb_id}`],
+            tags: record.scope ? [] : [{text:'历史记录：未限定范围', kind:'amber'}],
+            pathLabel: '作用域', path: record.scope || '',
+            actions: record.scope ? [app.button('删除人工别名',async () => {
+                if (!confirm(`删除别名「${record.name}」？\n只删除别名本身，不会改动已入库的文件。`)) return;
                 try { await post('/api/recognition_aliases/delete',{record});await refresh(); }
                 catch(error) { app.showToast(error.message,'error'); }
-            },'danger'));
-            list.append(row);
-        }
+            },'danger btn-sm')] : [],
+        })));
     }
     for (const id of fields) byId(id).addEventListener('input',invalidate);
     byId('recognitionAliasPreview').addEventListener('click',async () => {
@@ -48,9 +55,9 @@ App.RecognitionAliases = (function(app) {
             if (JSON.stringify(payload())!==snapshot) return;
             const p=result.preview;
             const conflict=p.conflicting_ids.length ? `；同名还关联 ${p.conflicting_ids.join('、')}，可能需要人工确认` : '';
-            byId('recognitionAliasPreviewResult').textContent=`${p.name} → ${p.title}（${p.media_type} ${p.tmdb_id}${p.year ? '，'+p.year : ''}）；范围：${p.scope}（含子目录）${conflict}`;
+            showResult(`${p.name} → ${p.title}（${app.mediaTypeLabel(p.media_type)} ${p.tmdb_id}${p.year ? '，'+p.year : ''}）；范围：${p.scope}（含子目录）${conflict}`, conflict ? 'warn' : 'ok');
             reviewed={snapshot,token:result.preview_token};byId('recognitionAliasSave').disabled=false;
-        } catch(error) { byId('recognitionAliasPreviewResult').textContent=error.message; }
+        } catch(error) { showResult(error.message,'error'); }
     });
     byId('recognitionAliasSave').addEventListener('click',async () => {
         try {

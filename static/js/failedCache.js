@@ -56,6 +56,23 @@ App.FailedCache = (function(app) {
         document.getElementById(listDivId).textContent = `请求失败：${error.message}`;
     }
 
+    // 工作台「处理记录」里的待修正数量：只显示接口返回的数字，读取失败时保持原来的说明文字。
+    function _showSummary(clusters) {
+        const hint = document.getElementById('homeFailedHint');
+        const row = document.getElementById('homeFailedRow');
+        if (!hint || !row || !Array.isArray(clusters)) return;
+        const total = clusters.reduce((sum, c) => sum + (Number(c.count) || 0), 0);
+        hint.textContent = total ? `${total} 个文件待修正` : '没有待修正的文件';
+        row.dataset.attention = String(total > 0);
+    }
+
+    async function _refreshSummary() {
+        try {
+            const data = await (await app.fetch('/api/failed_cache/clusters')).json();
+            _showSummary(data.clusters);
+        } catch (error) { /* App.fetch 已提示原因 */ }
+    }
+
     async function _loadCache() {
         try {
             const resp = await app.fetch('/api/failed_cache/clusters');
@@ -63,6 +80,7 @@ App.FailedCache = (function(app) {
             const listDiv = document.getElementById(listDivId);
             currentClusters = data.clusters || [];
             document.getElementById(countSpanId).textContent = currentClusters.reduce((sum, c) => sum + c.count, 0);
+            _showSummary(currentClusters);
             if (!currentClusters.length) {
                 listDiv.replaceChildren(_emptyState());
                 return;
@@ -189,6 +207,8 @@ App.FailedCache = (function(app) {
         closeFailedCacheModal: _closeModal,
 
         loadFailedCache: _loadCache,
+
+        refreshSummary: _refreshSummary,
 
         switchToListView: _switchToListView,
 

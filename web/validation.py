@@ -146,9 +146,9 @@ def validate_request():
         else:
             integer(data.get('start'), 'start', 0, 9999)
             integer(data.get('end'), 'end', 0, 9999)
-    elif endpoint == 'set_numbering_map_state':
+    elif endpoint in ('set_numbering_map_state', 'delete_numbering_map'):
         string(data.get('id'), 'id', maximum=64)
-        boolean(data.get('enabled'), 'enabled')
+        if endpoint == 'set_numbering_map_state': boolean(data.get('enabled'), 'enabled')
     elif endpoint in ('set_recognition_rule_state', 'delete_recognition_rule'):
         string(data.get('id'), 'id', maximum=64)
         if endpoint == 'set_recognition_rule_state': boolean(data.get('enabled'), 'enabled')

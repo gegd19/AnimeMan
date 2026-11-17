@@ -28,6 +28,10 @@
             <option value="year-desc">年份 ↓</option>
             <option value="year-asc">年份 ↑</option>
         </select>
+        <div class="segmented density-toggle" role="group" aria-label="显示密度">
+            <button type="button" data-density-choice="comfortable" aria-pressed="true" title="大海报，适合浏览">舒适</button>
+            <button type="button" data-density-choice="compact" aria-pressed="false" title="小海报、行距收紧，适合整理大量条目">紧凑</button>
+        </div>
     </div>
 </div>
 
@@ -43,7 +47,7 @@
 <!-- 分页控件容器（预留） -->
 <div id="mediaLibraryPagination"></div>
 
-<p class="note library-note">删除只移除媒体库里的目标文件（链接），不会删除源文件。点击剧集海报展开季集；勾选电影或单集后可以批量修正或删除；点击集标题查看源文件路径。</p>
+<p class="note library-note">删除只移除媒体库里的目标文件（链接），不会删除源文件。</p>
 
 <!-- 选择条：有选中项时由 mediaManager.js 显示 -->
 <div class="selection-bar" id="mediaSelectionBar" role="region" aria-label="已选中的条目" hidden>

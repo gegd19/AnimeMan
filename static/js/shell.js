@@ -4,7 +4,7 @@
  * 这里只做展示层的事情：
  *   - 不发起任何 /api 请求，不改任务、配置或缓存的含义；
  *   - 业务模块仍然自己控制弹窗的 display、按钮的 disabled、进度条的 width；
- *   - localStorage 只保存主题偏好（animeman.theme），不保存配置、路径或密钥。
+ *   - localStorage 只保存主题和密度偏好（animeman.theme / animeman.density），不保存配置、路径或密钥。
  *
  * 模块加载时不产生副作用，全部在 App.Shell.init() 里完成；init 可重复调用。
  */
@@ -14,6 +14,7 @@ App.Shell = (function(app) {
 
     const VIEWS = ['home', 'library', 'subtitles', 'tools', 'settings'];
     const THEME_KEY = 'animeman.theme';
+    const DENSITY_KEY = 'animeman.density';
     const BASE_TITLE = 'AnimeMan · 番剧智能管家';
     const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
         'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -44,6 +45,8 @@ App.Shell = (function(app) {
         }
         if (options.scroll !== false) window.scrollTo(0, 0);
         if (options.focus) byId('view-' + view)?.focus({preventScroll: true});
+        // 让按需加载的模块（如识别规则）知道页面切换了。
+        document.dispatchEvent(new CustomEvent('animeman:view', {detail: {view}}));
         return view;
     }
 
@@ -77,6 +80,48 @@ App.Shell = (function(app) {
             else localStorage.setItem(THEME_KEY, choice);
         } catch (error) { /* 无法保存时本次仍然生效 */ }
         applyTheme(choice);
+    }
+
+    // ---------- 密度：舒适（大海报、显示说明）/ 紧凑（小海报、行距收紧、隐藏辅助说明） ----------
+    function densityChoice() {
+        try { return localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'comfortable'; } catch (error) { return 'comfortable'; }
+    }
+
+    function applyDensity(choice) {
+        if (choice === 'compact') document.documentElement.dataset.density = 'compact';
+        else delete document.documentElement.dataset.density;
+        for (const button of document.querySelectorAll('[data-density-choice]')) {
+            button.setAttribute('aria-pressed', String(button.dataset.densityChoice === choice));
+        }
+    }
+
+    function setDensity(choice) {
+        if (choice !== 'compact') choice = 'comfortable';
+        try {
+            if (choice === 'compact') localStorage.setItem(DENSITY_KEY, choice);
+            else localStorage.removeItem(DENSITY_KEY);
+        } catch (error) { /* 无法保存时本次仍然生效 */ }
+        applyDensity(choice);
+    }
+
+    // ---------- 说明：分区说明默认收起，标题旁的「?」按钮展开。风险和错误提示不走这里，始终显示。 ----------
+    function initHints() {
+        for (const hint of document.querySelectorAll('.hint[data-hint-for]')) {
+            const heading = byId(hint.dataset.hintFor);
+            if (!heading || !hint.id || heading.classList.contains('has-hint')) continue;
+            hint.hidden = true;
+            const button = app.el('button', {type: 'button', className: 'hint-btn', text: '?',
+                attrs: {'aria-expanded': 'false', 'aria-controls': hint.id, 'aria-label': '说明：' + heading.textContent.trim(), title: '显示说明'}});
+            button.addEventListener('click', () => {
+                const open = hint.hidden;
+                hint.hidden = !open;
+                button.setAttribute('aria-expanded', String(open));
+                button.title = open ? '收起说明' : '显示说明';
+            });
+            // 按钮放在标题后面而不是里面，标题文字和以它命名的区域名称保持不变。
+            heading.classList.add('has-hint');
+            heading.after(button);
+        }
     }
 
     // ---------- 弹窗：名称、初始焦点、Tab 循环、Escape、关闭后还原焦点 ----------
@@ -146,12 +191,8 @@ App.Shell = (function(app) {
     }
 
     // ---------- 网站图标：任务进行中 / 结束时右下角加一个状态点 ----------
-    const FAVICON_BASE = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>" +
-        "<rect x='1' y='3' width='30' height='26' rx='5' fill='#1769AA'/>" +
-        "<rect x='6' y='8' width='6' height='3' rx='1' fill='#fff'/><circle cx='16' cy='9.5' r='2' fill='#fff'/>" +
-        "<rect x='20' y='8' width='6' height='3' rx='1' fill='#fff'/>" +
-        "<path d='M6 24l5.5-6.5 4 4 3-3L26 24' fill='none' stroke='#fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/>";
-    const FAVICON_DOT = {running: '#2F9BE8', stopping: '#E0A030', failed: '#D9483B'};
+    const FAVICON_BASE = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'><path fill='#3340B0' fill-rule='evenodd' d='M9 2h16a7 7 0 0 1 7 7v16a7 7 0 0 1-7 7H9a7 7 0 0 1-7-7V9a7 7 0 0 1 7-7zM9.2 7.4h2.6a1.7 1.7 0 0 1 0 3.4H9.2a1.7 1.7 0 0 1 0-3.4zM17 7a2.1 2.1 0 1 1 0 4.2A2.1 2.1 0 1 1 17 7zM22.2 7.4h2.6a1.7 1.7 0 0 1 0 3.4h-2.6a1.7 1.7 0 0 1 0-3.4zM13.6 15.4v11.2l9.6-5.6z'/>";
+    const FAVICON_DOT = {running: '#38B6FF', stopping: '#E0A030', failed: '#D9483B'};
     let faviconState = 'idle';
 
     function updateFavicon(state) {
@@ -160,7 +201,7 @@ App.Shell = (function(app) {
         const link = byId('appFavicon');
         if (!link) return;
         const dot = FAVICON_DOT[state];
-        const svg = FAVICON_BASE + (dot ? `<circle cx='25' cy='25' r='6.5' fill='${dot}' stroke='#fff' stroke-width='2'/>` : '') + '</svg>';
+        const svg = FAVICON_BASE + (dot ? `<circle cx='27' cy='27' r='6.5' fill='${dot}' stroke='#fff' stroke-width='2'/>` : '') + '</svg>';
         link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
     }
 
@@ -234,7 +275,14 @@ App.Shell = (function(app) {
         const bar = byId('taskBar');
         if (!bar || !data) return;
         const state = data.status || (data.running ? 'running' : 'idle');
+        const previous = bar.dataset.state;
         bar.dataset.state = state;
+        const home = byId('view-home');
+        if (home) home.dataset.task = state;
+        // 任务从进行中变为结束：通知需要刷新的模块（例如工作台的待修正数量）。外壳本身不发请求。
+        if ((previous === 'running' || previous === 'stopping') && !['running', 'stopping'].includes(state)) {
+            document.dispatchEvent(new CustomEvent('animeman:task-finished', {detail: {status: state}}));
+        }
         updateFavicon(state);
 
         const hasTotal = Number(data.total) > 0;
@@ -268,6 +316,7 @@ App.Shell = (function(app) {
         if (mode) mode.textContent = dryRun ? '模拟' : '正式';
         // 配置刚从服务端读取（首次加载或保存成功后），表单与已保存的一致。
         setDirty(false);
+        if (app.RecognitionRules) app.RecognitionRules.syncStatus();
     }
 
     // ---------- 初始化 ----------
@@ -280,6 +329,8 @@ App.Shell = (function(app) {
             if (tab) { show(tab.dataset.viewTarget, {focus: false}); return; }
             const choice = event.target.closest('[data-theme-choice]');
             if (choice) { setTheme(choice.dataset.themeChoice); return; }
+            const density = event.target.closest('[data-density-choice]');
+            if (density) { setDensity(density.dataset.densityChoice); return; }
             if (event.target.closest('[data-theme-toggle]')) {
                 setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
                 return;
@@ -312,7 +363,7 @@ App.Shell = (function(app) {
         const form = byId('configForm');
         if (form) {
             // 只有用户的输入才算修改；脚本填表不会触发 input / change 事件。
-            const onEdit = event => { if (!event.target.closest('[data-theme-choice], [data-independent-settings]')) setDirty(true); };
+            const onEdit = event => { if (!event.target.closest('[data-theme-choice], [data-density-choice], [data-independent-settings]')) setDirty(true); };
             form.addEventListener('input', onEdit);
             form.addEventListener('change', onEdit);
         }
@@ -326,6 +377,8 @@ App.Shell = (function(app) {
         app.onConfigLoaded = onConfigLoaded;
 
         applyTheme(themeChoice());
+        applyDensity(densityChoice());
+        initHints();
         show(viewFromHash(), {updateHash: false, scroll: false});
     }
 
@@ -333,6 +386,7 @@ App.Shell = (function(app) {
         init,
         show,
         setTheme,
+        setDensity,
         currentView: () => currentView,
         openModalCount: () => openModals.length,
     };

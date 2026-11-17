@@ -13,6 +13,7 @@
 <script src="{{ url_for('static', filename='js/mappingRules.js') }}"></script>
 <script src="{{ url_for('static', filename='js/numberingMaps.js') }}"></script>
 <script src="{{ url_for('static', filename='js/recognitionAliases.js') }}"></script>
+<script src="{{ url_for('static', filename='js/recognitionRules.js') }}"></script>
 <script src="{{ url_for('static', filename='js/mediaManager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/processedCache.js') }}"></script>
 
@@ -20,7 +21,13 @@
     document.addEventListener('DOMContentLoaded', function() {
         // 先建立导航、主题和弹窗的键盘管理，再加载数据；Shell.init 可重复调用且不发请求。
         if (typeof App.Shell !== 'undefined') App.Shell.init();
+        // 识别规则的标签与按需加载；不发请求，进入「工具」页时才读取列表。
+        if (typeof App.RecognitionRules !== 'undefined') App.RecognitionRules.init();
         App.init();
+        if (typeof App.FailedCache !== 'undefined') {
+            App.FailedCache.refreshSummary();
+            document.addEventListener('animeman:task-finished', () => App.FailedCache.refreshSummary());
+        }
         if (typeof App.MediaManager !== 'undefined') {
             App.MediaManager.init();
         }

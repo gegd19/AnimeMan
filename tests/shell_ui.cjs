@@ -26,8 +26,8 @@ const episode = {cache_key: '/src/剧 S01E01.mkv', episode: 1, season: 1, title:
 const show = {tmdb_id: 9, title: '同 ID 的剧集', year: '2024', seasons: {1: {episodes: [episode]}}};
 const logs = [{level: 'info', msg: '第一条', time: 100}, {level: 'error', msg: '第二条 <b>不是标签</b>', time: 101}];
 
-async function setup(t, {overrides = {}, viewport = {width: 1280, height: 800}, config = {}, status} = {}) {
-    const context = await browser.newContext({viewport});
+async function setup(t, {overrides = {}, viewport = {width: 1280, height: 800}, config = {}, status, device = {}} = {}) {
+    const context = await browser.newContext({viewport, ...device});
     const page = await context.newPage();
     page.setDefaultTimeout(5000);
     t.after(() => context.close());
@@ -70,6 +70,13 @@ async function openView(page, view) {
     await page.locator(`#view-${view}`).waitFor({state: 'visible'});
 }
 const views = ['home', 'library', 'subtitles', 'tools', 'settings'];
+// Alias and numbering forms live in Tools → 识别规则; reach them by real clicks.
+const ruleTabFor = {recognitionAliasesDetails: 'aliases', numberingMapsDetails: 'numbering'};
+async function openRuleTab(page, panelId) {
+    await openView(page, 'tools');
+    await page.locator(`[data-rule-tab="${ruleTabFor[panelId]}"]`).click();
+    await page.locator('#' + panelId).waitFor({state: 'visible'});
+}
 
 test('every panel is reachable from the navigation and exactly one is shown', async t => {
     const {page, pageErrors} = await setup(t);
@@ -679,7 +686,7 @@ test('numbering maps require a reviewed preview and preserve decimal label', asy
     }});
     await openView(page,'settings');
     assert.equal(await page.locator('#numberingMapsEnabledCheck').isChecked(),false);
-    await page.locator('#numberingMapsDetails summary').click();
+    await openRuleTab(page,'numberingMapsDetails');
     await page.locator('#numberingScope').fill('/src/Show');
     await page.locator('#numberingSrcPath').fill('/src/Show/Show - 12.5.mkv');
     await page.locator('#numberingTmdbId').fill('42');
@@ -709,7 +716,7 @@ test('scoped alias requires reviewed preview and keeps identifiers as text', asy
     }});
     await openView(page,'settings');
     assert.equal(await page.locator('#recognitionAliasesEnabledCheck').isChecked(),false);
-    await page.locator('#recognitionAliasesDetails summary').click();
+    await openRuleTab(page,'recognitionAliasesDetails');
     await page.locator('#recognitionAliasScope').fill('/src/Show');
     await page.locator('#recognitionAliasName').fill('Sora no Tabi');
     await page.locator('#recognitionAliasId').fill('42');
@@ -733,7 +740,7 @@ test('alias preview renders titles and conflicting identifiers as plain text', a
     const {page}=await setup(t,{overrides:{
         '/api/recognition_aliases/preview': route => route.fulfill({json:{status:'success',preview:{scope:'/src/Show',name:'<img src=x onerror=alert(1)>',media_type:'tv',tmdb_id:42,title:'<b>not markup</b>',year:null,additional_names:[],conflicting_ids:[43]},preview_token:'b'.repeat(64)}})
     }});
-    await openView(page,'settings');await page.locator('#recognitionAliasesDetails summary').click();
+    await openRuleTab(page,'recognitionAliasesDetails');
     await page.locator('#recognitionAliasScope').fill('/src/Show');
     await page.locator('#recognitionAliasName').fill('<img src=x onerror=alert(1)>');
     await page.locator('#recognitionAliasId').fill('42');
@@ -909,13 +916,13 @@ test('favicon carries the task state', async t => {
     await page.evaluate(() => App.Task.updateStatus());
     const running = decodeURIComponent(await icon());
     assert.notEqual(running, decodeURIComponent(idle));
-    assert.match(running, /#2F9BE8/);
+    assert.match(running, /#38B6FF/);
     state.status = {running: false, status: 'failed', progress: 1, total: 3, log: []};
     await page.evaluate(() => App.Task.updateStatus());
     assert.match(decodeURIComponent(await icon()), /#D9483B/);
     state.status = {running: false, status: 'completed', progress: 3, total: 3, log: []};
     await page.evaluate(() => App.Task.updateStatus());
-    assert.doesNotMatch(decodeURIComponent(await icon()), /<circle cx='25'/);
+    assert.doesNotMatch(decodeURIComponent(await icon()), /<circle cx='27'/);
 });
 
 test('processed cache rows show typed posters and honest confidence', async t => {
@@ -934,18 +941,294 @@ test('processed cache rows show typed posters and honest confidence', async t =>
     assert.deepEqual(await page.locator('#processedCacheBody .row-poster img').evaluateAll(n => n.map(i => i.getAttribute('src'))),
         ['/media_poster/movie/7', '/media_poster/tv/7', null, '/media_poster/tv/8', '/media_poster/tv/9', '/media_poster/tv/10']);
     const cells = await page.locator('#processedCacheBody tr td:nth-child(6)').allTextContents();
-    assert.deepEqual(cells, ['旧评分：88', '人工确认（人工指定）', '未评分', '旧评分：0', '匹配评分：83 证据：已核验详情；提示：候选存在歧义', '人工确认（人工指定）']);
+    assert.deepEqual(cells, ['旧评分：88', '人工指定', '未评分', '旧评分：0', '匹配评分：83 证据：已核验详情；提示：候选存在歧义', '人工指定']);
     assert.equal(await page.locator('#processedCacheBody tr').nth(1).locator('.meter').count(), 0);
 });
 
 test('alias and numbering drafts do not mark the configuration as unsaved', async t => {
     const {page}=await setup(t);
-    await openView(page,'settings');
     for (const [details,input] of [['recognitionAliasesDetails','recognitionAliasName'],['numberingMapsDetails','numberingSourceLabel']]) {
-        await page.locator(`#${details} summary`).click();
+        await openRuleTab(page,details);
         await page.locator(`#${input}`).fill('draft');
         assert.equal(await page.locator('#configSavebar').evaluate(node=>node.classList.contains('is-dirty')),false);
     }
+    await openView(page,'settings');
     await page.locator('#recognitionAliasesEnabledCheck').check();
     assert.equal(await page.locator('#configSavebar').evaluate(node=>node.classList.contains('is-dirty')),true);
+});
+
+// ---------- Tools → 识别规则 hub ----------
+const hubLists = {
+    '/api/recognition_rules': {rules: [
+        {id: 'r1', enabled: true, scope: 'series', path: '/src/<b>番</b>', media_type: 'tv', tmdb_id: 5},
+        {id: 'r2', enabled: false, scope: 'file', path: '/src/m "x".mkv', media_type: 'movie', tmdb_id: 6}]},
+    '/api/recognition_aliases': {aliases: [
+        {name: '<img src=x onerror=window.__xss=1>', media_type: 'movie', tmdb_id: 7, scope: '/src'},
+        {name: 'Legacy', media_type: 'tv', tmdb_id: 8, scope: ''}]},
+    '/api/numbering_maps': {rules: [
+        {id: 'n1', enabled: true, kind: 'range', start: 13, end: 24, scope: '/src/S', tmdb_id: 9, season: 2, episode: 1},
+        {id: 'n2', enabled: false, kind: 'exact', source_label: '12.5', scope: '/src/S', tmdb_id: 9, season: 0, episode: 3}]},
+};
+function hubOverrides(extra = {}) {
+    const o = {};
+    for (const [url, json] of Object.entries(hubLists)) o[url] = (route, req) => req.method() === 'GET' ? route.fulfill({json}) : route.fulfill({json: {status: 'success'}});
+    return {...o, ...extra};
+}
+
+test('rules hub: four tabs, one panel at a time, keyboard switching, mappings first', async t => {
+    const {page} = await setup(t, {overrides: hubOverrides()});
+    await openView(page, 'tools');
+    assert.equal(await page.locator('.rule-tabs [role="tab"]').count(), 4);
+    assert.equal(await page.locator('[data-rule-tab="mappings"]').getAttribute('aria-selected'), 'true');
+    assert.equal(await page.locator('#mappingRulesTable').isVisible(), true);
+    assert.equal(await page.locator('.rule-panel:visible').count(), 1);
+    await page.locator('[data-rule-tab="mappings"]').focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.ruleTab), 'user');
+    assert.equal(await page.locator('#rulePanel-user').isVisible(), true);
+    await page.keyboard.press('End');
+    assert.equal(await page.locator('#rulePanel-numbering').isVisible(), true);
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('#rulePanel-mappings').isVisible(), true, 'wraps around');
+    assert.deepEqual(await page.locator('.rule-tabs [role="tab"]').evaluateAll(n => n.map(b => b.tabIndex)), [0, -1, -1, -1]);
+});
+
+test('rules hub loads each list once on entry, shows counts and saved enable state', async t => {
+    const {page, requests} = await setup(t, {overrides: hubOverrides(), config: {user_rules: {enabled: true}, recognition_aliases: {enabled: false}}});
+    const gets = () => requests.filter(r => r.method === 'GET' && Object.keys(hubLists).includes(r.url)).map(r => r.url).sort();
+    assert.deepEqual(gets(), [], 'nothing is fetched before the tools page is opened');
+    await openView(page, 'tools');
+    await page.waitForFunction(() => document.querySelector('[data-rule-count="numbering"]').textContent === '2');
+    assert.deepEqual(gets(), Object.keys(hubLists).sort());
+    assert.equal(await page.locator('[data-rule-count="user"]').textContent(), '2');
+    assert.equal(await page.locator('[data-rule-count="aliases"]').textContent(), '2');
+    assert.equal(await page.locator('[data-rule-state="user"]').textContent(), '已启用');
+    assert.equal(await page.locator('[data-rule-state="aliases"]').textContent(), '未启用');
+    assert.equal(await page.locator('[data-rule-state="numbering"]').textContent(), '未启用');
+    for (const tab of ['user', 'aliases', 'numbering', 'user']) await page.locator(`[data-rule-tab="${tab}"]`).click();
+    await openView(page, 'home'); await openView(page, 'tools');
+    assert.deepEqual(gets(), Object.keys(hubLists).sort(), 'switching tabs or views does not refetch');
+    // Ticking the setting without saving does not claim the rules are active.
+    await openView(page, 'settings');
+    await page.locator('#recognitionAliasesEnabledCheck').check();
+    assert.equal(await page.locator('[data-rule-state="aliases"]').textContent(), '未启用');
+});
+
+test('saved rules render as text with readable types, switches and confirmed deletes', async t => {
+    const {page, requests} = await setup(t, {overrides: hubOverrides()});
+    await openView(page, 'tools');
+    await page.locator('[data-rule-tab="user"]').click();
+    const rows = page.locator('#recognitionRulesList .rule-row');
+    await rows.first().waitFor();
+    assert.deepEqual(await rows.locator('.rule-title').allTextContents(), ['剧集 · TMDB 5', '电影 · TMDB 6']);
+    assert.equal(await rows.first().locator('.rule-path .mono').textContent(), '/src/<b>番</b>');
+    assert.equal(await page.locator('#recognitionRulesList b').count(), 0);
+    assert.deepEqual(await rows.locator('[role="switch"]').evaluateAll(n => n.map(s => s.getAttribute('aria-checked'))), ['true', 'false']);
+    await rows.nth(1).locator('[role="switch"]').click();
+    await page.waitForFunction(() => true);
+    for (let i = 0; i < 50 && !requests.some(r => r.url === '/api/recognition_rules/state'); i++) await page.waitForTimeout(40);
+    assert.deepEqual(requests.find(r => r.url === '/api/recognition_rules/state').body, {id: 'r2', enabled: true});
+    await page.evaluate(() => { window.__asked = []; window.confirm = m => { window.__asked.push(m); return false; }; });
+    await rows.first().getByRole('button', {name: '删除规则'}).click();
+    assert.equal(requests.filter(r => r.url === '/api/recognition_rules/delete').length, 0, 'cancel sends nothing');
+    assert.match(await page.evaluate(() => window.__asked[0]), /<b>番<\/b>/);
+
+    await page.locator('[data-rule-tab="aliases"]').click();
+    const aliases = page.locator('#recognitionAliasList .rule-row');
+    await aliases.first().waitFor();
+    assert.equal(await aliases.first().locator('.rule-title').textContent(), '<img src=x onerror=window.__xss=1>');
+    assert.equal(await page.evaluate(() => window.__xss), undefined);
+    assert.match(await aliases.first().textContent(), /电影 · TMDB 7/);
+    assert.equal(await aliases.nth(1).getByRole('button', {name: '删除人工别名'}).count(), 0, 'unscoped legacy alias cannot be deleted here');
+    assert.match(await aliases.nth(1).textContent(), /历史记录：未限定范围/);
+
+    await page.locator('[data-rule-tab="numbering"]').click();
+    const maps = page.locator('#numberingList .rule-row');
+    await maps.first().waitFor();
+    assert.deepEqual(await maps.locator('.rule-title').allTextContents(), ['第 13–24 集 → S02E01 起', '第 12.5 集 → S00E03']);
+    await maps.first().locator('[role="switch"]').click();
+    for (let i = 0; i < 50 && !requests.some(r => r.url === '/api/numbering_maps/state'); i++) await page.waitForTimeout(40);
+    assert.deepEqual(requests.find(r => r.url === '/api/numbering_maps/state').body, {id: 'n1', enabled: false});
+    // Deleting a numbering map asks first; cancel sends nothing, confirm sends only the id.
+    await page.evaluate(() => { window.__asked = []; window.confirm = m => { window.__asked.push(m); return false; }; });
+    await maps.nth(1).getByRole('button', {name: '删除映射'}).click();
+    assert.equal(requests.filter(r => r.url === '/api/numbering_maps/delete').length, 0);
+    assert.match(await page.evaluate(() => window.__asked.at(-1)), /第 12\.5 集 → S00E03[\s\S]*\/src\/S[\s\S]*不会改动已入库的文件/);
+    await page.evaluate(() => { window.confirm = () => true; });
+    await maps.nth(1).getByRole('button', {name: '删除映射'}).click();
+    for (let i = 0; i < 50 && !requests.some(r => r.url === '/api/numbering_maps/delete'); i++) await page.waitForTimeout(40);
+    assert.deepEqual(requests.find(r => r.url === '/api/numbering_maps/delete').body, {id: 'n2'});
+});
+
+test('numbering form shows only the fields for the chosen kind and sends only those', async t => {
+    const {page, requests} = await setup(t, {overrides: hubOverrides({
+        '/api/numbering_maps/preview': route => route.fulfill({json: {status: 'success', preview: {source_label: '13–24', season: 2, episode: 1, tmdb_id: 9, scope: '/src/S'}}})})});
+    await openRuleTab(page, 'numberingMapsDetails');
+    assert.equal(await page.locator('#numberingSourceLabel').isVisible(), true);
+    assert.equal(await page.locator('#numberingStart').isVisible(), false);
+    await page.locator('#numberingKind').selectOption('range');
+    assert.equal(await page.locator('#numberingSourceLabel').isVisible(), false);
+    assert.equal(await page.locator('#numberingStart').isVisible(), true);
+    assert.equal(await page.locator('#numberingPreviewResult').getAttribute('data-state'), 'stale');
+    for (const [id, value] of [['numberingScope', '/src/S'], ['numberingSrcPath', '/src/S/x 13.mkv'], ['numberingTmdbId', '9'],
+        ['numberingStart', '13'], ['numberingEnd', '24'], ['numberingTargetSeason', '2'], ['numberingTargetEpisode', '1']]) await page.locator('#' + id).fill(value);
+    await page.locator('#numberingPreview').click();
+    await page.waitForFunction(() => document.getElementById('numberingPreviewResult').dataset.state === 'ok');
+    await page.locator('#numberingSave').click();
+    for (let i = 0; i < 50 && !requests.some(r => r.url === '/api/numbering_maps' && r.method === 'POST'); i++) await page.waitForTimeout(40);
+    const body = requests.find(r => r.url === '/api/numbering_maps' && r.method === 'POST').body;
+    assert.deepEqual(body, {scope: '/src/S', src_path: '/src/S/x 13.mkv', tmdb_id: 9, kind: 'range', season: 2, episode: 1, start: 13, end: 24});
+});
+
+test('choosing a scope with the folder browser fills it and requires a new preview', async t => {
+    const {page} = await setup(t, {overrides: hubOverrides({
+        '/api/browse': route => route.fulfill({json: {current: '/src/带 空格', parent: '/src', dirs: []}}),
+        '/api/recognition_aliases/preview': route => route.fulfill({json: {status: 'success', preview_token: 'c'.repeat(64),
+            preview: {scope: '/src', name: 'A', media_type: 'tv', tmdb_id: 1, title: 'A', conflicting_ids: []}}})})});
+    await openRuleTab(page, 'recognitionAliasesDetails');
+    await page.locator('#recognitionAliasScope').fill('/src');
+    await page.locator('#recognitionAliasName').fill('A');
+    await page.locator('#recognitionAliasId').fill('1');
+    await page.locator('#recognitionAliasPreview').click();
+    await page.waitForFunction(() => !document.getElementById('recognitionAliasSave').disabled);
+    await page.locator('#rulePanel-aliases .browse').click();
+    await page.evaluate(() => App.Browse.browsePath('/src/带 空格'));
+    await page.waitForFunction(() => App.currentBrowsePath === '/src/带 空格');
+    await page.getByRole('button', {name: '选择此文件夹'}).click();
+    assert.equal(await page.locator('#recognitionAliasScope').inputValue(), '/src/带 空格');
+    assert.equal(await page.locator('#recognitionAliasSave').isDisabled(), true, 'old preview no longer counts');
+    assert.equal(await page.locator('#recognitionAliasPreviewResult').getAttribute('data-state'), 'stale');
+    assert.equal(await page.locator('#configSavebar').evaluate(n => n.classList.contains('is-dirty')), false);
+});
+
+test('rules are reachable from settings and the correction dialog, and back to the setting', async t => {
+    const {page} = await setup(t, {overrides: hubOverrides()});
+    await page.evaluate(() => App.Correction.openCorrectionModal('/src/a.mkv', 'a.mkv'));
+    await page.locator('#correctionModal [data-open-rules="user"]').click();
+    await page.waitForFunction(() => App.Shell.openModalCount() === 0);
+    await page.locator('#rulePanel-user').waitFor({state: 'visible'});
+    assert.equal(new URL(page.url()).hash, '#tools');
+    await page.locator('#recognitionRulesList .rule-row').first().waitFor();
+    await page.locator('#rulePanel-user [data-enable-in-settings]').click();
+    await page.locator('#view-settings').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'userRulesEnabledCheck');
+    await page.locator('#configForm [data-open-rules]').click();
+    await page.locator('#rulePanel-user').waitFor({state: 'visible'});
+    // The correction rule preview names the media type in words.
+    await page.evaluate(() => { App.Correction.openCorrectionModal('/src/Show/a.mkv', 'a.mkv'); App.Correction.selectTmdbForCorrection(42, 'Show', 'tv'); });
+    await page.locator('#correctionRuleScope').selectOption('series');
+    assert.match(await page.locator('#correctionRulePreview').textContent(), /剧集 · TMDB 42/);
+});
+
+// ---------- Restraint, density and the workbench ----------
+
+test('density switch: compact is a browser preference only, mirrored in library and settings, never dirties the form', async t => {
+    const {page} = await setup(t);
+    await openView(page, 'library');
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.density), undefined);
+    const before = await page.locator('.media-card-poster').first().evaluate(n => n.getBoundingClientRect().width);
+    await page.locator('.library-bar [data-density-choice="compact"]').click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.density), 'compact');
+    const after = await page.locator('.media-card-poster').first().evaluate(n => n.getBoundingClientRect().width);
+    assert.ok(after < before, `compact posters are smaller (${after} < ${before})`);
+    assert.equal(await page.locator('#librarySpotlight').isVisible(), false, 'compact folds the spotlight away');
+    assert.equal(await page.evaluate(() => localStorage.getItem('animeman.density')), 'compact');
+    assert.deepEqual(await page.evaluate(() => Object.keys(localStorage).sort()), ['animeman.density'], 'nothing but the preference is stored');
+    await openView(page, 'settings');
+    assert.equal(await page.locator('#configForm [data-density-choice="compact"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('.check:not(.is-danger) small').first().isVisible(), false, 'helper text is hidden');
+    assert.equal(await page.locator('#clearAuthPasswordCheck').locator('xpath=..').locator('small').isVisible(), true, 'risk text stays');
+    await page.locator('#configForm [data-density-choice="comfortable"]').click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.density), undefined);
+    assert.equal(await page.evaluate(() => localStorage.getItem('animeman.density')), null);
+    assert.equal(await page.locator('#configSavebar').evaluate(n => n.classList.contains('is-dirty')), false);
+    // The preference is applied before the page paints on the next load.
+    await page.evaluate(() => localStorage.setItem('animeman.density', 'compact'));
+    await page.reload();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.density), 'compact');
+});
+
+test('compact keeps touch targets at 44px on coarse pointers', async t => {
+    const {page} = await setup(t, {viewport: {width: 390, height: 844}, device: {hasTouch: true, isMobile: true}});
+    assert.equal(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), true, 'touch context reports a coarse pointer');
+    await page.evaluate(() => App.Shell.setDensity('compact'));
+    for (const selector of ['#runBtn', '#stopBtn']) {
+        const height = await page.locator(selector).evaluate(n => n.getBoundingClientRect().height);
+        assert.ok(height >= 44, `${selector} is ${height}px tall in compact on touch`);
+    }
+    await openView(page, 'library');
+    await page.locator('.media-card-check').first().waitFor();
+    const check = await page.locator('.media-card-check').first().evaluate(n => n.getBoundingClientRect().width);
+    assert.ok(check >= 44, `selection checkbox hit area ${check}px`);
+});
+
+test('section explanations are folded behind a ? button without renaming the section', async t => {
+    const {page} = await setup(t);
+    await openView(page, 'tools');
+    const hint = page.locator('#rulesHubHint');
+    const button = page.locator('#rulesHubTitle + .hint-btn');
+    assert.equal(await hint.isVisible(), false);
+    assert.equal(await button.getAttribute('aria-expanded'), 'false');
+    assert.equal(await button.getAttribute('aria-controls'), 'rulesHubHint');
+    await button.click();
+    assert.equal(await hint.isVisible(), true);
+    assert.equal(await button.getAttribute('aria-expanded'), 'true');
+    assert.equal(await page.locator('#rulesHubTitle').textContent(), '识别规则', 'heading text unchanged');
+    await button.click();
+    assert.equal(await hint.isVisible(), false);
+    // Subtitle steps are numbered once (the step bar), not again on every sheet.
+    assert.equal(await page.locator('#view-subtitles .step-tag').count(), 0);
+});
+
+test('library counts appear once: section titles, not the view tabs', async t => {
+    const {page} = await setup(t);
+    await openView(page, 'library');
+    await page.locator('#libraryViewTabs .view-btn').first().waitFor();
+    assert.deepEqual(await page.locator('#libraryViewTabs .view-btn').allTextContents(), ['全部', '电影', '剧集']);
+    assert.match(await page.locator('.media-section-title').first().textContent(), /\d/);
+});
+
+test('rules status bar only appears when a rule type is switched off', async t => {
+    const {page} = await setup(t, {config: {user_rules: {enabled: true}}});
+    await openView(page, 'tools');
+    await page.locator('[data-rule-tab="user"]').click();
+    assert.equal(await page.locator('#rulePanel-user [data-rule-switch]').isVisible(), false, 'enabled: the tab already says so');
+    await page.locator('[data-rule-tab="aliases"]').click();
+    assert.equal(await page.locator('#rulePanel-aliases [data-rule-switch]').isVisible(), true);
+});
+
+test('processed cache marks only missing targets', async t => {
+    const row = (name, exists) => ({src: '/src/' + name, src_name: name, parent_dir: 'p', target: '/lib/' + name, target_exists: exists,
+        processed_time: 1, title: name, media_type: 'movie', tmdb_id: 1, confidence: null});
+    const {page} = await setup(t, {overrides: {'/api/processed_cache': route => route.fulfill({json: {items: [row('a.mkv', true), row('b.mkv', false)], total_pages: 1}})}});
+    await page.evaluate(() => App.ProcessedCache.viewProcessedCache());
+    await page.locator('#processedCacheBody .media-cell').first().waitFor();
+    const cells = await page.locator('#processedCacheBody tr td:nth-child(4)').allTextContents();
+    assert.deepEqual(cells.map(c => c.trim()), ['a.mkv', '缺失 b.mkv']);
+});
+
+test('workbench: idle shows the next step from real counts; running gives the log the room', async t => {
+    const clusters = [{folder: '/src/a', count: 2, files: []}, {folder: '/src/b', count: 1, files: []}];
+    const {page, state} = await setup(t, {overrides: {'/api/failed_cache/clusters': route => route.fulfill({json: {clusters}})}});
+    await page.waitForFunction(() => document.getElementById('homeFailedHint').textContent.includes('3'));
+    assert.equal(await page.locator('#homeFailedHint').textContent(), '3 个文件待修正');
+    assert.equal(await page.locator('#homeFailedRow').getAttribute('data-attention'), 'true');
+    assert.equal(await page.locator('.run-summary').isVisible(), false, 'idle: no row of dashes');
+    state.status = {running: true, status: 'running', task_id: 'x', progress: 1, total: 4, log: []};
+    await page.evaluate(() => App.Task.updateStatus());
+    assert.equal(await page.locator('.run-summary').isVisible(), true);
+    assert.equal(await page.locator('#homeRecent').isVisible(), false, 'running: recent strip steps aside');
+    clusters.length = 0;
+    state.status = {running: false, status: 'completed', task_id: 'x', progress: 4, total: 4, result: {success: 4, failed: 0}, log: []};
+    await page.evaluate(() => App.Task.updateStatus());
+    await page.waitForFunction(() => document.getElementById('homeFailedHint').textContent === '没有待修正的文件');
+    assert.equal(await page.locator('#homeFailedRow').getAttribute('data-attention'), 'false');
+    assert.equal(await page.locator('#homeRecent').isVisible(), true);
+});
+
+test('workbench keeps the generic text when the failed count cannot be read', async t => {
+    const {page} = await setup(t, {overrides: {'/api/failed_cache/clusters': route => route.fulfill({status: 500, json: {error: 'x'}})}});
+    await page.locator('.app-toast').waitFor();
+    assert.equal(await page.locator('#homeFailedHint').textContent(), '没能自动识别的文件，在这里手动修正');
+    assert.equal(await page.locator('#homeFailedRow').getAttribute('data-attention'), null);
 });

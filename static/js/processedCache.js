@@ -114,7 +114,7 @@ App.ProcessedCache = (function(app) {
                 app.el('span', {className: 'cell-sub', text: type === 'movie' ? '电影' : type === 'tv' ? '剧集' : '类型未知'})));
     }
 
-    // 准确率：人工确认 / 未评分用文字；有分数时数字加色条。
+    // 匹配评分：人工指定 / 未评分 / 旧评分 / 匹配评分及证据，都用文字。
     function confidenceCell(item) {
         const score = app.recognitionScore(item);
         return app.el('span', {className: 'confidence-cell'},
@@ -151,8 +151,9 @@ App.ProcessedCache = (function(app) {
             tbody.append(app.el('tr', {}, app.el('td', {}, checkbox),
                 app.el('td', {title: item.src, text: item.src_name}),
                 app.el('td', {title: item.src, text: dirPath, className: 'cell-sub'}),
-                app.el('td', {title: item.target}, app.el('span', {className: item.target_exists ? 'badge is-green' : 'badge is-amber',
-                    text: item.target_exists ? '存在' : '缺失'}), ' ' + (item.target || '').split('/').pop()),
+                // 目标正常存在是常态，不加标记；只有缺失时才提醒。
+                app.el('td', {title: item.target}, ...(item.target_exists ? [] : [app.el('span', {className: 'badge is-amber', text: '缺失'}), ' ']),
+                    (item.target || '').split('/').pop()),
                 app.el('td', {}, mediaCell(item, mediaInfo)),
                 app.el('td', {}, confidenceCell(item)),
                 app.el('td', {text: formatTime(item.processed_time)}),

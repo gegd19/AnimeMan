@@ -80,13 +80,61 @@ window.App = window.App || {};
     exports.recognitionScore = function(item) {
         const manual = item.confirmed_by_user || item.score_origin === 'manual_mapping';
         const score = item.confidence;
-        const label = manual ? '人工确认（人工指定）' : score == null ? '未评分' :
+        const label = manual ? '人工指定' : score == null ? '未评分' :
             item.score_origin === 'automatic' ? `匹配评分：${score}` : `旧评分：${score}`;
         const evidence = Array.isArray(item.score_evidence) ? item.score_evidence.filter(v => typeof v === 'string') : [];
         const conflicts = Array.isArray(item.score_conflicts) ? item.score_conflicts.filter(v => typeof v === 'string') : [];
         const detail = [evidence.length ? `证据：${evidence.join('、')}` : '',
                         conflicts.length ? `提示：${conflicts.join('、')}` : ''].filter(Boolean).join('；');
         return {label, detail};
+    };
+
+    exports.mediaTypeLabel = function(type) {
+        return type === 'movie' ? '电影' : type === 'tv' ? '剧集' : '类型未知';
+    };
+
+    // 识别规则列表的一行。所有文字都作为文本写入；开关是 role=switch 的按钮。
+    //   options: {enabled?, onToggle?, toggleLabel, title, facts: [文本...], tags: [{text, kind}], path, pathLabel, actions: [按钮]}
+    exports.ruleRow = function(options) {
+        const row = exports.el('article', {className: 'rule-row'});
+        if (typeof options.enabled === 'boolean') {
+            row.dataset.enabled = String(options.enabled);
+            const toggle = exports.el('button', {type: 'button', className: 'switch',
+                title: options.enabled ? '已启用，点击停用' : '已停用，点击启用',
+                attrs: {role: 'switch', 'aria-checked': String(options.enabled), 'aria-label': options.toggleLabel || '启用此规则'}},
+                exports.el('span', {className: 'switch-knob', attrs: {'aria-hidden': 'true'}}));
+            if (options.onToggle) toggle.addEventListener('click', async () => {
+                toggle.disabled = true;
+                try { await options.onToggle(!options.enabled); } finally { toggle.disabled = false; }
+            });
+            row.append(toggle);
+        }
+        const main = exports.el('div', {className: 'rule-main'},
+            exports.el('div', {className: 'rule-title', text: options.title || ''}));
+        const facts = (options.facts || []).filter(Boolean);
+        const tags = (options.tags || []).filter(tag => tag && tag.text);
+        if (facts.length || tags.length) {
+            main.append(exports.el('div', {className: 'rule-meta'},
+                ...tags.map(tag => exports.el('span', {className: `chip ${tag.kind ? 'is-' + tag.kind : ''}`.trim(), text: tag.text})),
+                ...facts.map(text => exports.el('span', {text}))));
+        }
+        if (options.path !== undefined) {
+            main.append(exports.el('div', {className: 'rule-path', title: options.path || ''},
+                ...(options.pathLabel ? [exports.el('span', {className: 'rule-path-label', text: options.pathLabel})] : []),
+                exports.el('span', {className: 'mono', text: options.path || '—'})));
+        }
+        row.append(main);
+        if (options.actions && options.actions.length) row.append(exports.el('div', {className: 'rule-actions'}, ...options.actions));
+        return row;
+    };
+
+    exports.ruleEmpty = function(container, text) {
+        container.replaceChildren(exports.el('div', {className: 'rule-empty', text}));
+    };
+
+    // 识别规则标签上的条数；只在列表成功读取后更新。
+    exports.setRuleCount = function(kind, count) {
+        for (const node of document.querySelectorAll(`[data-rule-count="${kind}"]`)) node.textContent = String(count);
     };
 
     exports.poster = function(src, properties = {}) {
