@@ -48,7 +48,7 @@ def process_tv_branch(
 ) -> bool:
     """处理剧集文件"""
     if confidence < MIN_FINAL_CONFIDENCE:
-        save_failed_cache(src, f"置信度过低 ({confidence}% < {MIN_FINAL_CONFIDENCE}%)", cache_dict, log_func)
+        save_failed_cache(src, f"匹配评分过低 ({confidence} < {MIN_FINAL_CONFIDENCE})", cache_dict, log_func)
         return False
 
     try:
@@ -233,13 +233,36 @@ TMDB 搜索结果：
             save_failed_cache(src, f"TMDB中无 S{season:02d}E{episode:02d} 数据", cache_dict, log_func)
             return False
 
+        # Series-wide episode_run_time is not reliable evidence for this episode.
+        from .duration_evidence import compare_duration
+        duration_evidence = compare_duration(config.get("_local_video_duration"), ep_data.get("runtime"))
+        if (season == 0 and duration_evidence['status'] != 'unknown'
+                and config.get("_local_video_duration") > 90
+                and duration_evidence['status'] != 'conflict'):
+            reason = "长时长特辑需要人工确认"
+            if log_func and config.get("dry_run"):
+                log_func(f"⚠️ {reason}", LOG_WARNING)
+            save_failed_cache(src, reason, cache_dict, log_func)
+            return False
+        if duration_evidence['status'] == 'conflict':
+            reason = (f"该集时长与 TMDB 差异 {duration_evidence['difference']:.1f} 分钟，"
+                      f"超过容差 {duration_evidence['tolerance']:.1f} 分钟，需要人工确认")
+            if log_func and config.get("dry_run"):
+                log_func(f"⚠️ {reason}", LOG_WARNING)
+            save_failed_cache(src, reason, cache_dict, log_func)
+            return False
+        if duration_evidence['status'] == 'supported' and '_recognition_score' in config:
+            score = dict(config['_recognition_score'])
+            score['evidence'] = [*score['evidence'], '该集时长与 TMDB 在容差内']
+            config = dict(config, _recognition_score=score)
+
         confidence = min(confidence + 5, 100)
         if (type(season) is not int or season < 0
                 or type(episode) is not int or episode < 1):
             save_failed_cache(src, "最终季集身份无效，需要人工确认", cache_dict, log_func)
             return False
         if confidence < MIN_FINAL_CONFIDENCE:
-            reason = f"最终置信度过低 ({confidence}% < {MIN_FINAL_CONFIDENCE}%)"
+            reason = f"最终匹配评分过低 ({confidence} < {MIN_FINAL_CONFIDENCE})"
             if log_func and config.get("dry_run"):
                 log_func(f"⚠️ {reason}", LOG_WARNING)
             save_failed_cache(src, reason, cache_dict, log_func)

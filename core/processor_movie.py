@@ -45,7 +45,7 @@ def process_movie_branch(
 ) -> bool:
     """处理电影文件"""
     if confidence < MIN_FINAL_CONFIDENCE:
-        save_failed_cache(src, f"置信度过低 ({confidence}% < {MIN_FINAL_CONFIDENCE}%)", cache_dict, log_func)
+        save_failed_cache(src, f"匹配评分过低 ({confidence} < {MIN_FINAL_CONFIDENCE})", cache_dict, log_func)
         return False
 
     try:

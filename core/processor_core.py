@@ -103,23 +103,8 @@ def process_video(
             confidence = confidence_start
             local_duration = video_info.get_video_duration(src)
             duration_hint = None
-            if local_duration is not None:
-                if wrapped_log:
-                    wrapped_log(f"⏱️ 视频时长: {local_duration:.1f} 分钟", LOG_INFO)
-                if media_type == "movie" and local_duration < 40:
-                    duration_hint = "tv"
-                    confidence -= 15
-                    if wrapped_log:
-                        wrapped_log(f"⚠️ 识别为电影但时长仅 {local_duration:.1f} 分钟，可能是剧集/OVA", LOG_WARNING)
-                elif media_type == "tv" and local_duration > 90:
-                    duration_hint = "movie"
-                    confidence -= 15
-                    if wrapped_log:
-                        wrapped_log(f"⚠️ 识别为剧集但时长达 {local_duration:.1f} 分钟，可能是电影", LOG_WARNING)
-                elif media_type == "tv" and local_duration < 5:
-                    confidence -= 20
-                    if wrapped_log:
-                        wrapped_log(f"⚠️ 视频时长极短 ({local_duration:.1f} 分钟)，可能是特典/预告", LOG_WARNING)
+            if local_duration is not None and wrapped_log:
+                wrapped_log(f"⏱️ 视频时长: {local_duration:.1f} 分钟", LOG_INFO)
 
             title_orig, search_title, search_year, alt_titles = prepare_search_query(current_info, TECH_NOISE_WORDS)
 
@@ -168,7 +153,7 @@ def process_video(
                 if candidate_count > 1:
                     confidence -= 5
                     if wrapped_log:
-                        wrapped_log(f"⚠️ 搜索返回 {candidate_count} 个候选结果，置信度降低 5%", LOG_WARNING)
+                        wrapped_log(f"⚠️ 搜索返回 {candidate_count} 个候选结果，匹配评分降低 5 分", LOG_WARNING)
 
             tmdb_id = tmdb_result["id"]
             api_key = config["tmdb_api"]["api_key"]
@@ -194,33 +179,24 @@ def process_video(
             release_date = details.get("release_date" if media_type == "movie" else "first_air_date") or ""
             official_year = release_date[:4] if release_date else search_year or ""
 
-            # 时长验证
-            if local_duration is not None:
-                tmdb_runtime = None
-                if media_type == "movie":
-                    tmdb_runtime = details.get("runtime")
-                else:
-                    episode_run_time = details.get("episode_run_time", [])
-                    if episode_run_time:
-                        tmdb_runtime = episode_run_time[0]
-                if tmdb_runtime:
-                    diff = abs(local_duration - tmdb_runtime)
-                    if diff > MAX_DURATION_DIFF_MINUTES:
-                        if wrapped_log:
-                            wrapped_log(f"❌ 时长差异过大 ({diff:.0f} 分钟 > {MAX_DURATION_DIFF_MINUTES})，匹配失败", LOG_ERROR)
-                        return (False, None, None, None, None, None, confidence, current_info)
-                    elif diff <= 10:
-                        confidence += 10
-                        if wrapped_log:
-                            wrapped_log(f"✅ 时长精确匹配，置信度 +10", LOG_SUCCESS)
-                    elif diff <= 20:
-                        confidence += 5
-                        if wrapped_log:
-                            wrapped_log(f"👍 时长基本匹配，置信度 +5", LOG_INFO)
-                    else:
-                        confidence -= 5
-                        if wrapped_log:
-                            wrapped_log(f"⚠️ 时长差异较大，置信度 -5", LOG_WARNING)
+            # A movie's duration is compared only with its own TMDB runtime.
+            # TV runtime is evaluated later against the matched episode.
+            from .duration_evidence import compare_duration
+            duration_evidence = compare_duration(local_duration, details.get("runtime") if media_type == "movie" else None)
+            if (media_type == "movie" and duration_evidence['status'] != 'unknown'
+                    and local_duration < 40 and duration_evidence['status'] != 'conflict'):
+                reason = "短时长电影需要人工确认"
+                if wrapped_log:
+                    wrapped_log(f"⚠️ {reason}", LOG_WARNING)
+                return (False, None, None, None, None, None, confidence,
+                        dict(current_info, _duration_conflict=reason))
+            if duration_evidence['status'] == 'conflict':
+                reason = (f"影片时长与 TMDB 差异 {duration_evidence['difference']:.1f} 分钟，"
+                          f"超过容差 {duration_evidence['tolerance']:.1f} 分钟，需要人工确认")
+                if wrapped_log:
+                    wrapped_log(f"⚠️ {reason}", LOG_WARNING)
+                return (False, None, None, None, None, None, confidence,
+                        dict(current_info, _duration_conflict=reason))
 
             # Cache only an independently validated decision with matching details.
             if (cache_key is not None and not is_preview()
@@ -250,8 +226,10 @@ def process_video(
                 if assessment['selected']:
                     score_evidence.append("候选标题与输入一致")
             score_evidence.append("已获取 TMDB 详情")
+            if duration_evidence['status'] == 'supported':
+                score_evidence.append("影片时长与 TMDB 在容差内")
             score_conflicts = (["搜索存在多个候选，评分已降低"] if candidate_count > 1 else [])
-            current_info = dict(current_info, _recognition_score={
+            current_info = dict(current_info, _local_video_duration=local_duration, _recognition_score={
                 "origin": "manual_mapping" if force_tmdb_id is not None else "automatic",
                 "evidence": score_evidence, "conflicts": score_conflicts})
             return (True, details, media_type, tmdb_id, official_title, official_year, confidence, current_info)
@@ -260,6 +238,10 @@ def process_video(
         if info.get("_from_folder_ai_batch"):
             initial_confidence = max(initial_confidence, 85)
         success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = try_process_with_info(info, initial_confidence)
+
+        if not success and final_info.get('_duration_conflict'):
+            save_failed_cache(src, final_info['_duration_conflict'], cache_dict, wrapped_log)
+            return False
 
         # 强制 AI 解析
         force_ai_due_to_season = False
@@ -286,7 +268,7 @@ def process_video(
                         wrapped_log(f"✅ AI 解析成功，继续处理", LOG_SUCCESS)
 
         if not success:
-            save_failed_cache(src, "TMDB 搜索无结果或详情获取失败", cache_dict, wrapped_log)
+            save_failed_cache(src, final_info.get('_duration_conflict') or "TMDB 搜索无结果或详情获取失败", cache_dict, wrapped_log)
             return False
 
         if wrapped_log:
@@ -295,7 +277,8 @@ def process_video(
             else:
                 wrapped_log(f"📺 识别为剧集: {official_title} S{final_info['season']:02d}E{final_info['episode']:02d}", LOG_SUCCESS)
 
-        branch_config = dict(config, _recognition_score=final_info['_recognition_score'])
+        branch_config = dict(config, _recognition_score=final_info['_recognition_score'],
+                             _local_video_duration=final_info.get('_local_video_duration'))
         if media_type == "movie":
             return process_movie_branch(src, branch_config, cache_dict, wrapped_log, official_title, official_year, tmdb_id, details, confidence)
         else:

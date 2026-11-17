@@ -68,3 +68,93 @@ def test_real_recognition_passes_evidence_and_candidate_conflict(tmp_path,config
     assert scores[0]['origin']=='automatic'
     assert '候选标题与输入一致' in scores[0]['evidence']
     assert '搜索存在多个候选，评分已降低' in scores[0]['conflicts']
+
+
+@pytest.mark.parametrize('local,reference,status', [
+    (None,90,'unknown'), (35,None,'unknown'), (35,35,'supported'),
+    (100,100,'supported'), (125,100,'supported'), (126,100,'conflict'),
+    (34,24,'supported'), (35,24,'conflict'), (float('nan'),24,'unknown'),
+])
+def test_duration_evidence_boundaries(local,reference,status):
+    from core.duration_evidence import compare_duration
+    assert compare_duration(local,reference)['status']==status
+
+
+def test_short_movie_is_not_silently_retyped(tmp_path,config_file,monkeypatch):
+    from core import config_manager,processor_core,tmdb_client,video_info
+    src=tmp_path/'src'/'Movie.mkv';src.parent.mkdir();src.write_bytes(b'synthetic')
+    cfg=config_manager.load_config(config_file);cfg.update(source_folders=[str(src.parent)],download_images=False)
+    monkeypatch.setattr(processor_core,'parse_filename_info',lambda *a:{'media_type':'movie','title':'Movie','search_title':'Movie','alternative_titles':[],'_parser':'anitopy'})
+    monkeypatch.setattr(processor_core,'try_folder_ai_batch',lambda *a:None)
+    monkeypatch.setattr(video_info,'get_video_duration',lambda *a:35)
+    hints=[];branches=[]
+    monkeypatch.setattr(processor_core,'search_tmdb_with_fallback',lambda *a,**k:(hints.append(k['duration_hint']) or {'id':7,'title':'Movie'},'movie',1))
+    monkeypatch.setattr(tmdb_client,'get_tmdb_details',lambda **kw:{'id':7,'title':'Movie','runtime':90})
+    monkeypatch.setattr(processor_core,'process_movie_branch',lambda *a:branches.append(1) or True)
+    assert not processor_core.process_video(src,cfg,{})
+    assert hints==[None] and not branches
+    assert src.read_bytes()==b'synthetic'
+
+
+def test_short_movie_with_matching_specific_runtime_requires_review(tmp_path,config_file,monkeypatch):
+    from core import config_manager,processor_core,tmdb_client,video_info
+    src=tmp_path/'src'/'Movie.mkv';src.parent.mkdir();src.write_bytes(b'synthetic')
+    cfg=config_manager.load_config(config_file);cfg.update(source_folders=[str(src.parent)],download_images=False)
+    monkeypatch.setattr(processor_core,'parse_filename_info',lambda *a:{'media_type':'movie','title':'Movie','search_title':'Movie','alternative_titles':[],'_parser':'anitopy'})
+    monkeypatch.setattr(processor_core,'try_folder_ai_batch',lambda *a:None)
+    monkeypatch.setattr(video_info,'get_video_duration',lambda *a:35)
+    monkeypatch.setattr(processor_core,'search_tmdb_with_fallback',lambda *a,**k:({'id':7,'title':'Movie'},'movie',1))
+    monkeypatch.setattr(tmdb_client,'get_tmdb_details',lambda **kw:{'id':7,'title':'Movie','runtime':35})
+    scores=[]
+    monkeypatch.setattr(processor_core,'process_movie_branch',lambda *a:scores.append(a[-1]) or True)
+    assert not processor_core.process_video(src,cfg,{})
+    assert scores==[]
+
+
+@pytest.mark.parametrize('episode_runtime,expected',[(24,False),(120,False),(None,True)])
+def test_special_uses_episode_runtime_not_series_average(tmp_path,config_file,monkeypatch,episode_runtime,expected):
+    from core import config_manager,tmdb_client
+    from core.processor_tv import process_tv_branch
+    src=tmp_path/'src'/'Special.mkv';src.parent.mkdir();src.write_bytes(b'synthetic')
+    cfg=config_manager.load_config(config_file);cfg.update(source_folders=[str(src.parent)],download_images=False,_local_video_duration=120)
+    cfg['subtitle']['enabled']=False
+    monkeypatch.setattr(tmdb_client,'get_tv_season_episodes',lambda *a,**k:[{'episode_number':1,'name':'Special','runtime':episode_runtime}])
+    cache={}
+    result=process_tv_branch(src,cfg,cache,None,'Show','2020',42,
+        {'seasons':[{'season_number':0}],'episode_run_time':[24]},
+        {'season':0,'episode':1,'explicit_season':0},75)
+    assert result is expected
+    assert src.read_bytes()==b'synthetic'
+    if not expected:
+        assert cache[str(src.resolve())]['media_type']=='failed'
+        assert not list((tmp_path/'tv').rglob('*.mkv'))
+        assert not list((tmp_path/'tv').rglob('*.nfo'))
+
+
+def test_unrelated_title_with_same_runtime_still_cannot_match(tmp_path,config_file,monkeypatch):
+    from core import config_manager,processor_core,processor_search,search_enhancer,tmdb_client,video_info
+    src=tmp_path/'src'/'Target.mkv';src.parent.mkdir();src.write_bytes(b'synthetic')
+    cfg=config_manager.load_config(config_file);cfg.update(source_folders=[str(src.parent)],download_images=False)
+    monkeypatch.setattr(processor_core,'parse_filename_info',lambda *a:{'media_type':'movie','title':'Target','search_title':'Target','alternative_titles':[],'_parser':'anitopy'})
+    monkeypatch.setattr(processor_core,'try_folder_ai_batch',lambda *a:None)
+    monkeypatch.setattr(video_info,'get_video_duration',lambda *a:100)
+    monkeypatch.setattr(processor_search,'_lookup_local_alias',lambda *a:None)
+    monkeypatch.setattr(search_enhancer,'lookup_local_alias',lambda *a:None)
+    monkeypatch.setattr(tmdb_client,'search_tmdb_multi',lambda *a,**kw:[{'id':7,'title':'Unrelated','runtime':100}])
+    monkeypatch.setattr(tmdb_client,'get_tmdb_details',lambda *a,**kw:pytest.fail('unrelated result must not be accepted'))
+    assert not processor_core.process_video(src,cfg,{})
+    assert src.read_bytes()==b'synthetic'
+
+
+def test_tv_duration_conflict_in_preview_writes_nothing(tmp_path,config_file,monkeypatch):
+    from core import config_manager,tmdb_client
+    from core.processor_tv import process_tv_branch
+    src=tmp_path/'src'/'Special.mkv';src.parent.mkdir();src.write_bytes(b'synthetic')
+    cfg=config_manager.load_config(config_file);cfg.update(source_folders=[str(src.parent)],dry_run=True,download_images=False,_local_video_duration=120)
+    monkeypatch.setattr(tmdb_client,'get_tv_season_episodes',lambda *a,**k:[{'episode_number':1,'name':'Special','runtime':24}])
+    cache={};messages=[]
+    assert not process_tv_branch(src,cfg,cache,lambda *a:messages.append(str(a[-2])),'Show','2020',42,
+        {'seasons':[{'season_number':0}]},{'season':0,'episode':1,'explicit_season':0},75)
+    assert not cache and not (tmp_path/'tv').exists()
+    assert any('人工确认' in m for m in messages)
+    assert src.read_bytes()==b'synthetic'
