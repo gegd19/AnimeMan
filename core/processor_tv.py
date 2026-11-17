@@ -60,6 +60,32 @@ def process_tv_branch(
                 or type(episode) is not int or episode < 1):
             save_failed_cache(src, "剧集身份信息不完整，需要人工确认", cache_dict, log_func)
             return False
+        mapped = None
+        if config.get('numbering_maps', {}).get('enabled') is True:
+            from . import numbering_maps
+            try:
+                label = numbering_maps.extract_source_label(src.name)
+                mapped = numbering_maps.match(config, src, tmdb_id, label) if label else None
+                if info.get('_numbering_map_id') and (not mapped or mapped['id'] != info['_numbering_map_id']):
+                    raise numbering_maps.MappingConflict('编号映射已变化，需要人工确认')
+                if mapped:
+                    if (not isinstance(details,dict) or type(details.get('id')) is not int
+                            or details['id'] != tmdb_id or not isinstance(details.get('name'),str) or not details['name'].strip()):
+                        raise numbering_maps.MappingConflict('作品身份无法验证，需要人工确认')
+                    if (info.get('_user_rule_id') or info.get('_special_mapping')) and (season,episode) != (mapped['season'],mapped['episode']):
+                        raise numbering_maps.MappingConflict('编号映射与人工规则指定的季集冲突，需要人工确认')
+                    season,episode = mapped['season'],mapped['episode']
+                    info = dict(info, season=season, episode=episode, explicit_season=season,
+                                numbering_source='season_relative', total_episode=None,
+                                corrected_season=None, corrected_episode=None,
+                                _numbering_map_id=mapped['id'], _numbering_source_label=label)
+                    if not any(type(item.get('season_number')) is int and item['season_number'] == season
+                               for item in details.get('seasons',[]) if isinstance(item,dict)):
+                        raise numbering_maps.MappingConflict('映射目标季不在 TMDB 作品中，需要人工确认')
+                    if log_func:log_func(f"🔖 编号映射: {label} → S{season:02d}E{episode:02d}", LOG_INFO)
+            except numbering_maps.MappingConflict as error:
+                save_failed_cache(src, str(error), cache_dict, log_func)
+                return False
         explicit_season = info.get("explicit_season", season)
         total_episode = info.get("total_episode")
 
@@ -146,7 +172,7 @@ def process_tv_branch(
         ep_data = next((ep for ep in episodes if ep.get("episode_number") == episode), None)
 
         # 集号验证失败时的 AI 二次修正
-        if not ep_data and info.get("_parser") == "anitopy" and config.get("ai_parser", {}).get("enabled"):
+        if not ep_data and mapped is None and info.get("_parser") == "anitopy" and config.get("ai_parser", {}).get("enabled"):
             if log_func:
                 log_func(f"⚠️ TMDB 中无 S{season:02d}E{episode:02d}，尝试使用 AI 重新解析...", LOG_WARNING)
 

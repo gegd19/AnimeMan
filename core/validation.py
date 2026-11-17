@@ -153,6 +153,9 @@ def validate_config(config):
     for key in ('source_folders', 'video_extensions', 'ignore_patterns', 'special_mappings'):
         array(config[key], key, maximum=64 if key == 'video_extensions' else MAX_ITEMS)
     for value in config['source_folders']: string(value, 'source_folders 路径')
+    if 'numbering_maps' in config:
+        numbering = object_value(config['numbering_maps'], 'numbering_maps')
+        if 'enabled' in numbering: boolean(numbering['enabled'], 'numbering_maps.enabled')
     if 'recognition_aliases' in config:
         aliases = object_value(config['recognition_aliases'], 'recognition_aliases')
         if 'enabled' in aliases: boolean(aliases['enabled'], 'recognition_aliases.enabled')

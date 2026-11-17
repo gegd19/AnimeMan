@@ -143,6 +143,30 @@ def process_video(
                     entry['recognition_pending'] = pending_file_identity(src, config, user_rule)
             return False
 
+        # A decimal source label can proceed only with separately confirmed TV identity
+        # and an exact explicit mapping; ranges and mixed identity stay for review.
+        if (config.get('numbering_maps', {}).get('enabled') is True
+                and info.get('reason_code') == 'unsupported_episode_numbering'):
+            from . import numbering_maps
+            try:
+                label = numbering_maps.extract_source_label(src.name)
+                identity = (user_rule['tmdb_id'] if user_rule and user_rule['media_type'] == 'tv'
+                            else force_tmdb_id if force_media_type == 'tv' else hint_id if hint_type == 'tv' else None)
+                mapping = numbering_maps.match(config, src, identity, label) if label and identity else None
+                if mapping:
+                    prior = ((user_rule['season'], user_rule['episode']) if user_rule and user_rule['scope']=='file'
+                             else (force_season, force_episode) if force_tmdb_id is not None else None)
+                    if prior and all(value is not None for value in prior) and prior != (mapping['season'], mapping['episode']):
+                        raise numbering_maps.MappingConflict('编号映射与单文件人工规则冲突，需要人工确认')
+                    info = {'title':src.stem, 'search_title':src.stem, 'media_type':'tv',
+                            'season':mapping['season'], 'episode':mapping['episode'],
+                            'explicit_season':mapping['season'], 'numbering_source':'season_relative',
+                            'tmdb_id':identity, '_explicit_identity':True, '_parser':'manual_numbering',
+                            '_numbering_map_id':mapping['id'], '_numbering_source_label':label}
+            except numbering_maps.MappingConflict as error:
+                save_failed_cache(src, str(error), cache_dict, wrapped_log)
+                return False
+
         review_reasons = {
             "unsupported_episode_numbering": "集号范围或小数需要人工确认",
             "conflicting_season_evidence": "文件名与目录季号冲突，需要人工确认",
@@ -172,6 +196,9 @@ def process_video(
             info = dict(info, tmdb_id=user_rule['tmdb_id'], _explicit_identity=True, _user_rule_id=user_rule['id'])
             if user_rule['scope'] == 'file' and user_rule['media_type'] == 'tv':
                 info.update(season=user_rule['season'], episode=user_rule['episode'])
+
+        if force_tmdb_id is not None:
+            info['_special_mapping'] = True
 
         # 文件夹级 AI 批量解析
         folder_evidence = config.get('_folder_evidence')

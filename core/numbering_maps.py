@@ -165,3 +165,15 @@ def match(config, src, tmdb_id, source_label):
             matches.append(dict(rule,source_label=source_label,episode=rule['episode']+offset))
     if len(matches)>1:raise MappingConflict('多个编号映射同时匹配')
     return matches[0] if matches else None
+
+
+def extract_source_label(filename):
+    """Extract one explicit numeric label verbatim; multi-episode names are rejected."""
+    stem=Path(filename).stem
+    if re.fullmatch(r'\d+(?:\.\d+)?',stem):return stem
+    multi = re.search(r'(?i)(?:E(?:P)?|OVA|OAD|SP|第|\s-\s|\[)\s*\d+(?:\.\d+)?\s*[-~–]\s*(?:E(?:P)?\s*)?\d+',stem)
+    if multi:raise MappingConflict('多集文件需要人工确认')
+    pattern=r'(?i)(?:(?<![A-Za-z])(?:E(?:P)?|OVA|OAD|SP)\s*|第\s*|(?<=\s-\s)|\[)(\d+(?:\.\d+)?)(?![\d.])'
+    labels=[match.group(1) for match in re.finditer(pattern,stem)]
+    if len(labels)>1:raise MappingConflict('多集文件需要人工确认')
+    return labels[0] if labels else None

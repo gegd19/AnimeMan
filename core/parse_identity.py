@@ -55,6 +55,9 @@ def policy_key(config):
     aliases_enabled = config.get('recognition_aliases', {}).get('enabled') is True
     values['alias_revision'] = alias_revision(include_new=aliases_enabled)
     values['aliases_enabled'] = aliases_enabled
+    if config.get('numbering_maps', {}).get('enabled') is True:
+        from .numbering_maps import revision as numbering_revision
+        values['numbering_maps_revision'] = numbering_revision()
     if isinstance(config.get('_folder_evidence'), dict):
         values['folder_evidence'] = config['_folder_evidence'].get('fingerprint')
     if config.get('user_rules', {}).get('enabled') is True:
