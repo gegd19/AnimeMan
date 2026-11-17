@@ -47,6 +47,8 @@ App.Correction = (function(app) {
             document.getElementById('tmdbResultsBody').innerHTML = '<tr><td colspan="5">输入关键词搜索</td></tr>';
             document.getElementById('selectedTmdbInfo').style.display = 'none';
             app.selectedTmdbId = null;
+            document.getElementById('correctionRuleScope').value = 'none';
+            document.getElementById('correctionRulePreview').textContent = '仅修正当前文件，不保存规则。';
             document.getElementById(modalId).style.display = 'block';
         },
 
@@ -128,7 +130,55 @@ App.Correction = (function(app) {
             document.getElementById('selectedTmdbInfo').style.display = 'block';
             document.getElementById('correctionSeason').disabled = (mediaType === 'movie');
             document.getElementById('correctionEpisode').disabled = (mediaType === 'movie');
+            App.Correction.updateRulePreview();
             app.showToast(`已选择: ${title}`, 'info', 1500);
+        },
+
+        updateRulePreview: function() {
+            const scope = document.getElementById('correctionRuleScope').value;
+            const selected = app.selectedTmdbId ? `TMDB ${app.selectedMediaType} / ${app.selectedTmdbId}` : '尚未选择 TMDB 条目';
+            const path = String(app.currentCorrectionPath || '').replace(/\\/g, '/');
+            const directory = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+            const description = scope === 'file' ? `仅此文件：${path}；${selected}` :
+                scope === 'series' ? `系列目录：${directory}；${selected}。示例：该目录中同标题的其他集；不固定集号。` :
+                '仅修正当前文件，不保存规则。';
+            document.getElementById('correctionRulePreview').textContent = description;
+        },
+
+        loadRules: async function() {
+            const container = document.getElementById('recognitionRulesList');
+            try {
+                const response = await app.fetch('/api/recognition_rules');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || '无法读取规则');
+                container.replaceChildren();
+                if (!data.rules.length) container.textContent = '暂无规则';
+                for (const rule of data.rules) {
+                    const row = app.el('div', {className:'note'});
+                    row.append(app.el('span', {text:`${rule.enabled ? '启用' : '停用'} · ${rule.scope === 'file' ? '单文件' : '系列目录'} · ${rule.path} · ${rule.media_type} / ${rule.tmdb_id}`}));
+                    row.append(app.button(rule.enabled ? '停用' : '启用', () => App.Correction.setRuleState(rule.id, !rule.enabled)));
+                    row.append(app.button('删除规则', () => App.Correction.deleteRule(rule.id), 'danger'));
+                    container.append(row);
+                }
+            } catch (error) { app.showToast(error.message || '读取规则失败', 'error'); }
+        },
+
+        setRuleState: async function(id, enabled) {
+            try {
+                const response = await app.fetch('/api/recognition_rules/state', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, enabled})});
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || '更新规则失败');
+                await App.Correction.loadRules();
+            } catch (error) { app.showToast(error.message || '更新规则失败', 'error'); }
+        },
+
+        deleteRule: async function(id) {
+            try {
+                const response = await app.fetch('/api/recognition_rules/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || '删除规则失败');
+                await App.Correction.loadRules();
+            } catch (error) { app.showToast(error.message || '删除规则失败', 'error'); }
         },
 
         executeCorrection: async function() {
@@ -137,12 +187,19 @@ App.Correction = (function(app) {
                 return;
             }
             const srcPath = app.currentCorrectionPath;
-            const season = parseInt(document.getElementById('correctionSeason').value) || 1;
-            const episode = parseInt(document.getElementById('correctionEpisode').value) || 1;
+            const seasonText = document.getElementById('correctionSeason').value.trim();
+            const episodeText = document.getElementById('correctionEpisode').value.trim();
+            const season = Number(seasonText);
+            const episode = Number(episodeText);
+            if (app.selectedMediaType === 'tv' && (!/^\d+$/.test(seasonText) || !/^\d+$/.test(episodeText) || !Number.isSafeInteger(season) || season > 99 || !Number.isSafeInteger(episode) || episode < 1 || episode > 9999)) {
+                app.showToast('请输入有效季号（0–99）和集号（1–9999）', 'warning');
+                return;
+            }
             const payload = {
                 src_path: srcPath,
                 tmdb_id: app.selectedTmdbId,
                 media_type: app.selectedMediaType,
+                save_rule_scope: document.getElementById('correctionRuleScope').value,
                 season: app.selectedMediaType === 'tv' ? season : null,
                 episode: app.selectedMediaType === 'tv' ? episode : null
             };

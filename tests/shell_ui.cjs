@@ -374,3 +374,24 @@ for (const [name, viewport] of [['375px phone', {width: 375, height: 700}], ['76
         }
     });
 }
+
+test('manual rule scope is explicit, previews impact and preserves special season zero', async t => {
+    const {page, requests} = await setup(t, {overrides:{
+        '/api/failed_cache/correct': route => route.fulfill({json:{status:'success'}})
+    }});
+    await openView(page, 'settings');
+    assert.equal(await page.locator('#userRulesEnabledCheck').isChecked(), false);
+    await page.evaluate(() => App.Correction.openCorrectionModal('/src/Show/Show OVA.mkv','Show OVA.mkv'));
+    assert.equal(await page.locator('#correctionRuleScope').inputValue(), 'none');
+    await page.evaluate(() => App.Correction.selectTmdbForCorrection(42,'Show','tv'));
+    await page.locator('#correctionRuleScope').selectOption('series');
+    assert.match(await page.locator('#correctionRulePreview').textContent(), /系列目录.*\/src\/Show.*42/);
+    await page.locator('#correctionSeason').fill('0');
+    await page.locator('#correctionEpisode').fill('2');
+    await page.evaluate(() => App.Correction.executeCorrection());
+    await page.waitForFunction(() => document.querySelector('#correctionModal').style.display === 'none');
+    const req=requests.find(r=>r.url==='/api/failed_cache/correct');
+    assert.equal(req.body.season,0);
+    assert.equal(req.body.episode,2);
+    assert.equal(req.body.save_rule_scope,'series');
+});

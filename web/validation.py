@@ -63,6 +63,7 @@ def _correction(data, batch=False):
         string(data.get('src_path'), 'src_path')
         integer(data.get('season'), 'season', 0, 99, nullable=kind == 'movie')
         integer(data.get('episode'), 'episode', 1, 9999, nullable=kind == 'movie')
+        if 'save_rule_scope' in data: choice(data['save_rule_scope'], 'save_rule_scope', ('none', 'file', 'series'))
 
 
 def _validate_query(endpoint):
@@ -120,6 +121,9 @@ def validate_request():
         boolean(data.get('delete_source', False), 'delete_source')
     elif endpoint in ('correct_failed_item', 'batch_correct_failed_items'):
         _correction(data, endpoint == 'batch_correct_failed_items')
+    elif endpoint in ('set_recognition_rule_state', 'delete_recognition_rule'):
+        string(data.get('id'), 'id', maximum=64)
+        if endpoint == 'set_recognition_rule_state': boolean(data.get('enabled'), 'enabled')
     elif endpoint in ('add_mapping', 'update_mapping'):
         validate_mapping(data.get('rule'))
         if endpoint == 'update_mapping': integer(data.get('index'), 'index', 0, MAX_ITEMS - 1)

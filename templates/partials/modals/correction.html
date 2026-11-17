@@ -51,6 +51,21 @@
                 <input type="number" id="correctionEpisode" class="field-inline" min="1" value="1" inputmode="numeric">
                 <p class="field-hint">电影不需要季号和集号。</p>
             </div>
+            <div class="field">
+                <label for="correctionRuleScope">保存人工识别规则</label>
+                <select id="correctionRuleScope" onchange="App.Correction.updateRulePreview()">
+                    <option value="none">仅此次修正（默认）</option>
+                    <option value="file">记住此文件</option>
+                    <option value="series">记住此系列目录的作品身份</option>
+                </select>
+                <p class="field-hint" id="correctionRulePreview">仅修正当前文件，不保存规则。</p>
+                <p class="field-hint">保存的规则需在设置中启用；系列规则不会固定其他文件的集号。</p>
+            </div>
+            <details>
+                <summary>管理已保存的识别规则</summary>
+                <button type="button" onclick="App.Correction.loadRules()">刷新规则</button>
+                <div id="recognitionRulesList" class="text-small"></div>
+            </details>
             <div class="modal-actions">
                 <button type="button" onclick="App.Correction.closeCorrectionModal()" class="secondary">取消</button>
                 <button type="button" onclick="App.Correction.executeCorrection()" class="success primary">确认修正并重新处理</button>

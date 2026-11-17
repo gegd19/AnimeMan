@@ -93,3 +93,40 @@ def test_invalid_rule_record_is_rejected_without_overwrite(tmp_path,monkeypatch)
     path.write_bytes(raw)
     with pytest.raises(rules.RuleValidationError):rules.create_rule(cfg,str(file),'file',42,'movie')
     assert path.read_bytes()==raw
+
+
+def test_existing_empty_rule_store_is_not_silently_replaced(tmp_path,monkeypatch):
+    from core import user_recognition_rules as rules
+    root,folder,file=source(tmp_path);cfg={'source_folders':[str(root)]}
+    cache=tmp_path/'cache';cache.mkdir();monkeypatch.setenv('CACHE_PATH',str(cache))
+    path=cache/'recognition_user_rules_v1.json';path.write_text('{}')
+    with pytest.raises(rules.RuleValidationError):rules.create_rule(cfg,str(file),'file',42,'movie')
+    assert path.read_text()=='{}'
+
+
+def test_rule_management_api_rejects_unauthorized_and_updates(client,config_file,tmp_path,monkeypatch):
+    import base64
+    from core import config_manager,user_recognition_rules as rules
+    root,folder,file=source(tmp_path)
+    config_manager.update_config(lambda c:dict(c,source_folders=[str(root)]),config_file)
+    cfg=config_manager.load_config(config_file)
+    rule=rules.create_rule(cfg,str(file),'file',42,'tv',season=1,episode=1)
+    assert client.get('/api/recognition_rules').status_code==401
+    auth={'Authorization':'Basic '+base64.b64encode(b'test-user:test-pass').decode()}
+    result=client.get('/api/recognition_rules',headers=auth)
+    assert result.status_code==200 and result.get_json()['rules'][0]['id']==rule['id']
+    assert client.post('/api/recognition_rules/state',json={'id':rule['id'],'enabled':'false'},headers=auth).status_code==400
+    assert client.post('/api/recognition_rules/state',json={'id':rule['id'],'enabled':False},headers=auth).status_code==200
+    assert not rules.list_rules(cfg)[0]['enabled']
+    assert client.post('/api/recognition_rules/delete',json={'id':rule['id']},headers=auth).status_code==200
+    assert rules.list_rules(cfg)[0]['deleted']
+    assert file.read_bytes()==b'synthetic'
+
+
+def test_invalid_save_scope_rejected_before_media_transaction(client,monkeypatch):
+    import base64
+    from web import routes_failed
+    monkeypatch.setattr(routes_failed,'reprocess_safely',lambda *a:pytest.fail('invalid scope must not touch media'))
+    auth={'Authorization':'Basic '+base64.b64encode(b'test-user:test-pass').decode()}
+    data={'src_path':'/synthetic/file.mkv','tmdb_id':42,'media_type':'tv','season':1,'episode':1,'save_rule_scope':'global'}
+    assert client.post('/api/failed_cache/correct',json=data,headers=auth).status_code==400

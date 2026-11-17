@@ -28,6 +28,7 @@ App.Config = (function(app) {
         document.getElementById('dryRunCheck').checked = !!cfg.dry_run;
         document.getElementById('incrementalCheck').checked = cfg.incremental !== false;
         document.getElementById('downloadImagesCheck').checked = cfg.download_images !== false;
+        document.getElementById('userRulesEnabledCheck').checked = cfg.user_rules?.enabled === true;
         document.getElementById('addYearCheck').checked = cfg.add_year_to_folder !== false;
         document.getElementById('forceChineseCheck').checked = cfg.force_chinese_name !== false;
         document.getElementById('maxWorkersInput').value = cfg.max_workers || 3;
@@ -118,6 +119,7 @@ App.Config = (function(app) {
         cfg.dry_run = document.getElementById('dryRunCheck').checked;
         cfg.incremental = document.getElementById('incrementalCheck').checked;
         cfg.download_images = document.getElementById('downloadImagesCheck').checked;
+        cfg.user_rules = {...(cfg.user_rules || {}), enabled: document.getElementById('userRulesEnabledCheck').checked};
         cfg.add_year_to_folder = document.getElementById('addYearCheck').checked;
         cfg.force_chinese_name = document.getElementById('forceChineseCheck').checked;
         cfg.max_workers = parseInt(document.getElementById('maxWorkersInput').value) || 3;

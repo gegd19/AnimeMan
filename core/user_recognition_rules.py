@@ -39,9 +39,12 @@ def _path(value, config, *, directory=False):
 
 
 def _load_state():
-    state = read_json(cache_file(RULES_FILE))
-    if not state:
+    path = cache_file(RULES_FILE)
+    if path.is_symlink():
+        raise RuleValidationError('规则文件不能是符号链接')
+    if not path.exists():
         return {'schema':SCHEMA, 'revision':0, 'rules':[]}
+    state = read_json(path)
     if (type(state.get('schema')) is not int or state['schema'] != SCHEMA or type(state.get('revision')) is not int
             or state['revision'] < 0 or not isinstance(state.get('rules'),list)
             or any(not isinstance(rule,dict) for rule in state['rules'])):
