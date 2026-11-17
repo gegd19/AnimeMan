@@ -464,3 +464,45 @@ test('numbering maps require a reviewed preview and preserve decimal label', asy
     assert.equal(req.body.season,0);
     assert.equal(req.body.episode,3);
 });
+
+test('scoped alias requires reviewed preview and keeps identifiers as text', async t => {
+    const {page,requests}=await setup(t,{overrides:{
+        '/api/recognition_aliases/preview': route => route.fulfill({json:{status:'success',preview:{scope:'/src/Show',name:'Sora no Tabi',media_type:'tv',tmdb_id:42,title:'空の旅',year:'2020',additional_names:['空の旅'],conflicting_ids:[]},preview_token:'a'.repeat(64)}}),
+        '/api/recognition_aliases': route => route.fulfill({json:{status:'success',active:false,aliases:[]}})
+    }});
+    await openView(page,'settings');
+    assert.equal(await page.locator('#recognitionAliasesEnabledCheck').isChecked(),false);
+    await page.locator('#recognitionAliasesDetails summary').click();
+    await page.locator('#recognitionAliasScope').fill('/src/Show');
+    await page.locator('#recognitionAliasName').fill('Sora no Tabi');
+    await page.locator('#recognitionAliasId').fill('42');
+    assert.equal(await page.locator('#recognitionAliasSave').isDisabled(),true);
+    await page.locator('#recognitionAliasPreview').click();
+    await page.waitForFunction(() => document.querySelector('#recognitionAliasPreviewResult').textContent.includes('空の旅'));
+    assert.match(await page.locator('#recognitionAliasPreviewResult').textContent(),/Sora no Tabi.*42/);
+    await page.locator('#recognitionAliasName').fill('Changed');
+    assert.equal(await page.locator('#recognitionAliasSave').isDisabled(),true);
+    await page.locator('#recognitionAliasName').fill('Sora no Tabi');
+    await page.locator('#recognitionAliasPreview').click();
+    await page.locator('#recognitionAliasSave').click();
+    const req=requests.find(r=>r.url==='/api/recognition_aliases' && r.method==='POST');
+    assert.equal(req.body.name,'Sora no Tabi');
+    assert.equal(req.body.scope,'/src/Show');
+    assert.equal(req.body.tmdb_id,42);
+    assert.equal(req.body.preview_token,'a'.repeat(64));
+});
+
+test('alias preview renders titles and conflicting identifiers as plain text', async t => {
+    const {page}=await setup(t,{overrides:{
+        '/api/recognition_aliases/preview': route => route.fulfill({json:{status:'success',preview:{scope:'/src/Show',name:'<img src=x onerror=alert(1)>',media_type:'tv',tmdb_id:42,title:'<b>not markup</b>',year:null,additional_names:[],conflicting_ids:[43]},preview_token:'b'.repeat(64)}})
+    }});
+    await openView(page,'settings');await page.locator('#recognitionAliasesDetails summary').click();
+    await page.locator('#recognitionAliasScope').fill('/src/Show');
+    await page.locator('#recognitionAliasName').fill('<img src=x onerror=alert(1)>');
+    await page.locator('#recognitionAliasId').fill('42');
+    await page.locator('#recognitionAliasPreview').click();
+    await page.waitForFunction(() => document.querySelector('#recognitionAliasPreviewResult').textContent.includes('not markup'));
+    assert.equal(await page.locator('#recognitionAliasPreviewResult img').count(),0);
+    assert.equal(await page.locator('#recognitionAliasPreviewResult b').count(),0);
+    assert.match(await page.locator('#recognitionAliasPreviewResult').textContent(),/43.*人工确认/);
+});
