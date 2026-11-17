@@ -1269,6 +1269,10 @@ button.switch:disabled { opacity: .6; border-style: solid; }
 /* 设置与修正弹窗里指向识别规则的入口 */
 .callout.rules-link { align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 14px 0 6px; }
 .callout.rules-link span { flex: 1 1 260px; }
+.anime-db-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
+.anime-db-status span { flex: 1 1 260px; color: var(--ink-2); }
+.anime-db-status span[data-state="error"] { color: var(--red, #b42318); }
+.anime-db-status span[data-state="empty"] { color: var(--ink-3); }
 .rules-manage-link { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
 .rules-manage-link button { margin-left: -8px; color: var(--blue); }
 .rules-manage-link span { color: var(--ink-3); }
@@ -1549,3 +1553,209 @@ button.switch:disabled { opacity: .6; border-style: solid; }
     .spotlight, .show-seasons-header, .selection-bar { forced-color-adjust: none; }
     .progress-fill { background: Highlight; }
 }
+
+/* ---------- 21. 「号外」主题 ----------
+ * 设计来源：号外和同人志的丝网印刷——新闻纸、油墨黑、一层套色朱红，套色总是错开一点。
+ *   - 粗犷只用在三处：黑色侧栏、黑色版头（纸张标题栏）、歪贴的剪报标题。表格和日志保持干净，方便读。
+ *   - 朱红是唯一的操作色（替代群青）；失败和破坏性操作用更深的赭红，并且始终带文字。
+ *   - 只在页面出现时「拍」一下，按钮按下时陷进硬阴影；系统要求减少动态效果时都不播放。
+ */
+:root[data-theme="gogai"] {
+    --desk: #EAE3D3;
+    --sheet: #FBF8F0;
+    --sheet-2: #F1EBDD;
+    --ink: #141210;
+    --ink-2: #45403A;
+    --ink-3: #6B645A;
+    --rule: #D8CFBD;
+    --rule-strong: #A99E89;
+
+    --blue: #C41D13;              /* 操作色：朱红（文字用稍深的一档，保证对比度） */
+    --blue-solid: #E2251A;
+    --blue-solid-hover: #C41D13;
+    --blue-wash: #FBE1DA;
+    --blue-line: #EFA596;
+    --blue-glow: rgba(226, 37, 26, .28);
+    --pencil: #E2251A;
+
+    --red: #8E1610;
+    --red-wash: #F3DCD6;
+    --red-line: #D29A90;
+    --green: #1C6A3F;
+    --green-wash: #DDEEDF;
+    --green-line: #9FCBAE;
+    --amber: #8A5400;
+    --amber-wash: #F6E7C8;
+    --amber-line: #DDBB7A;
+
+    --night: #141210;
+    --scrim: rgba(20, 18, 16, .62);
+    --float-shadow: 10px 10px 0 var(--ink);
+    --print: #141210;             /* 油墨黑 */
+    --paper-on-ink: #F4EEE0;      /* 黑底上的字 */
+
+    --r-paper: 2px;
+    --r-sheet: 2px;
+    --r-float: 2px;
+    --r-poster: 2px;
+    color-scheme: light;
+}
+
+/* 台面：极淡的网点 */
+:root[data-theme="gogai"] body {
+    background-color: var(--desk);
+    background-image: radial-gradient(rgba(20, 18, 16, .07) 1px, transparent 1.4px);
+    background-size: 7px 7px;
+}
+:root[data-theme="gogai"] h1, :root[data-theme="gogai"] h2, :root[data-theme="gogai"] h3 { font-weight: 900; letter-spacing: -.01em; }
+
+/* 侧栏：油墨黑 */
+:root[data-theme="gogai"] .rail { background: var(--print); border-right: 0; color: var(--paper-on-ink); }
+:root[data-theme="gogai"] .brand, :root[data-theme="gogai"] .brand-name { color: var(--paper-on-ink); }
+:root[data-theme="gogai"] .brand-name { font-weight: 900; font-size: 20px; letter-spacing: -.02em; }
+:root[data-theme="gogai"] .brand-sub { color: #B9B0A0; }
+:root[data-theme="gogai"] .brand-mark { color: var(--blue-solid); }
+:root[data-theme="gogai"] .rail .nav-item { color: #CFC6B5; font-weight: 700; border-radius: 0; }
+:root[data-theme="gogai"] .rail .nav-item .icon { color: inherit; }
+:root[data-theme="gogai"] .rail .nav-item:hover { background: transparent; color: var(--paper-on-ink); text-decoration: underline 3px var(--blue-solid); text-underline-offset: 6px; }
+:root[data-theme="gogai"] .rail .nav-item[aria-current="page"] {
+    color: #FFFFFF; background: var(--blue-solid);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+    box-shadow: none;
+}
+:root[data-theme="gogai"] .rail .nav-item[aria-current="page"]::before { left: 0; top: 0; bottom: 0; width: 6px; background: var(--print); border-radius: 0; }
+:root[data-theme="gogai"] .rail-foot button { color: #CFC6B5; border-color: transparent; background: transparent; }
+:root[data-theme="gogai"] .rail-foot .version { color: #8F877A; }
+
+/* 任务条：报头下的粗线 */
+:root[data-theme="gogai"] .taskbar { background: var(--sheet); border-bottom: 3px solid var(--print); }
+:root[data-theme="gogai"] #statusText { font-weight: 900; }
+:root[data-theme="gogai"] .progress-bar { height: 16px; background: var(--sheet); border: 2px solid var(--print); border-radius: 0; }
+:root[data-theme="gogai"] .progress-bar::after { background: none; }
+:root[data-theme="gogai"] .progress-fill {
+    background-color: var(--blue-solid);
+    background-image: repeating-linear-gradient(-45deg, rgba(20, 18, 16, .22) 0 3px, transparent 3px 8px);
+}
+:root[data-theme="gogai"] .task-percent { color: var(--ink); font-weight: 700; }
+:root[data-theme="gogai"] .task-dot { border-radius: 0; transform: rotate(45deg); }
+
+/* 页面标题：歪贴的剪报，套色朱红错开一点 */
+:root[data-theme="gogai"] .view-head h1 {
+    display: inline-block; padding: 4px 16px 6px; font-size: 26px; line-height: 1.2;
+    color: var(--paper-on-ink); background: var(--print);
+    transform: rotate(-1.6deg); transform-origin: left bottom;
+    box-shadow: 6px 5px 0 var(--blue-solid);
+}
+:root[data-theme="gogai"] .view-head p { color: var(--ink-2); margin-top: 10px; }
+
+/* 纸张：直角、实线，标题栏是黑色版头 */
+:root[data-theme="gogai"] .sheet, :root[data-theme="gogai"] .card { border: 2px solid var(--print); box-shadow: 5px 5px 0 rgba(20, 18, 16, .16); }
+:root[data-theme="gogai"] .sheet-head { background: var(--print); color: var(--paper-on-ink); border-bottom: 0; }
+:root[data-theme="gogai"] .sheet-head h2, :root[data-theme="gogai"] .sheet-head h3 { color: var(--paper-on-ink); }
+:root[data-theme="gogai"] .sheet-head p { color: #C9C0AF; }
+:root[data-theme="gogai"] .sheet-head button:not(.primary):not(.danger) { background: transparent; color: var(--paper-on-ink); border-color: #6E665A; box-shadow: none; }
+:root[data-theme="gogai"] .sheet-head button:not(.primary):not(.danger):hover { border-color: var(--paper-on-ink); }
+:root[data-theme="gogai"] .sheet-head .segmented button[aria-pressed="true"],
+:root[data-theme="gogai"] .sheet-head [aria-pressed="true"] { background: var(--blue-solid); color: #FFF; border-color: var(--blue-solid); }
+:root[data-theme="gogai"] .stat-list dd { font-weight: 900; font-family: var(--font); letter-spacing: -.02em; }
+
+/* 按钮：直角、黑边、硬阴影；按下陷进去 */
+:root[data-theme="gogai"] button { border-radius: 0; border: 2px solid var(--print); font-weight: 700; box-shadow: 3px 3px 0 var(--print); }
+:root[data-theme="gogai"] button:hover { background: var(--sheet-2); border-color: var(--print); }
+:root[data-theme="gogai"] button:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--print); }
+:root[data-theme="gogai"] button.primary, :root[data-theme="gogai"] button.success.primary { background: var(--blue-solid); border-color: var(--print); color: #FFF; font-weight: 900; }
+:root[data-theme="gogai"] button.primary:hover { background: var(--blue-solid-hover); border-color: var(--print); }
+:root[data-theme="gogai"] button.success { background: var(--blue-wash); color: var(--blue); border-color: var(--print); }
+:root[data-theme="gogai"] button.danger { color: var(--red); border-color: var(--red); box-shadow: 3px 3px 0 var(--red); }
+:root[data-theme="gogai"] button.ghost, :root[data-theme="gogai"] .modal-close, :root[data-theme="gogai"] .link-row,
+:root[data-theme="gogai"] .nav-item, :root[data-theme="gogai"] .tabbar button { box-shadow: none; border-color: transparent; }
+:root[data-theme="gogai"] .link-row { border-bottom: 1px solid var(--rule); }
+:root[data-theme="gogai"] button:disabled { box-shadow: none; border-style: dashed; border-color: var(--rule-strong); }
+:root[data-theme="gogai"] .segmented button { box-shadow: none; }
+:root[data-theme="gogai"] .segmented button[aria-pressed="true"] { background: var(--print); color: var(--paper-on-ink); }
+:root[data-theme="gogai"] td button, :root[data-theme="gogai"] .btn-sm { box-shadow: 2px 2px 0 var(--print); }
+
+/* 表单 */
+:root[data-theme="gogai"] input, :root[data-theme="gogai"] select, :root[data-theme="gogai"] textarea { border-radius: 0; border: 2px solid var(--ink-2); background: #FFFDF8; }
+:root[data-theme="gogai"] input:focus, :root[data-theme="gogai"] select:focus, :root[data-theme="gogai"] textarea:focus { border-color: var(--print); box-shadow: 3px 3px 0 var(--blue-solid); outline: none; }
+:root[data-theme="gogai"] :focus-visible { outline: 3px solid var(--blue-solid); outline-offset: 2px; }
+
+/* 标签：盖章 */
+:root[data-theme="gogai"] .badge { border-radius: 0; border-width: 2px; font-weight: 800; }
+:root[data-theme="gogai"] .badge.is-red { color: #FFF; background: var(--red); border-color: var(--red); transform: rotate(-3deg); }
+
+/* 日志与表格：保持干净 */
+:root[data-theme="gogai"] .log-box { background: var(--sheet); }
+:root[data-theme="gogai"] .failed-table th { background: var(--sheet-2); color: var(--ink); font-weight: 800; box-shadow: inset 0 -2px 0 var(--print); }
+:root[data-theme="gogai"] .table-wrap, :root[data-theme="gogai"] .list-box { border: 2px solid var(--print); }
+
+/* 弹窗：硬阴影，黑色版头 */
+:root[data-theme="gogai"] .modal-content { border: 3px solid var(--print); box-shadow: 10px 10px 0 var(--blue-solid); }
+:root[data-theme="gogai"] .modal-header { background: var(--print); color: var(--paper-on-ink); border-bottom: 0; }
+:root[data-theme="gogai"] .modal-header h3 { color: var(--paper-on-ink); font-size: 18px; }
+:root[data-theme="gogai"] .modal-close { color: var(--paper-on-ink); }
+:root[data-theme="gogai"] .modal-close:hover { background: var(--blue-solid); color: #FFF; }
+:root[data-theme="gogai"] .selected-info { border: 2px solid var(--print); border-left: 8px solid var(--blue-solid); border-radius: 0; }
+
+/* 提示：歪贴的小条 */
+:root[data-theme="gogai"] .app-toast { border: 2px solid var(--print); border-left: 8px solid var(--blue-solid); border-radius: 0; box-shadow: 6px 6px 0 var(--print); transform: rotate(-1deg); }
+:root[data-theme="gogai"] .app-toast-success { border-left-color: var(--green); }
+:root[data-theme="gogai"] .app-toast-error { border-left-color: var(--red); }
+:root[data-theme="gogai"] .app-toast-warning { border-left-color: var(--amber); }
+:root[data-theme="gogai"] .app-toast::before { font-weight: 900; }
+
+/* 海报：黑框，悬停时歪一下、露出朱红套色 */
+:root[data-theme="gogai"] .media-card-poster, :root[data-theme="gogai"] .recent-poster { border-radius: 0; box-shadow: 0 0 0 2px var(--print); }
+:root[data-theme="gogai"] .media-card-title { font-weight: 800; }
+@media (hover: hover) {
+    :root[data-theme="gogai"] .media-card:hover .media-card-poster { transform: rotate(-1.2deg); box-shadow: 0 0 0 2px var(--print), 7px 7px 0 var(--blue-solid); }
+}
+
+/* 页面出现时拍下来一次 */
+@media (prefers-reduced-motion: no-preference) {
+    :root[data-theme="gogai"] .view:not([hidden]) { animation: gogai-slap .22s cubic-bezier(.2, .9, .3, 1.2); }
+    :root[data-theme="gogai"] button { transition: transform .06s, box-shadow .06s, background-color .12s; }
+}
+@keyframes gogai-slap { from { opacity: 0; transform: translateY(10px) rotate(-.6deg); } }
+
+/* 号外：第二轮细节 */
+:root[data-theme="gogai"] .log-progress .log-msg { color: var(--ink); }
+:root[data-theme="gogai"] button:disabled, :root[data-theme="gogai"] button.primary:disabled,
+:root[data-theme="gogai"] button.success:disabled, :root[data-theme="gogai"] button.danger:disabled {
+    color: var(--ink-3); background: var(--sheet-2); border: 2px dashed var(--rule-strong); box-shadow: none; transform: none;
+}
+:root[data-theme="gogai"] :focus-visible { outline: none; }
+:root[data-theme="gogai"] :focus-visible:not([tabindex="-1"]):not(.modal-content):not(.view) { outline: 3px solid var(--blue-solid); outline-offset: 2px; }
+:root[data-theme="gogai"] .failed-folder { border-radius: 0; border: 2px solid var(--print); border-left: 8px solid var(--red); box-shadow: 4px 4px 0 rgba(20, 18, 16, .16); }
+
+/* 媒体库聚焦区：黑底网点，海报像贴在号外头版上 */
+:root[data-theme="gogai"] .spotlight { border-radius: 0; border: 3px solid var(--print); box-shadow: 8px 8px 0 var(--blue-solid); background: var(--print); }
+:root[data-theme="gogai"] .spotlight::before {
+    background:
+        radial-gradient(rgba(244, 238, 224, .09) 1px, transparent 1.5px) 0 0 / 6px 6px,
+        linear-gradient(90deg, rgba(20, 18, 16, .94) 0%, rgba(20, 18, 16, .72) 50%, rgba(20, 18, 16, .45) 100%);
+}
+:root[data-theme="gogai"] .spotlight-backdrop { filter: blur(40px) saturate(.6) contrast(1.1); }
+:root[data-theme="gogai"] .spotlight::after { display: none; }
+:root[data-theme="gogai"] .spotlight-label { display: inline-block; padding: 1px 8px; color: #FFF; background: var(--blue-solid); font-weight: 900; transform: rotate(-2deg); }
+:root[data-theme="gogai"] .spotlight-title { font-weight: 900; letter-spacing: -.02em; }
+:root[data-theme="gogai"] .spotlight-chip { border-radius: 0; border-width: 2px; }
+:root[data-theme="gogai"] .spotlight-poster { border-radius: 0; box-shadow: 0 0 0 3px var(--paper-on-ink), 6px 6px 0 3px var(--blue-solid); }
+:root[data-theme="gogai"] .spotlight-thumbs { border-radius: 0; }
+:root[data-theme="gogai"] .spotlight-actions button { box-shadow: 3px 3px 0 var(--blue-solid); border-color: var(--paper-on-ink); }
+
+/* 筛选条：直角 */
+:root[data-theme="gogai"] .view-toggle-bar, :root[data-theme="gogai"] .view-btn,
+:root[data-theme="gogai"] .search-field input, :root[data-theme="gogai"] .library-bar select,
+:root[data-theme="gogai"] .density-toggle, :root[data-theme="gogai"] .segmented { border-radius: 0; }
+:root[data-theme="gogai"] .view-toggle-bar { border: 2px solid var(--print); padding: 0; gap: 0; }
+:root[data-theme="gogai"] .view-btn { box-shadow: none; border: 0; }
+:root[data-theme="gogai"] .view-btn.active { background: var(--print); color: var(--paper-on-ink); }
+:root[data-theme="gogai"] .segmented { border: 2px solid var(--print); }
+:root[data-theme="gogai"] .segmented button { border: 0; }
+:root[data-theme="gogai"] .media-section-title { font-weight: 900; }
+:root[data-theme="gogai"] .settings-nav button { border: 0; box-shadow: none; background: transparent; }
+:root[data-theme="gogai"] .settings-nav button:hover { background: transparent; text-decoration: underline 3px var(--blue-solid); text-underline-offset: 6px; }
+:root[data-theme="gogai"] .settings-nav button[aria-current="true"] { color: var(--paper-on-ink); background: var(--print); clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+:root[data-theme="gogai"] .settings-nav button[aria-current="true"]::before { top: 0; bottom: 0; width: 5px; border-radius: 0; background: var(--blue-solid); }
+:root[data-theme="gogai"] .form-section-body > h4 { border-top: 2px solid var(--print); font-weight: 900; }

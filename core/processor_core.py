@@ -50,6 +50,9 @@ logger = get_logger(__name__)
 from .cancellation import stop_processing
 
 SEASON_INDICATORS = build_season_indicators(30)
+# Whole words only: "848x480 h264" or "season 20" must not read as roman numeral x/v or season 2.
+_SEASON_INDICATOR_RE = re.compile('|'.join(r'(?<![a-z0-9])' + re.escape(ind.strip()) + r'(?![a-z0-9])'
+                                           for ind in sorted({i.strip() for i in SEASON_INDICATORS}, key=len, reverse=True)))
 
 # 文件夹级 TMDB 缓存（成功匹配结果缓存）
 _folder_tmdb_cache: Dict[Tuple[str, str], int] = {}
@@ -231,7 +234,7 @@ def process_video(
         if updated_info:
             info = updated_info
 
-        def try_process_with_info(current_info: Dict, confidence_start: int):
+        def try_process_with_info(current_info: Dict, confidence_start: int, search_config: Optional[Dict] = None):
             media_type = current_info.get("media_type")
             title = current_info.get("title") or ""
             if not title or title == "Unknown" or media_type not in ("movie", "tv"):
@@ -253,7 +256,10 @@ def process_video(
                 tmdb_id = current_info["tmdb_id"]
                 media_type = current_info["media_type"]
                 if wrapped_log:
-                    wrapped_log(f"🎯 使用映射规则指定的 TMDB ID: {tmdb_id} ({media_type})", LOG_SUCCESS)
+                    if current_info.get("_anime_db"):
+                        wrapped_log(f"🎯 使用离线番剧库对应的 TMDB ID: {tmdb_id}", LOG_SUCCESS)
+                    else:
+                        wrapped_log(f"🎯 使用映射规则指定的 TMDB ID: {tmdb_id} ({media_type})", LOG_SUCCESS)
                 tmdb_result = {"id": tmdb_id}
                 candidate_count = 0
             else:
@@ -283,7 +289,7 @@ def process_video(
                         wrapped_log(f"📦 命中文件夹TMDB缓存: ID {cached_tmdb_id}", LOG_INFO)
                 else:
                     tmdb_result, media_type, candidate_count = search_tmdb_with_fallback(
-                        media_type, search_title, search_year, alt_titles, config, wrapped_log,
+                        media_type, search_title, search_year, alt_titles, search_config or config, wrapped_log,
                         src=src, duration_hint=duration_hint, title_for_attempts=title_orig,
                         base_confidence=confidence
                     )
@@ -307,7 +313,7 @@ def process_video(
             )
             if not details:
                 return (False, None, None, None, None, None, confidence, current_info)
-            if current_info.get("_explicit_identity") or current_info.get('_verified_detail_alias'):
+            if current_info.get("_explicit_identity") or current_info.get('_verified_detail_alias') or current_info.get("_anime_db"):
                 type_name = "title" if media_type == "movie" else "name"
                 if (not isinstance(details, dict) or type(details.get("id")) is not int
                         or details['id'] != tmdb_id or not isinstance(details.get(type_name), str)
@@ -401,6 +407,8 @@ def process_video(
                 score_evidence.append("源路径或关联 NFO 中明确指定 TMDB ID")
             elif current_info.get('_verified_detail_alias'):
                 score_evidence.append('候选标题或已核验备用标题与输入一致')
+            elif current_info.get("_anime_db"):
+                score_evidence.append(current_info["_anime_db"])
             else:
                 from .candidate_evaluator import evaluate_candidates
                 assessment = evaluate_candidates([tmdb_result], media_type,
@@ -421,7 +429,47 @@ def process_video(
         initial_confidence = compute_confidence(info, force_tmdb_id is not None)
         if info.get("_from_folder_ai_batch"):
             initial_confidence = max(initial_confidence, 85)
-        success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = try_process_with_info(info, initial_confidence)
+
+        def anime_db_lookup(current_info):
+            if (force_tmdb_id is not None or current_info.get("_explicit_identity") or current_info.get("_user_rule_id")
+                    or current_info.get("media_type") != "tv"):
+                return None
+            from . import anime_db
+            return anime_db.resolve(src, current_info, config, wrapped_log, duration=lambda: video_info.get_video_duration(src))
+
+        def with_anime_db(db, base_info, confidence_start):
+            """Process with the identity the offline anime databases agreed on."""
+            db_info = dict(base_info, media_type="tv", tmdb_id=db["tmdb_id"], season=db["season"], episode=db["episode"],
+                           explicit_season=db["season"], numbering_source="season_relative", total_episode=None,
+                           corrected_season=None, corrected_episode=None, _anime_db=db["evidence"])
+            return db_info, try_process_with_info(db_info, confidence_start)
+
+        anime_db_note = None
+        db = anime_db_lookup(info)
+        if db and db["status"] == "conflict":
+            save_failed_cache(src, db["message"], cache_dict, wrapped_log)
+            return False
+        if db and db["status"] == "ambiguous":
+            anime_db_note = db["message"]
+        result = None
+        if db and db["status"] == "match":
+            # Independent second opinion: the ordinary TMDB search, without paid AI calls.
+            plain = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
+            searched = try_process_with_info(info, initial_confidence, search_config=plain)
+            if searched[0] and searched[3] != db["tmdb_id"]:
+                save_failed_cache(src, f"离线番剧库对应「{db['names']}」（TMDB {db['tmdb_id']}），TMDB 搜索得到另一部作品"
+                                       f"（TMDB {searched[3]}），需要人工确认", cache_dict, wrapped_log)
+                return False
+            if searched[0] and wrapped_log:
+                wrapped_log("✅ TMDB 搜索与离线番剧库指向同一部作品", LOG_SUCCESS)
+            db_info, result = with_anime_db(db, info, max(initial_confidence, 85 if searched[0] else 80))
+            if result[0]:
+                info = db_info
+            else:
+                result = None
+        if result is None:
+            result = try_process_with_info(info, initial_confidence)
+        success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = result
 
         if not success and final_info.get('_alias_season_review'):
             save_failed_cache(src, final_info['_alias_season_review'], cache_dict, wrapped_log)
@@ -440,7 +488,7 @@ def process_video(
         force_ai_due_to_season = False
         if not success and info.get("_parser") == "anitopy" and info.get("season") == 1:
             combined_text = f"{src.name} {src.parent.name}".lower()
-            if any(ind in combined_text for ind in SEASON_INDICATORS):
+            if _SEASON_INDICATOR_RE.search(combined_text):
                 force_ai_due_to_season = True
                 if wrapped_log:
                     wrapped_log(f"⚠️ 检测到季号标识但 anitopy 解析为 S01，强制使用 AI 解析", LOG_WARNING)
@@ -449,7 +497,7 @@ def process_video(
             if not force_ai_due_to_season:
                 if wrapped_log:
                     wrapped_log(f"⚠️ anitopy 解析后 TMDB 搜索失败，尝试使用 AI 重新解析...", LOG_WARNING)
-            ai_info = ai_client.parse_filename_with_ai(src, config, wrapped_log)
+            ai_info = ai_client.parse_filename_with_ai(src, config, wrapped_log, anitopy_hint=info)
             if ai_info.get("media_type") in ("movie", "tv"):
                 ai_info["_from_ai"] = True
                 success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = try_process_with_info(
@@ -459,9 +507,19 @@ def process_video(
                     info = ai_info
                     if wrapped_log:
                         wrapped_log(f"✅ AI 解析成功，继续处理", LOG_SUCCESS)
+                else:
+                    # The AI's cleaned or official names may be what the anime databases know.
+                    db = anime_db_lookup(dict(ai_info, alternative_titles=[*(ai_info.get("alternative_titles") or []), info.get("title") or ""]))
+                    if db and db["status"] == "match":
+                        db_info, result = with_anime_db(db, ai_info, 80)
+                        success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = result
+                        if success:
+                            info = db_info
+                    elif db and db["status"] == "ambiguous":
+                        anime_db_note = db["message"]
 
         if not success:
-            save_failed_cache(src, final_info.get('_duration_conflict') or "TMDB 搜索无结果或详情获取失败", cache_dict, wrapped_log)
+            save_failed_cache(src, final_info.get('_duration_conflict') or anime_db_note or "TMDB 搜索无结果或详情获取失败", cache_dict, wrapped_log)
             return False
 
         if wrapped_log:

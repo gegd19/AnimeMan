@@ -89,18 +89,37 @@ def call_ai_api_with_messages(
         "temperature": temperature,
         "max_tokens": max_tokens
     }
+    # DeepSeek V3.2/V4 think by default and the thinking counts toward max_tokens; these are short parsing tasks.
+    send_thinking = provider == "deepseek" and ai_config.get("thinking", "disabled") in ("disabled", "enabled")
+    if send_thinking:
+        payload["thinking"] = {"type": ai_config.get("thinking", "disabled")}
 
     consume_recognition_call()
     session = create_session()
     try:
         start = time.time()
         resp = session.post(url, headers=headers, json=payload, timeout=timeout)
+        if send_thinking and getattr(resp, 'status_code', 200) == 400:
+            # An older model or a compatible proxy may not know the thinking switch.
+            check_cancelled()
+            consume_recognition_call()
+            payload.pop("thinking", None)
+            resp = session.post(url, headers=headers, json=payload, timeout=timeout)
         resp.raise_for_status()
         check_cancelled()
         elapsed = time.time() - start
         if log_func:
             log_func(f"✅ AI 响应成功 ({elapsed:.2f}s)", LOG_SUCCESS)
-        return resp.json()['choices'][0]['message']['content'].strip()
+        choice = resp.json()['choices'][0]
+        content = (choice.get('message') or {}).get('content') or ''
+        if not content.strip() and choice.get('finish_reason') == 'length' and not ai_config.get('_retried_for_length'):
+            # Models that think before answering can spend the whole budget before writing the answer.
+            if log_func:
+                log_func("AI 回答在写出结果前达到 max_tokens，放宽上限重试一次", LOG_WARNING)
+            return call_ai_api_with_messages(messages, dict(ai_config, max_tokens=min(max(int(max_tokens) * 4, 2000), 4000), _retried_for_length=True), log_func)
+        if not content.strip() and log_func:
+            log_func(f"AI 返回了空回答（finish_reason={choice.get('finish_reason')}）", LOG_WARNING)
+        return content.strip()
     except ProcessingCancelled:
         raise
     except Exception as e:
@@ -148,6 +167,8 @@ SYSTEM_FILE_PARSE = """你是影视文件名解析专家。分析文件路径，
    - 文件名中含 ".5"、".9" 等小数也视为特辑，season=0，episode 取整数部分。
 4. 若有多个季目录（如 Season 1/Season 2），请提取正确的季号。
 5. 如果文件名包含明确的集号标识（如 [14]、 - 14、EP14 等），请直接使用该数字作为 episode。
+6. 文件名常用罗马音或英文译名，TMDB 不一定收录这种写法。alternative_titles 填你确定的其他正式名称：日文原名（汉字/假名）、官方英文名、中文译名，最多 5 个；不确定就不填，不要编造。
+7. 文件名和目录都没有季号、标题也不是续作时，season 填 null。
 
 返回格式：
 {
@@ -193,6 +214,11 @@ def _parse_ai_json_response(resp, log_func=None):
     if text.startswith('```'):
         text=re.sub(r'^```(?:json)?\s*','',text,flags=re.I)
         text=re.sub(r'\s*```$','',text)
+    if not text.startswith('{') and '{' in text:
+        # Some models add a sentence before or after the object; take the first complete object only.
+        start=text.index('{')
+        try:text=text[start:start+json.JSONDecoder().raw_decode(text[start:])[1]]
+        except ValueError:pass
     try:
         def invalid_constant(value):raise ValueError(f'非有限 JSON 数字：{value}')
         def unique_object(pairs):
@@ -340,6 +366,10 @@ def parse_filename_with_ai(
             log_func(f"❌ AI 响应无法解析为 JSON", LOG_ERROR)
         return {"media_type": "unknown", "_ai_error": "JSON 解析失败"}
 
+    hint_season=(anitopy_hint or {}).get('season')
+    if (data.get('media_type')=='tv' and data.get('season') in (None,'unknown','null') and data.get('episode') not in (None,'unknown','null')
+            and isinstance(hint_season,int) and not isinstance(hint_season,bool)):
+        data=dict(data,season=hint_season)
     result=normalize_media(data)
     if not result:
         note_error(ValueError('AI 元数据类型/标题/季集号无效'))

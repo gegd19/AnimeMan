@@ -134,6 +134,7 @@ def _run_pair(case, base, modules, ai_enabled):
     with ExitStack() as stack:
         for obj,name,value in [(tmdb,'search_tmdb_multi',search_mock),(tmdb,'get_tmdb_details',details_mock),
                                (tmdb,'get_tv_season_episodes',episodes_mock),(video,'get_video_duration',lambda *a,**k:None),
+                               (tmdb,'get_tv_episode_groups',lambda *a,**k:[]),(tmdb,'get_episode_group',lambda *a,**k:None),
                                (ai,'call_ai_api_with_messages',ai_mock),
                                (enhancer,'search_tvmaze',tvmaze_mock),(processor.logger,'error',record_error)]:
             stack.enter_context(patch.object(obj,name,value))

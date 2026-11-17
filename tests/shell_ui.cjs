@@ -1270,3 +1270,42 @@ test('processed cache passes selected names to episode sort and keeps source pat
     assert.deepEqual(pageErrors, []);
     assert.equal(requests.filter(r => r.method !== 'GET').length, 0);
 });
+
+
+test('offline anime database: off-line until downloaded, update button, settings saved', async t => {
+    let updating = false;
+    const {page, requests} = await setup(t, {overrides: {
+        '/api/anime_db/status': route => route.fulfill({json: updating
+            ? {available: true, updating: false, meta: {updated_at: 1794900000, counts: {works: 41000}, sources: {bangumi: {ok: false}, manami: {ok: true}}}, sources: {}}
+            : {available: false, updating: false, meta: {}, sources: {}}}),
+        '/api/anime_db/update': route => { updating = true; return route.fulfill({json: {status: 'started', available: false, updating: true, message: '正在下载 bangumi-data…'}}); },
+    }});
+    await openView(page, 'settings');
+    assert.equal(await page.locator('#animeDbEnabledCheck').isChecked(), true);
+    await page.waitForFunction(() => document.querySelector('#animeDbStatusText').textContent.includes('尚未下载'));
+    await page.locator('#animeDbUpdateBtn').click();
+    await page.waitForFunction(() => document.querySelector('#animeDbStatusText').textContent.includes('正在下载'));
+    assert.ok(requests.some(r => r.url === '/api/anime_db/update' && r.method === 'POST'));
+    await page.waitForFunction(() => document.querySelector('#animeDbStatusText').textContent.includes('41000 部作品'), null, {timeout: 6000});
+    assert.match(await page.locator('#animeDbStatusText').textContent(), /bangumi 本次下载失败/);
+    await page.locator('#animeDbWebSearchCheck').check();
+    await page.locator('#animeDbWebSearchMaxInput').fill('5');
+    await page.locator('#animeDbUpdateDaysInput').fill('0');
+    await page.evaluate(() => App.Config.saveConfig());
+    const saved = requests.filter(r => r.url === '/api/config' && r.method === 'POST').pop().body;
+    assert.deepEqual(saved.anime_db, {enabled: true, update_days: 0, web_search: {enabled: true, max_per_run: 5}});
+});
+
+test('号外 theme is chosen in settings, remembered and applied before scripts run', async t => {
+    const {page} = await setup(t);
+    await openView(page, 'settings');
+    await page.locator('[data-theme-choice="gogai"]').click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'gogai');
+    assert.equal(await page.evaluate(() => localStorage.getItem('animeman.theme')), 'gogai');
+    assert.equal(await page.locator('[data-theme-choice="gogai"]').getAttribute('aria-pressed'), 'true');
+    await page.reload();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'gogai');
+    // The rail toggle still switches between light and dark.
+    await page.locator('[data-theme-toggle]').first().click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
+});

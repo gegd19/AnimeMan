@@ -21,6 +21,7 @@ from . import routes_cache
 from . import routes_user_rules
 from . import routes_numbering_maps
 from . import routes_recognition_aliases
+from . import routes_anime_db
 
 
 def create_app(config_path=None):
@@ -163,6 +164,7 @@ def create_app(config_path=None):
     routes_user_rules.register(app)
     routes_numbering_maps.register(app)
     routes_recognition_aliases.register(app)
+    routes_anime_db.register(app)
     routes_offline.register(app)
     routes_media.register(app)
     routes_cache.register(app)

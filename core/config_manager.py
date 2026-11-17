@@ -38,6 +38,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "base_url": "https://api.deepseek.com",
         "temperature": 0.1,
         "max_tokens": 600,
+        "thinking": "disabled",
         "timeout": 20,
         "debug": False,
         "batch_folder_enabled": True

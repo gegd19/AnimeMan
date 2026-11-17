@@ -285,6 +285,44 @@ def get_tv_season_episodes(
         return []
 
 
+def _tmdb_get_json(url: str, api_key: str, language: str, log_func, proxy, what: str) -> Optional[Dict[str, Any]]:
+    _tmdb_limiter.wait()
+    params = {"api_key": api_key, "language": language}
+    session = create_session(proxy)
+    try:
+        resp = session.get(url, params=params, timeout=15)
+        if resp.status_code == 429:
+            current_event().wait(2)
+            check_cancelled()
+            resp = session.get(url, params=params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        return data if isinstance(data, dict) else None
+    except ProcessingCancelled:
+        raise
+    except Exception as e:
+        note_error(e)
+        if log_func:
+            log_func(f"❌ 获取{what}失败: {redact(e)}", LOG_ERROR)
+        return None
+
+
+def get_tv_episode_groups(tv_id: int, api_key: str, language: str = "zh-CN", log_func: Optional[Callable] = None,
+                          proxy: Optional[str] = None) -> List[Dict[str, Any]]:
+    """剧集的「剧集组」列表（其他排列方式，例如按播出季划分）。"""
+    data = _tmdb_get_json(f"https://api.themoviedb.org/3/tv/{tv_id}/episode_groups", api_key, language, log_func, proxy, "剧集组")
+    results = (data or {}).get("results")
+    return results if isinstance(results, list) else []
+
+
+def get_episode_group(group_id: str, api_key: str, language: str = "zh-CN", log_func: Optional[Callable] = None,
+                      proxy: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """一个剧集组的完整内容：各分组及其中每一集对应的 TMDB 季号和集号。"""
+    if not isinstance(group_id, str) or not group_id.isalnum():
+        return None
+    return _tmdb_get_json(f"https://api.themoviedb.org/3/tv/episode_group/{group_id}", api_key, language, log_func, proxy, "剧集组内容")
+
+
 def build_image_url(base_url: str, path: str, size: str = "original") -> str:
     if not path:
         return ""

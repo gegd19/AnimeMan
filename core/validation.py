@@ -162,6 +162,22 @@ def validate_config(config):
     if 'user_rules' in config:
         user_rules = object_value(config['user_rules'], 'user_rules')
         if 'enabled' in user_rules: boolean(user_rules['enabled'], 'user_rules.enabled')
+    if 'anime_db' in config:
+        anime = object_value(config['anime_db'], 'anime_db')
+        if 'enabled' in anime: boolean(anime['enabled'], 'anime_db.enabled')
+        if 'update_days' in anime: integer(anime['update_days'], 'anime_db.update_days', 0, 365)
+        if anime.get('proxy') is not None: string(anime['proxy'], 'anime_db.proxy', empty=True)
+        if 'urls' in anime:
+            urls = object_value(anime['urls'], 'anime_db.urls')
+            for key, value in urls.items():
+                choice(key, 'anime_db.urls 键', ('manami', 'anibridge', 'bangumi'))
+                string(value, 'anime_db.urls.' + key, empty=True, maximum=1024)
+                if value and not re.match(r'https?://', value):
+                    raise ValidationError('anime_db.urls 必须是 http(s) 地址')
+        if 'web_search' in anime:
+            web = object_value(anime['web_search'], 'anime_db.web_search')
+            if 'enabled' in web: boolean(web['enabled'], 'anime_db.web_search.enabled')
+            if 'max_per_run' in web: integer(web['max_per_run'], 'anime_db.web_search.max_per_run', 0, 1000)
     if 'identity_hints' in config:
         identity = object_value(config['identity_hints'], 'identity_hints')
         if 'enabled' in identity: boolean(identity['enabled'], 'identity_hints.enabled')

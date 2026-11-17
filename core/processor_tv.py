@@ -12,6 +12,9 @@ from .log_redaction import redact
 from .json_store import CacheCorruptionError
 from .cancellation import check_cancelled, ProcessingCancelled
 import os
+import re
+import threading
+import unicodedata
 import time
 from pathlib import Path
 from .path_safety import absolute_link_path, validate_target_path
@@ -31,6 +34,98 @@ LOG_INFO = "info"
 LOG_SUCCESS = "success"
 LOG_WARNING = "warning"
 LOG_ERROR = "error"
+
+
+_SPECIAL_MARK = re.compile(r'(?i)(?<![a-z])(?:ova|oad|sp|special|specials|ncop|nced)(?![a-z])|特典|特[别別]篇|番外|\bS0*0E\d')
+_EPISODE_TITLE_CACHE: Dict[tuple, list] = {}
+_EPISODE_TITLE_LOCK = threading.Lock()
+
+
+def episode_title_key(text) -> str:
+    """Comparable key for an episode title written in the file name; empty when it says nothing."""
+    if not isinstance(text, str):
+        return ""
+    value = unicodedata.normalize("NFKC", text).casefold().strip()
+    if re.fullmatch(r"(?:episode|ep|第)?\s*\d+\s*(?:集|話|话)?", value):
+        return ""
+    key = re.sub(r"[\W_]+", "", value)
+    return key if len(key) >= 6 and re.search(r"[a-z]", key) else ""
+
+
+def _english_episodes(tmdb_id, season, api_key, proxy):
+    with _EPISODE_TITLE_LOCK:
+        cached = _EPISODE_TITLE_CACHE.get((tmdb_id, season))
+    if cached is not None:
+        return cached
+    episodes = tmdb_client.get_tv_season_episodes(tmdb_id, season, api_key, "en-US", None, proxy=proxy) or []
+    found = [(ep.get("episode_number"), episode_title_key(ep.get("name"))) for ep in episodes if isinstance(ep, dict)]
+    with _EPISODE_TITLE_LOCK:
+        if len(_EPISODE_TITLE_CACHE) > 256:
+            _EPISODE_TITLE_CACHE.clear()
+        _EPISODE_TITLE_CACHE[(tmdb_id, season)] = found
+    return found
+
+
+def episodes_named(key, tmdb_id, seasons, api_key, proxy):
+    """(season, episode) pairs whose English TMDB title is the one written in the file name."""
+    hits = []
+    for season in seasons:
+        for number, name in _english_episodes(tmdb_id, season, api_key, proxy):
+            if type(number) is int and name and (name == key or (len(key) >= 10 and (name.startswith(key) or key.startswith(name)))):
+                hits.append((season, number))
+    return hits
+
+
+_SEASON_NAME_NUMBERS = {'一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10}
+
+
+def _named_season(name) -> Optional[int]:
+    """The season number a group name states (Season 4, S4, 第4季, 第四季), or None."""
+    if not isinstance(name, str):
+        return None
+    if _SPECIAL_MARK.search(name) or re.search(r'特[别別]|特典', name):
+        return 0
+    match = re.search(r'(?i)(?:\bseason\s*|\bS)0*(\d{1,2})\b|第\s*0*(\d{1,2})\s*[季期]|第\s*([一二三四五六七八九十])\s*[季期]', name)
+    if not match:
+        return None
+    return int(match.group(1) or match.group(2)) if (match.group(1) or match.group(2)) else _SEASON_NAME_NUMBERS[match.group(3)]
+
+
+def season_from_episode_groups(tmdb_id, season, episode, api_key, language, log_func=None, proxy=None):
+    """Map a release season that TMDB folds into one long season, using TMDB's own episode groups.
+
+    Accepted only when every group that names this season agrees: its N-th part is named season N, and the
+    part has at least this many episodes. Returns (tmdb season, tmdb episode, group name) or None.
+    """
+    answers = {}
+    for summary in tmdb_client.get_tv_episode_groups(tmdb_id, api_key, language, log_func, proxy)[:8]:
+        if not isinstance(summary, dict) or summary.get("type") not in (1, 3, 4, 6, 7):
+            continue
+        group = tmdb_client.get_episode_group(summary.get("id"), api_key, language, log_func, proxy)
+        parts = sorted((p for p in (group or {}).get("groups") or [] if isinstance(p, dict)), key=lambda p: p.get("order", 0))
+        numbers = [_named_season(p.get("name")) for p in parts]
+        # Every regular part names its season, in order (a season may be split into parts, "Season 2 Part 2"),
+        # so "Season 4" is not an arc that happens to say 4.
+        regular = [n for n in numbers if n != 0]
+        if None in regular or not regular or season not in regular:
+            continue
+        sequence = [n for i, n in enumerate(regular) if i == 0 or n != regular[i - 1]]
+        if sequence != list(range(1, len(sequence) + 1)):
+            continue
+        eps = [e for p, n in zip(parts, numbers) if n == season
+               for e in sorted((e for e in p.get("episodes") or [] if isinstance(e, dict)), key=lambda e: e.get("order", 0))]
+        if not 1 <= episode <= len(eps):
+            continue
+        target = eps[episode - 1]
+        sn, en = target.get("season_number"), target.get("episode_number")
+        if type(sn) is int and type(en) is int and sn > 0 and en > 0:
+            answers.setdefault((sn, en), summary.get("name") or "")
+    if len(answers) != 1:
+        if len(answers) > 1 and log_func:
+            log_func(f"TMDB 剧集组对第 {season} 季给出不同的换算结果，需要人工确认", LOG_WARNING)
+        return None
+    (sn, en), name = next(iter(answers.items()))
+    return sn, en, name
 
 
 @transactional_media
@@ -160,6 +255,12 @@ def process_tv_branch(
             if log_func:
                 log_func(f"✨ 应用 AI 修正: S{info['season']:02d}E{info['episode']:02d} -> S{season:02d}E{episode:02d}", LOG_INFO)
 
+        # A special (season 0) that only the AI suggested: TMDB numbers specials its own way, so a name without a
+        # special marker is not enough to pick one of them.
+        if season == 0 and info.get("_from_ai") and not _SPECIAL_MARK.search(f"{src.parent.name} {src.stem}"):
+            save_failed_cache(src, "AI 判断为特别篇（第 0 季），但文件名没有特别篇标记，需要人工确认", cache_dict, log_func)
+            return False
+
         # 常规剧集处理
         regular_seasons = [s for s in details.get("seasons", []) if s.get("season_number", 0) > 0]
         special_seasons = [s for s in details.get("seasons", []) if s.get("season_number", 0) == 0]
@@ -172,11 +273,46 @@ def process_tv_branch(
             tmdb_id, season, api_key, language, log_func, proxy=proxy
         )
         # Missing or unavailable season data is not evidence for another season.
+        # The one exception: TMDB has no such season, and its own episode groups name that season explicitly.
+        if not episodes and season > 0 and season not in {s.get("season_number") for s in regular_seasons}:
+            group_mapped = season_from_episode_groups(tmdb_id, season, episode, api_key, language, log_func, proxy)
+            if group_mapped:
+                if log_func:
+                    log_func(f"🔄 TMDB 没有第 {season} 季，按 TMDB 剧集组「{group_mapped[2]}」换算: S{season:02d}E{episode:02d} → S{group_mapped[0]:02d}E{group_mapped[1]:02d}", LOG_INFO)
+                season, episode = group_mapped[0], group_mapped[1]
+                confidence = max(confidence - 10, 0)
+                episodes = tmdb_client.get_tv_season_episodes(tmdb_id, season, api_key, language, log_func, proxy=proxy)
+        title_key = episode_title_key(info.get("episode_title"))
+        regular_numbers = sorted(n for n in {s.get("season_number") for s in regular_seasons} if type(n) is int and n > 0)
+        if not episodes and title_key:
+            named = episodes_named(title_key, tmdb_id, regular_numbers[:12], api_key, proxy)
+            if len(named) == 1:
+                if log_func:
+                    log_func(f"🔤 集名「{info.get('episode_title')}」只对应 TMDB S{named[0][0]:02d}E{named[0][1]:02d}，按集名入库", LOG_INFO)
+                season, episode = named[0]
+                episodes = tmdb_client.get_tv_season_episodes(tmdb_id, season, api_key, language, log_func, proxy=proxy)
         if not episodes:
             save_failed_cache(src, f"无法获取季 {season} 的集列表", cache_dict, log_func)
             return False
 
         ep_data = next((ep for ep in episodes if ep.get("episode_number") == episode), None)
+        if title_key:
+            named = episodes_named(title_key, tmdb_id, [season], api_key, proxy)
+            if (season, episode) in named:
+                if log_func:
+                    log_func("🔤 文件里的集名与 TMDB 该集一致", LOG_SUCCESS)
+                if isinstance(config.get("_recognition_score"), dict):
+                    config["_recognition_score"].setdefault("evidence", []).append("文件里的集名与 TMDB 该集一致")
+                confidence = min(confidence + 5, 100)
+            elif len(named) == 1 and ep_data:
+                save_failed_cache(src, f"文件里的集名「{info.get('episode_title')}」对应 TMDB 第 {named[0][1]} 集，"
+                                       f"与集号 {episode} 不一致，需要人工确认", cache_dict, log_func)
+                return False
+            elif len(named) == 1 and not ep_data:
+                if log_func:
+                    log_func(f"🔤 TMDB 第 {season} 季没有第 {episode} 集，集名对应第 {named[0][1]} 集，按集名入库", LOG_INFO)
+                episode = named[0][1]
+                ep_data = next((ep for ep in episodes if ep.get("episode_number") == episode), None)
 
         # 集号验证失败时的 AI 二次修正
         if not ep_data and mapped is None and info.get("_parser") == "anitopy" and config.get("ai_parser", {}).get("enabled"):

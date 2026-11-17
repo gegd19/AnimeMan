@@ -390,3 +390,82 @@ def test_duplicate_ai_json_fields_are_rejected_as_ambiguous(tmp_path,monkeypatch
     monkeypatch.setattr(ai_client,'call_ai_api_with_messages',lambda *a:
         '{"media_type":"tv","media_type":"movie","title":"Film"}')
     assert ai_client.parse_filename_with_ai(src,{})['media_type']=='unknown'
+
+
+def test_ai_reply_with_text_around_the_object_is_read(tmp_path,monkeypatch):
+    from core import ai_client
+    src=tmp_path/'[SSA] Sore dake ga Neck - 11 [720p].mp4';src.write_bytes(b'test')
+    reply='Here is the result:\n{"media_type":"tv","title":"Sore dake ga Neck","season":1,"episode":11}\nHope this helps.'
+    monkeypatch.setattr(ai_client,'call_ai_api_with_messages',lambda *a:reply)
+    result=ai_client.parse_filename_with_ai(src,{})
+    assert (result['title'],result['season'],result['episode'])==('Sore dake ga Neck',1,11)
+    # duplicate keys are still refused, even inside surrounding text
+    monkeypatch.setattr(ai_client,'call_ai_api_with_messages',lambda *a:'ok {"media_type":"tv","title":"A","title":"B","season":1,"episode":1}')
+    assert ai_client.parse_filename_with_ai(src,{})['media_type']=='unknown'
+
+
+def test_ai_without_a_season_keeps_the_parser_season_but_never_invents_an_episode(tmp_path,monkeypatch):
+    from core import ai_client
+    src=tmp_path/'[Bird] Onimomomomo - 10 (1080p).mkv';src.write_bytes(b'test')
+    monkeypatch.setattr(ai_client,'call_ai_api_with_messages',lambda *a:'{"media_type":"tv","title":"Onimomomomo","season":null,"episode":10}')
+    result=ai_client.parse_filename_with_ai(src,{},anitopy_hint={'title':'Onimomomomo','season':1,'episode':10})
+    assert (result['season'],result['episode'])==(1,10)
+    assert ai_client.parse_filename_with_ai(src,{})['media_type']=='unknown'
+    monkeypatch.setattr(ai_client,'call_ai_api_with_messages',lambda *a:'{"media_type":"tv","title":"Onimomomomo","season":null,"episode":null}')
+    assert ai_client.parse_filename_with_ai(src,{},anitopy_hint={'season':1,'episode':10})['media_type']=='unknown'
+
+
+def test_ai_answer_cut_off_by_the_token_limit_is_retried_once_with_more_room(monkeypatch):
+    from core import ai_client
+    calls=[]
+    class Reply:
+        def __init__(self,body):self.body=body
+        def raise_for_status(self):pass
+        def json(self):return self.body
+    class Session:
+        def post(self,url,headers,json,timeout):
+            calls.append(json['max_tokens'])
+            content='' if len(calls)==1 else '{"ok":1}'
+            return Reply({'choices':[{'message':{'content':content},'finish_reason':'length' if len(calls)==1 else 'stop'}]})
+    monkeypatch.setattr(ai_client,'create_session',lambda:Session())
+    monkeypatch.setattr(ai_client,'consume_recognition_call',lambda:None)
+    assert ai_client.call_ai_api('q',{'api_key':'k','max_tokens':600})=='{"ok":1}'
+    assert calls==[600,2400]
+    calls.clear()
+    class Empty(Session):
+        def post(self,url,headers,json,timeout):
+            calls.append(json['max_tokens'])
+            return Reply({'choices':[{'message':{'content':''},'finish_reason':'length'}]})
+    monkeypatch.setattr(ai_client,'create_session',lambda:Empty())
+    assert ai_client.call_ai_api('q',{'api_key':'k','max_tokens':600})==''
+    assert calls==[600,2400]
+
+
+def test_deepseek_thinking_is_off_for_parsing_and_dropped_when_the_endpoint_refuses_it(monkeypatch):
+    from core import ai_client
+    sent=[]
+    class Reply:
+        def __init__(self,code):self.status_code=code
+        def raise_for_status(self):
+            if self.status_code>=400:raise RuntimeError('bad request')
+        def json(self):return {'choices':[{'message':{'content':'ok'},'finish_reason':'stop'}]}
+    class Session:
+        def __init__(self,refuse):self.refuse=refuse
+        def post(self,url,headers,json,timeout):
+            sent.append(dict(json))
+            return Reply(400 if self.refuse and 'thinking' in json else 200)
+    monkeypatch.setattr(ai_client,'consume_recognition_call',lambda:None)
+    monkeypatch.setattr(ai_client,'create_session',lambda:Session(False))
+    assert ai_client.call_ai_api('q',{'api_key':'k'})=='ok'
+    assert sent[-1]['thinking']=={'type':'disabled'}
+    assert ai_client.call_ai_api('q',{'api_key':'k','thinking':'enabled'})=='ok' and sent[-1]['thinking']=={'type':'enabled'}
+    assert ai_client.call_ai_api('q',{'api_key':'k','provider':'openai'})=='ok' and 'thinking' not in sent[-1]
+    sent.clear(); monkeypatch.setattr(ai_client,'create_session',lambda:Session(True))
+    assert ai_client.call_ai_api('q',{'api_key':'k'})=='ok'
+    assert ['thinking' in body for body in sent]==[True,False]
+
+
+def test_season_indicators_are_whole_words():
+    from core.processor_core import _SEASON_INDICATOR_RE as indicator
+    assert not indicator.search('[migoto] cyclops shoujo saipu - 10 (848x480 h264 aac)')
+    assert all(indicator.search(t) for t in ('seikon no qwaser ii - 12', 'show 2nd season - 03', '某剧 第二季 01', 'show season 2 - 01'))

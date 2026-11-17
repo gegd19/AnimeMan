@@ -13,7 +13,7 @@ class StrictJSONProvider(DefaultJSONProvider):
 
 
 BODYLESS = {'run_task', 'stop_task', 'clear_processed_cache', 'clear_failed_cache',
-            'offline_preparse_scan', 'offline_preparse_parse', 'refresh_poster_cache', 'delete_mapping'}
+            'offline_preparse_scan', 'offline_preparse_parse', 'refresh_poster_cache', 'delete_mapping', 'update_anime_db'}
 PATH_ONLY = {'retry_processed_item', 'retry_processed_cache_item', 'delete_processed_cache_item'}
 SORTS = ('processed_time', 'confidence', 'title', 'src_name')
 

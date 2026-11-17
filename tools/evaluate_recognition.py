@@ -84,6 +84,8 @@ def run_case(case, temp, modules):
         for obj, name, value in [(tmdb, 'search_tmdb_multi', search_mock),
                                  (tmdb, 'get_tmdb_details', details_mock),
                                  (tmdb, 'get_tv_season_episodes', episodes_mock),
+                                 (tmdb, 'get_tv_episode_groups', lambda *a, **k: [dict(g, groups=None) for g in case.get('episode_groups', [])]),
+                                 (tmdb, 'get_episode_group', lambda gid, *a, **k: next((g for g in case.get('episode_groups', []) if g.get('id') == gid), None)),
                                  (video, 'get_video_duration', lambda *a, **k: None),
                                  (ai, 'call_ai_api', ai_mock)]:
             stack.enter_context(patch.object(obj, name, value))

@@ -31,6 +31,11 @@ App.Config = (function(app) {
         document.getElementById('userRulesEnabledCheck').checked = cfg.user_rules?.enabled === true;
         document.getElementById('numberingMapsEnabledCheck').checked = cfg.numbering_maps?.enabled === true;
         document.getElementById('recognitionAliasesEnabledCheck').checked = cfg.recognition_aliases?.enabled === true;
+        document.getElementById('animeDbEnabledCheck').checked = cfg.anime_db?.enabled !== false;
+        document.getElementById('animeDbUpdateDaysInput').value = Number.isInteger(cfg.anime_db?.update_days) ? cfg.anime_db.update_days : 7;
+        document.getElementById('animeDbWebSearchCheck').checked = cfg.anime_db?.web_search?.enabled === true;
+        document.getElementById('animeDbWebSearchMaxInput').value = Number.isInteger(cfg.anime_db?.web_search?.max_per_run) ? cfg.anime_db.web_search.max_per_run : 30;
+        if (window.App.AnimeDb) App.AnimeDb.refresh();
         document.getElementById('addYearCheck').checked = cfg.add_year_to_folder !== false;
         document.getElementById('forceChineseCheck').checked = cfg.force_chinese_name !== false;
         document.getElementById('maxWorkersInput').value = cfg.max_workers || 3;
@@ -124,6 +129,11 @@ App.Config = (function(app) {
         cfg.user_rules = {...(cfg.user_rules || {}), enabled: document.getElementById('userRulesEnabledCheck').checked};
         cfg.numbering_maps = {...(cfg.numbering_maps || {}), enabled: document.getElementById('numberingMapsEnabledCheck').checked};
         cfg.recognition_aliases = {...(cfg.recognition_aliases || {}), enabled: document.getElementById('recognitionAliasesEnabledCheck').checked};
+        const boundedInt = (id, fallback, max) => { const v = parseInt(document.getElementById(id).value, 10); return Number.isInteger(v) ? Math.min(Math.max(v, 0), max) : fallback; };
+        cfg.anime_db = {...(cfg.anime_db || {}), enabled: document.getElementById('animeDbEnabledCheck').checked,
+            update_days: boundedInt('animeDbUpdateDaysInput', 7, 365),
+            web_search: {...(cfg.anime_db?.web_search || {}), enabled: document.getElementById('animeDbWebSearchCheck').checked,
+                max_per_run: boundedInt('animeDbWebSearchMaxInput', 30, 1000)}};
         cfg.add_year_to_folder = document.getElementById('addYearCheck').checked;
         cfg.force_chinese_name = document.getElementById('forceChineseCheck').checked;
         cfg.max_workers = parseInt(document.getElementById('maxWorkersInput').value) || 3;

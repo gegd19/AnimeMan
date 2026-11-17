@@ -111,9 +111,25 @@
             <span>别名、季集编号映射和人工识别规则在「工具 → 识别规则」里添加和管理；这里的开关决定它们是否生效，保存配置后才会改变。</span>
             <button type="button" class="secondary btn-sm" data-open-rules="user">管理识别规则</button>
         </div>
+        <h4>离线番剧数据库</h4>
+        <label class="check"><input type="checkbox" id="animeDbEnabledCheck" checked><span>用离线番剧数据库识别番剧<small>推荐。先在番剧资料库里按名称和别名找到对应的那一季，再换算成 TMDB 的季集；在本机查询，不产生费用。需要先下载约 80 MB 公开数据。</small></span></label>
+        <div class="anime-db-status">
+            <span id="animeDbStatusText" aria-live="polite">读取中…</span>
+            <button type="button" class="secondary btn-sm" id="animeDbUpdateBtn" onclick="App.AnimeDb.update()">下载 / 更新数据</button>
+        </div>
+        <div class="field">
+            <label for="animeDbUpdateDaysInput">自动更新周期（天）</label>
+            <input type="number" id="animeDbUpdateDaysInput" class="field-inline" min="0" max="365" value="7" inputmode="numeric">
+        </div>
+        <p class="hint">下载过一次后，超过更新周期会在开始处理时后台更新，填 0 则不自动更新。数据来源：manami anime-offline-database（ODbL 1.0 + DbCL 1.0）、bangumi-data（CC BY 4.0）、anibridge-mappings（MIT）。</p>
         <h4>AI 解析</h4>
         <label class="check"><input type="checkbox" id="aiParserEnabledCheck"><span>启用 AI 解析</span></label>
         <label class="check"><input type="checkbox" id="aiBatchFolderCheck" checked><span>优先使用文件夹批量解析<small>同一文件夹只调用一次，推荐开启。</small></span></label>
+        <label class="check"><input type="checkbox" id="animeDbWebSearchCheck"><span>AI 联网搜索补救<small>仅支持 DeepSeek。离线数据库和 TMDB 都认不出时，搜索番剧资料站上的作品页，再用离线数据库换算；每次搜索按 DeepSeek 搜索接口计费。</small></span></label>
+        <div class="field">
+            <label for="animeDbWebSearchMaxInput">每次运行最多搜索</label>
+            <input type="number" id="animeDbWebSearchMaxInput" class="field-inline" min="0" max="1000" value="30" inputmode="numeric">
+        </div>
         <div class="field">
             <label for="aiProviderSelect">提供商</label>
             <select id="aiProviderSelect"><option>deepseek</option><option>openai</option><option>zhipu</option><option>qwen</option></select>
@@ -193,6 +209,7 @@
                 <button type="button" data-theme-choice="system" aria-pressed="true">跟随系统</button>
                 <button type="button" data-theme-choice="light" aria-pressed="false">浅色</button>
                 <button type="button" data-theme-choice="dark" aria-pressed="false">深色</button>
+                <button type="button" data-theme-choice="gogai" aria-pressed="false">号外</button>
             </div>
         </div>
         <div class="field">

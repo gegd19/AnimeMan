@@ -7,8 +7,8 @@
     (function () {
         var choice = 'system';
         try { choice = localStorage.getItem('animeman.theme') || 'system'; } catch (error) { /* 隐私模式下忽略 */ }
-        var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        var dark = choice === 'dark' || (choice !== 'light' && choice !== 'gogai' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = choice === 'gogai' ? 'gogai' : (dark ? 'dark' : 'light');
         try { if (localStorage.getItem('animeman.density') === 'compact') document.documentElement.dataset.density = 'compact'; } catch (error) { /* 同上 */ }
     })();
 </script>

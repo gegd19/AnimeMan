@@ -95,6 +95,8 @@ def _run_with_config(config, progress_callback, repair_mode):
         from .user_recognition_rules import revision
         config = dict(config, recognition_rule_revision=revision(config))
     tmdb_client._tmdb_limiter = tmdb_client.RateLimiter(min_interval=config.get("tmdb_rate_limit", 0.05))
+    from . import anime_db
+    anime_db.reset_run()
 
     with cache_manager.cache_lock:
         cache = cache_manager.load_cache()
@@ -102,6 +104,8 @@ def _run_with_config(config, progress_callback, repair_mode):
     persisted = deepcopy(cache)
 
     wrapped_log = wrap_progress_callback(progress_callback)
+    if not is_preview(config) and anime_db.maybe_refresh(config):
+        wrapped_log("📚 番剧数据库超过更新周期，正在后台更新（本次运行仍使用现有数据）", LOG_INFO)
 
     if repair_mode:
         return repair_missing_metadata(config, cache, wrapped_log)

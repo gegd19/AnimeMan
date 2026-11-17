@@ -62,8 +62,8 @@ App.Shell = (function(app) {
 
     function applyTheme(choice) {
         const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const dark = choice === 'dark' || (choice !== 'light' && systemDark);
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        const dark = choice === 'dark' || (choice !== 'light' && choice !== 'gogai' && systemDark);
+        document.documentElement.dataset.theme = choice === 'gogai' ? 'gogai' : (dark ? 'dark' : 'light');
         for (const button of document.querySelectorAll('[data-theme-choice]')) {
             button.setAttribute('aria-pressed', String(button.dataset.themeChoice === choice));
         }
@@ -74,7 +74,7 @@ App.Shell = (function(app) {
     }
 
     function setTheme(choice) {
-        if (!['system', 'light', 'dark'].includes(choice)) choice = 'system';
+        if (!['system', 'light', 'dark', 'gogai'].includes(choice)) choice = 'system';
         try {
             if (choice === 'system') localStorage.removeItem(THEME_KEY);
             else localStorage.setItem(THEME_KEY, choice);
