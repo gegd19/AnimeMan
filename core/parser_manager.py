@@ -194,6 +194,19 @@ def parse_filename(file_path,config,log_func=None):
                 info=_tag(info,source);parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
     cached=_cached_file_result(key)
     if cached:return cached
+    # Evaluate local evidence before scheduling any new AI request.
+    anime=None
+    local_info=None
+    if config.get('anime_parser',{}).get('enabled') and ANITOPY_AVAILABLE:
+        anime=parse_with_anitopy(file_path.name,folder.name,log_func)
+        local_info=_tag(anime,'anitopy')
+        if (local_info and anime.get('_anitopy_success')
+                and local_info.get('media_type') == 'tv'):
+            parse_identity.assert_file_current(file_path);_save_parse_result(key,local_info);return local_info
+    else:
+        local_info=_tag(parse_with_regex(file_path.name,folder.name),'regex')
+        if local_info and local_info.get('media_type') == 'tv':
+            parse_identity.assert_file_current(file_path);_save_parse_result(key,local_info);return local_info
     if enabled and config.get('ai_parser',{}).get('batch_folder_enabled',True):
         _,files=parse_identity.folder_snapshot(folder,config)
         if len(files)>=2:
@@ -205,13 +218,11 @@ def parse_filename(file_path,config,log_func=None):
             info=_extract_file_info_from_offline_cache(file_path,batch)
             if info:
                 info=_tag(info,'ai_folder');parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
-    anime=None
-    if config.get('anime_parser',{}).get('enabled') and ANITOPY_AVAILABLE:
-        anime=parse_with_anitopy(file_path.name,folder.name,log_func)
-        info=_tag(anime,'anitopy')
-        if info and anime.get('_anitopy_success'):
-            parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
-        if not config.get('anime_parser',{}).get('fallback_to_regex',True):return {'media_type':'unknown'}
+    if (not enabled and local_info and anime is not None and anime.get('_anitopy_success')):
+        parse_identity.assert_file_current(file_path);_save_parse_result(key,local_info);return local_info
+    if (not enabled and anime is not None
+            and not config.get('anime_parser',{}).get('fallback_to_regex',True)):
+        return {'media_type':'unknown'}
     if enabled and str(folder.resolve()) in load_raw_cache():
         result=parse_folder_on_demand(folder,config,log_func=log_func)
         info=_extract_file_info_from_offline_cache(file_path,result)
@@ -221,6 +232,8 @@ def parse_filename(file_path,config,log_func=None):
         info=_tag(ai_client.parse_filename_with_ai(file_path,config,log_func,anitopy_hint=anime),'ai_file')
         if info:
             parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info
+    if local_info:
+        parse_identity.assert_file_current(file_path);_save_parse_result(key,local_info);return local_info
     result=parse_with_regex(file_path.name,folder.name)
     info=_tag(result,'regex')
     if info:parse_identity.assert_file_current(file_path);_save_parse_result(key,info);return info

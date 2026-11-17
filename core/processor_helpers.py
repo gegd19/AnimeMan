@@ -159,6 +159,9 @@ def parse_filename_info(src: Path, config: dict, log_func,
                         force_tmdb_id=None, force_media_type=None,
                         force_season=None, force_episode=None) -> Dict[str, Any]:
     try:
+        if force_tmdb_id:
+            # A user mapping must not be replaced by a new AI suggestion.
+            config = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
         info = parser_manager.parse_filename(src, config, log_func)
     except (AIBudgetExceeded,ProcessingCancelled,CacheCorruptionError,OSError):
         raise

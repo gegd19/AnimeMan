@@ -268,7 +268,10 @@ def try_folder_ai_batch(
     返回更新后的 info 字典（如果成功），否则返回 None。
     如果批量解析失败，会尝试单文件 AI 解析作为兜底。
     """
-    # 触发条件：anitopy 解析为 S01E01（典型的解析失败回退值）
+    # A complete local or cached result is not a failure merely because it is E01.
+    from .parse_contract import normalize_media
+    if normalize_media(info, trusted=True):
+        return None
     if not (info.get("_parser") == "anitopy"
             and info.get("season") == 1
             and info.get("episode") == 1
