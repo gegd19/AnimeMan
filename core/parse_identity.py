@@ -55,6 +55,7 @@ def policy_key(config):
     aliases_enabled = config.get('recognition_aliases', {}).get('enabled') is True
     values['alias_revision'] = alias_revision(include_new=aliases_enabled)
     values['aliases_enabled'] = aliases_enabled
+    if aliases_enabled: values['alias_detail_policy'] = 'v1'
     if config.get('numbering_maps', {}).get('enabled') is True:
         from .numbering_maps import revision as numbering_revision
         values['numbering_maps_revision'] = numbering_revision()

@@ -255,6 +255,11 @@ def search_tmdb_with_fallback(
     from .candidate_evaluator import evaluate_candidates
     from .failure_policy import note_error
     queries, seen_queries = [], set()
+    direct_titles = [search_title, *alt_titles, title_for_attempts,
+                     *search_enhancer.generate_search_candidates(search_title, aliases_enabled=aliases_enabled)]
+    direct_queries = {recognition_aliases.normalize(value) for value in direct_titles
+                      if recognition_aliases.normalize(value)}
+    direct_candidates = set()
     hint_ids = {(r['media_type'], r['tmdb_id']) for r in records if r['source'] == 'ai'
                 and recognition_aliases.normalize(r['name']) in requested
                 and (media_type not in ('tv','movie') or r['media_type'] == media_type)}
@@ -283,6 +288,8 @@ def search_tmdb_with_fallback(
                     if not isinstance(item, dict) or type(item.get('id')) is not int or item['id'] <= 0:
                         continue
                     key = (result_type, item['id'])
+                    if recognition_aliases.normalize(query) in direct_queries:
+                        direct_candidates.add(key)
                     if key not in merged:
                         merged[key] = dict(item)
                     else:
@@ -304,6 +311,43 @@ def search_tmdb_with_fallback(
     ranked.sort(key=lambda entry: -entry['score'])
     if ranked and (len(ranked) == 1 or ranked[0]['score'] - ranked[1]['score'] >= 10):
         return ranked[0]['item'], ranked[0]['media_type'], len(merged)
+    # Search pages often omit alternative titles.  With the existing opt-in,
+    # inspect a strictly bounded set of TMDB details and require actual title
+    # evidence; a folder name or a solitary result is never enough.
+    if (aliases_enabled and not ranked and 0 < len(merged) <= 4
+            and set(merged).issubset(direct_candidates | set(alias_results))):
+        detail_ranked = []
+        unresolved_details = False
+        for (kind, ident), candidate in sorted(merged.items()):
+            details = alias_results.get((kind, ident))
+            if details is None:
+                details = tmdb_client.get_tmdb_details(kind, ident, api_key, language, log_func,
+                                                       include_alternative_titles=True, proxy=proxy)
+            title_key = 'name' if kind == 'tv' else 'title'
+            date_key = 'first_air_date' if kind == 'tv' else 'release_date'
+            if (not isinstance(details, dict) or type(details.get('id')) is not int
+                    or details['id'] != ident or not isinstance(details.get(title_key), str)
+                    or not details[title_key].strip()):
+                unresolved_details = True
+                continue
+            result_date, detail_date = candidate.get(date_key), details.get(date_key)
+            if (isinstance(result_date, str) and isinstance(detail_date, str)
+                    and result_date[:4].isdigit() and detail_date[:4].isdigit()
+                    and result_date[:4] != detail_date[:4]):
+                unresolved_details = True
+                continue
+            decision = evaluate_candidates([details], kind, titles, search_year, include_alternatives=True)
+            detail_ranked.extend(entry for entry in decision['candidates'] if entry['reason'] is None)
+        if unresolved_details:
+            if log_func: log_func('候选详情不可用或冲突，需要人工确认', LOG_WARNING)
+            return None, media_type, 0
+        detail_ranked.sort(key=lambda entry: -entry['score'])
+        if detail_ranked and (len(detail_ranked) == 1 or detail_ranked[0]['score'] - detail_ranked[1]['score'] >= 10):
+            return dict(detail_ranked[0]['item'], _verified_detail_alias=True), detail_ranked[0]['media_type'], len(merged)
+        if detail_ranked:
+            if log_func: log_func('候选详情别名存在歧义，需要人工确认', LOG_WARNING)
+            return None, media_type, 0
+
     # Corrected titles are search hints only; original evidence remains mandatory.
     if not ranked and merged and config.get('ai_parser', {}).get('enabled') and src is not None:
         import unicodedata

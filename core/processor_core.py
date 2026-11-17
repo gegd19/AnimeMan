@@ -281,6 +281,8 @@ def process_video(
                         wrapped_log(f"⚠️ 搜索返回 {candidate_count} 个候选结果，匹配评分降低 5 分", LOG_WARNING)
 
             tmdb_id = tmdb_result["id"]
+            if tmdb_result.get('_verified_detail_alias') is True:
+                current_info = dict(current_info, _verified_detail_alias=True)
             api_key = config["tmdb_api"]["api_key"]
             language = config["tmdb_api"].get("language", "zh-CN")
             proxy = config.get("tmdb_api", {}).get("proxy")
@@ -290,11 +292,21 @@ def process_video(
             )
             if not details:
                 return (False, None, None, None, None, None, confidence, current_info)
-            if current_info.get("_explicit_identity"):
+            if current_info.get("_explicit_identity") or current_info.get('_verified_detail_alias'):
                 type_name = "title" if media_type == "movie" else "name"
                 if (not isinstance(details, dict) or type(details.get("id")) is not int
                         or details['id'] != tmdb_id or not isinstance(details.get(type_name), str)
                         or not details[type_name].strip()):
+                    return (False, None, None, None, None, None, confidence, current_info)
+            if current_info.get('_verified_detail_alias'):
+                from .candidate_evaluator import evaluate_candidates
+                date_key = 'release_date' if media_type == 'movie' else 'first_air_date'
+                old_date, new_date = tmdb_result.get(date_key), details.get(date_key)
+                date_conflict = (isinstance(old_date, str) and isinstance(new_date, str)
+                                 and old_date[:4].isdigit() and new_date[:4].isdigit()
+                                 and old_date[:4] != new_date[:4])
+                if date_conflict or not evaluate_candidates([details], media_type,
+                        [search_title, title_orig, *alt_titles], search_year, include_alternatives=True)['selected']:
                     return (False, None, None, None, None, None, confidence, current_info)
 
             if media_type == "movie":
@@ -354,6 +366,8 @@ def process_video(
                 score_evidence.append("已保存的人工规则指定 TMDB 身份")
             elif current_info.get("_explicit_identity"):
                 score_evidence.append("源路径或关联 NFO 中明确指定 TMDB ID")
+            elif current_info.get('_verified_detail_alias'):
+                score_evidence.append('候选标题或已核验备用标题与输入一致')
             else:
                 from .candidate_evaluator import evaluate_candidates
                 assessment = evaluate_candidates([tmdb_result], media_type,
@@ -376,6 +390,9 @@ def process_video(
             initial_confidence = max(initial_confidence, 85)
         success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = try_process_with_info(info, initial_confidence)
 
+        if not success and final_info.get('_verified_detail_alias'):
+            save_failed_cache(src, 'TMDB 详情或别名证据发生变化，需要人工确认', cache_dict, wrapped_log)
+            return False
         if not success and final_info.get('_explicit_identity'):
             save_failed_cache(src, "明确 TMDB ID 的详情无法验证，需要人工确认", cache_dict, wrapped_log)
             return False
