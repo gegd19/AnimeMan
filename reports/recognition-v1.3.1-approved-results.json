@@ -1,0 +1,1169 @@
+{
+  "acceptance_policy": "identity-evidence-approved-v1",
+  "approved_acceptance": {
+    "ai_off_cold": {
+      "evidence_failures": [],
+      "evidence_fixture_verified": true,
+      "evidence_required_review": [
+        "C46",
+        "C49"
+      ],
+      "other_eligible_correct": 18,
+      "other_eligible_failed": [],
+      "other_eligible_total": 18,
+      "passed": true,
+      "review_failures": [],
+      "runtime_errors": 0,
+      "unsafe_auto": 0
+    },
+    "ai_off_warm": {
+      "evidence_failures": [],
+      "evidence_fixture_verified": true,
+      "evidence_required_review": [
+        "C46",
+        "C49"
+      ],
+      "other_eligible_correct": 18,
+      "other_eligible_failed": [],
+      "other_eligible_total": 18,
+      "passed": true,
+      "review_failures": [],
+      "runtime_errors": 0,
+      "unsafe_auto": 0
+    },
+    "ai_on_cold": {
+      "evidence_failures": [],
+      "evidence_fixture_verified": true,
+      "evidence_required_review": [
+        "C46",
+        "C49"
+      ],
+      "other_eligible_correct": 18,
+      "other_eligible_failed": [],
+      "other_eligible_total": 18,
+      "passed": true,
+      "review_failures": [],
+      "runtime_errors": 0,
+      "unsafe_auto": 0
+    },
+    "ai_on_warm": {
+      "evidence_failures": [],
+      "evidence_fixture_verified": true,
+      "evidence_required_review": [
+        "C46",
+        "C49"
+      ],
+      "other_eligible_correct": 18,
+      "other_eligible_failed": [],
+      "other_eligible_total": 18,
+      "passed": true,
+      "review_failures": [],
+      "runtime_errors": 0,
+      "unsafe_auto": 0
+    }
+  },
+  "evidence_suite": {
+    "acceptance": {
+      "ai_off_cold": {
+        "missed_eligible": [],
+        "passed": true,
+        "runtime_errors": [],
+        "unsafe_auto": []
+      },
+      "ai_off_warm": {
+        "missed_eligible": [],
+        "passed": true,
+        "runtime_errors": [],
+        "unsafe_auto": []
+      },
+      "ai_on_cold": {
+        "missed_eligible": [],
+        "passed": true,
+        "runtime_errors": [],
+        "unsafe_auto": []
+      },
+      "ai_on_warm": {
+        "missed_eligible": [],
+        "passed": true,
+        "runtime_errors": [],
+        "unsafe_auto": []
+      }
+    },
+    "cases": [
+      {
+        "case_id": "I46N",
+        "category": "multilingual",
+        "evidence_kind": "none",
+        "expected": null,
+        "ground_truth": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1100
+        },
+        "media_group": "tv",
+        "scenarios": {
+          "ai_off_cold": {
+            "actual": null,
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 1.724,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_off_warm": {
+            "actual": null,
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 1.197,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_cold": {
+            "actual": null,
+            "ai_calls": 2,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 1.883,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 1
+          },
+          "ai_on_warm": {
+            "actual": null,
+            "ai_calls": 2,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 1.421,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 1
+          }
+        }
+      },
+      {
+        "case_id": "I46T",
+        "category": "multilingual",
+        "evidence_kind": "tmdb",
+        "expected": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1100
+        },
+        "ground_truth": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1100
+        },
+        "media_group": "tv",
+        "scenarios": {
+          "ai_off_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.773,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_off_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 4.64,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 4.776,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 4.97,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          }
+        }
+      },
+      {
+        "case_id": "I46M",
+        "category": "multilingual",
+        "evidence_kind": "manual",
+        "expected": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1100
+        },
+        "ground_truth": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1100
+        },
+        "media_group": "tv",
+        "scenarios": {
+          "ai_off_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 4.791,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_off_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 4.415,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.523,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1100
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1100
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.288,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          }
+        }
+      },
+      {
+        "case_id": "I49N",
+        "category": "romanized",
+        "evidence_kind": "none",
+        "expected": null,
+        "ground_truth": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1103
+        },
+        "media_group": "tv",
+        "scenarios": {
+          "ai_off_cold": {
+            "actual": null,
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 1.571,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_off_warm": {
+            "actual": null,
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 0.944,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_cold": {
+            "actual": null,
+            "ai_calls": 2,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 1.762,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 1
+          },
+          "ai_on_warm": {
+            "actual": null,
+            "ai_calls": 2,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "review",
+            "mock_elapsed_ms": 1.234,
+            "pending": null,
+            "reason_code": "no_match_or_details",
+            "runtime_errors": 0,
+            "score_origin": null,
+            "tmdb_calls": 2,
+            "tmdb_details_calls": 0,
+            "tmdb_episode_calls": 0,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 1
+          }
+        }
+      },
+      {
+        "case_id": "I49T",
+        "category": "romanized",
+        "evidence_kind": "tmdb",
+        "expected": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1103
+        },
+        "ground_truth": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1103
+        },
+        "media_group": "tv",
+        "scenarios": {
+          "ai_off_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 4.644,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_off_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 4.636,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.036,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.359,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          }
+        }
+      },
+      {
+        "case_id": "I49M",
+        "category": "romanized",
+        "evidence_kind": "manual",
+        "expected": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1103
+        },
+        "ground_truth": {
+          "episode": 1,
+          "media_type": "tv",
+          "season": 1,
+          "tmdb_id": 1103
+        },
+        "media_group": "tv",
+        "scenarios": {
+          "ai_off_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.181,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_off_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.192,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_cold": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.736,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          },
+          "ai_on_warm": {
+            "actual": {
+              "episode": 1,
+              "media_type": "tv",
+              "season": 1,
+              "tmdb_id": 1103
+            },
+            "ai_calls": 0,
+            "candidate_ids": [
+              1103
+            ],
+            "decision": "automatic",
+            "mock_elapsed_ms": 5.47,
+            "pending": null,
+            "reason_code": null,
+            "runtime_errors": 0,
+            "score_origin": "automatic",
+            "tmdb_calls": 5,
+            "tmdb_details_calls": 2,
+            "tmdb_episode_calls": 1,
+            "tmdb_search_calls": 2,
+            "tvmaze_calls": 0
+          }
+        }
+      }
+    ],
+    "cold_warm_decision_differences": {
+      "ai_off": [],
+      "ai_on": []
+    },
+    "fixture_sha256": "c37d135ba24dc5213e655373009401c44303888538e54411c772a1315b3c5e9f",
+    "fixture_version": "identity-evidence-v1",
+    "media_groups": {
+      "ai_off_cold": {
+        "movie": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "special": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "tv": {
+          "ai_calls": 0,
+          "auto_accuracy": 1.0,
+          "automatic_total": 4,
+          "correct_auto": 4,
+          "correct_coverage": 0.6666666666666666,
+          "eligible_coverage": 1.0,
+          "eligible_total": 4,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 23.684,
+          "must_review_total": 2,
+          "review": 2,
+          "runtime_errors": 0,
+          "tmdb_calls": 24,
+          "total": 6,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      "ai_off_warm": {
+        "movie": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "special": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "tv": {
+          "ai_calls": 0,
+          "auto_accuracy": 1.0,
+          "automatic_total": 4,
+          "correct_auto": 4,
+          "correct_coverage": 0.6666666666666666,
+          "eligible_coverage": 1.0,
+          "eligible_total": 4,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 21.024,
+          "must_review_total": 2,
+          "review": 2,
+          "runtime_errors": 0,
+          "tmdb_calls": 24,
+          "total": 6,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      "ai_on_cold": {
+        "movie": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "special": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "tv": {
+          "ai_calls": 4,
+          "auto_accuracy": 1.0,
+          "automatic_total": 4,
+          "correct_auto": 4,
+          "correct_coverage": 0.6666666666666666,
+          "eligible_coverage": 1.0,
+          "eligible_total": 4,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 24.716,
+          "must_review_total": 2,
+          "review": 2,
+          "runtime_errors": 0,
+          "tmdb_calls": 24,
+          "total": 6,
+          "tvmaze_calls": 2,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      "ai_on_warm": {
+        "movie": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "special": {
+          "ai_calls": 0,
+          "auto_accuracy": null,
+          "automatic_total": 0,
+          "correct_auto": 0,
+          "correct_coverage": null,
+          "eligible_coverage": null,
+          "eligible_total": 0,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 0,
+          "must_review_total": 0,
+          "review": 0,
+          "runtime_errors": 0,
+          "tmdb_calls": 0,
+          "total": 0,
+          "tvmaze_calls": 0,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "tv": {
+          "ai_calls": 4,
+          "auto_accuracy": 1.0,
+          "automatic_total": 4,
+          "correct_auto": 4,
+          "correct_coverage": 0.6666666666666666,
+          "eligible_coverage": 1.0,
+          "eligible_total": 4,
+          "identity_known_numbering_pending": 0,
+          "mock_elapsed_ms": 23.742,
+          "must_review_total": 2,
+          "review": 2,
+          "runtime_errors": 0,
+          "tmdb_calls": 24,
+          "total": 6,
+          "tvmaze_calls": 2,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      }
+    },
+    "scenarios": {
+      "ai_off_cold": {
+        "ai_calls": 0,
+        "auto_accuracy": 1.0,
+        "automatic_total": 4,
+        "correct_auto": 4,
+        "correct_coverage": 0.6666666666666666,
+        "eligible_coverage": 1.0,
+        "eligible_total": 4,
+        "identity_known_numbering_pending": 0,
+        "mock_elapsed_ms": 23.684,
+        "must_review_total": 2,
+        "review": 2,
+        "runtime_errors": 0,
+        "tmdb_calls": 24,
+        "total": 6,
+        "tvmaze_calls": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "ai_off_warm": {
+        "ai_calls": 0,
+        "auto_accuracy": 1.0,
+        "automatic_total": 4,
+        "correct_auto": 4,
+        "correct_coverage": 0.6666666666666666,
+        "eligible_coverage": 1.0,
+        "eligible_total": 4,
+        "identity_known_numbering_pending": 0,
+        "mock_elapsed_ms": 21.024,
+        "must_review_total": 2,
+        "review": 2,
+        "runtime_errors": 0,
+        "tmdb_calls": 24,
+        "total": 6,
+        "tvmaze_calls": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "ai_on_cold": {
+        "ai_calls": 4,
+        "auto_accuracy": 1.0,
+        "automatic_total": 4,
+        "correct_auto": 4,
+        "correct_coverage": 0.6666666666666666,
+        "eligible_coverage": 1.0,
+        "eligible_total": 4,
+        "identity_known_numbering_pending": 0,
+        "mock_elapsed_ms": 24.716,
+        "must_review_total": 2,
+        "review": 2,
+        "runtime_errors": 0,
+        "tmdb_calls": 24,
+        "total": 6,
+        "tvmaze_calls": 2,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "ai_on_warm": {
+        "ai_calls": 4,
+        "auto_accuracy": 1.0,
+        "automatic_total": 4,
+        "correct_auto": 4,
+        "correct_coverage": 0.6666666666666666,
+        "eligible_coverage": 1.0,
+        "eligible_total": 4,
+        "identity_known_numbering_pending": 0,
+        "mock_elapsed_ms": 23.742,
+        "must_review_total": 2,
+        "review": 2,
+        "runtime_errors": 0,
+        "tmdb_calls": 24,
+        "total": 6,
+        "tvmaze_calls": 2,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    }
+  },
+  "fixed_acceptance": {
+    "ai_off_cold": {
+      "passed": false,
+      "regressions": [
+        "C46",
+        "C49"
+      ],
+      "runtime_errors": [],
+      "unsafe_auto": []
+    },
+    "ai_off_warm": {
+      "passed": false,
+      "regressions": [
+        "C46",
+        "C49"
+      ],
+      "runtime_errors": [],
+      "unsafe_auto": []
+    },
+    "ai_on_cold": {
+      "passed": false,
+      "regressions": [
+        "C46",
+        "C49"
+      ],
+      "runtime_errors": [],
+      "unsafe_auto": []
+    },
+    "ai_on_warm": {
+      "passed": false,
+      "regressions": [
+        "C46",
+        "C49"
+      ],
+      "runtime_errors": [],
+      "unsafe_auto": []
+    }
+  },
+  "fixed_fixture_sha256": "15d142970dc6a81d9e2ad3f3dde3fdf6ac0f999394658a0208dd28a25d0ef421",
+  "fixed_fixture_version": "b00-v1",
+  "fixed_scenarios": {
+    "ai_off_cold": {
+      "ai_calls": 0,
+      "auto_accuracy": 1.0,
+      "automatic_total": 18,
+      "correct_auto": 18,
+      "correct_coverage": 0.3673469387755102,
+      "eligible_coverage": 0.9,
+      "eligible_total": 20,
+      "identity_known_numbering_pending": 0,
+      "mock_elapsed_ms": 200.718,
+      "must_review_total": 29,
+      "review": 31,
+      "runtime_errors": 0,
+      "tmdb_calls": 110,
+      "total": 49,
+      "tvmaze_calls": 0,
+      "unsafe_auto": 0,
+      "wrong_auto": 0
+    },
+    "ai_off_warm": {
+      "ai_calls": 0,
+      "auto_accuracy": 1.0,
+      "automatic_total": 18,
+      "correct_auto": 18,
+      "correct_coverage": 0.3673469387755102,
+      "eligible_coverage": 0.9,
+      "eligible_total": 20,
+      "identity_known_numbering_pending": 0,
+      "mock_elapsed_ms": 135.189,
+      "must_review_total": 29,
+      "review": 31,
+      "runtime_errors": 0,
+      "tmdb_calls": 98,
+      "total": 49,
+      "tvmaze_calls": 0,
+      "unsafe_auto": 0,
+      "wrong_auto": 0
+    },
+    "ai_on_cold": {
+      "ai_calls": 24,
+      "auto_accuracy": 1.0,
+      "automatic_total": 18,
+      "correct_auto": 18,
+      "correct_coverage": 0.3673469387755102,
+      "eligible_coverage": 0.9,
+      "eligible_total": 20,
+      "identity_known_numbering_pending": 0,
+      "mock_elapsed_ms": 186.642,
+      "must_review_total": 29,
+      "review": 31,
+      "runtime_errors": 0,
+      "tmdb_calls": 110,
+      "total": 49,
+      "tvmaze_calls": 10,
+      "unsafe_auto": 0,
+      "wrong_auto": 0
+    },
+    "ai_on_warm": {
+      "ai_calls": 24,
+      "auto_accuracy": 1.0,
+      "automatic_total": 18,
+      "correct_auto": 18,
+      "correct_coverage": 0.3673469387755102,
+      "eligible_coverage": 0.9,
+      "eligible_total": 20,
+      "identity_known_numbering_pending": 0,
+      "mock_elapsed_ms": 143.274,
+      "must_review_total": 29,
+      "review": 31,
+      "runtime_errors": 0,
+      "tmdb_calls": 98,
+      "total": 49,
+      "tvmaze_calls": 10,
+      "unsafe_auto": 0,
+      "wrong_auto": 0
+    }
+  },
+  "interpretation": "The fixed B00 ground truth and acceptance remain unchanged. The separate synthetic suite tests review without identity evidence and automatic matching with explicitly supplied evidence.",
+  "method": {
+    "ai": "neutral low-level API mock returns no response; actual parser wrappers and AI budgets run normally",
+    "external_process_attempts": 0,
+    "folder_counts": "one processed synthetic source per case; other fixture files are context",
+    "movie_tv_special": "fixture expected type/category; unclassified review cases grouped as TV filename fixtures",
+    "network_attempts": 0,
+    "timing": "local mock milliseconds, not external network performance",
+    "tmdb": "fixture mock",
+    "warm": "same file and caches immediately processed a second time"
+  },
+  "source_revision": "67d9c70"
+}
