@@ -1,0 +1,361 @@
+{
+  "version": "identity-evidence-v1",
+  "cases": [
+    {
+      "case_id": "I46N",
+      "category": "multilingual",
+      "folder": "樱花之歌",
+      "filename": "Sakura no Uta S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1100,
+          "name": "樱花之歌",
+          "title": "樱花之歌",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1100,
+        "name": "樱花之歌",
+        "title": "樱花之歌",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "固定输入无可验证别名证据，安全决策应待人工确认",
+      "split": "evidence",
+      "other_files": [],
+      "ground_truth": {
+        "media_type": "tv",
+        "tmdb_id": 1100,
+        "season": 1,
+        "episode": 1
+      },
+      "evidence_kind": "none"
+    },
+    {
+      "case_id": "I46T",
+      "category": "multilingual",
+      "folder": "樱花之歌",
+      "filename": "Sakura no Uta S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1100,
+          "name": "樱花之歌",
+          "title": "樱花之歌",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1100,
+        "name": "樱花之歌",
+        "title": "樱花之歌",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ],
+        "alternative_titles": {
+          "results": [
+            {
+              "title": "Sakura no Uta"
+            }
+          ]
+        }
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1100,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "合成 TMDB 详情明确提供备用标题",
+      "split": "evidence",
+      "other_files": [],
+      "ground_truth": {
+        "media_type": "tv",
+        "tmdb_id": 1100,
+        "season": 1,
+        "episode": 1
+      },
+      "setup": {
+        "aliases_enabled": true
+      },
+      "evidence_kind": "tmdb"
+    },
+    {
+      "case_id": "I46M",
+      "category": "multilingual",
+      "folder": "樱花之歌",
+      "filename": "Sakura no Uta S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1100,
+          "name": "樱花之歌",
+          "title": "樱花之歌",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1100,
+        "name": "樱花之歌",
+        "title": "樱花之歌",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1100,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "人工显式确认且限定源目录的合成别名",
+      "split": "evidence",
+      "other_files": [],
+      "ground_truth": {
+        "media_type": "tv",
+        "tmdb_id": 1100,
+        "season": 1,
+        "episode": 1
+      },
+      "setup": {
+        "aliases": {
+          "tmdb_id": 1100,
+          "names": [
+            "Sakura no Uta",
+            "樱花之歌"
+          ],
+          "sources": [
+            "manual",
+            "tmdb"
+          ],
+          "scope_source": true
+        }
+      },
+      "evidence_kind": "manual"
+    },
+    {
+      "case_id": "I49N",
+      "category": "romanized",
+      "folder": "空の旅",
+      "filename": "Sora no Tabi S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1103,
+          "name": "空の旅",
+          "title": "空の旅",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1103,
+        "name": "空の旅",
+        "title": "空の旅",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "固定输入无可验证别名证据，安全决策应待人工确认",
+      "split": "evidence",
+      "other_files": [],
+      "ground_truth": {
+        "media_type": "tv",
+        "tmdb_id": 1103,
+        "season": 1,
+        "episode": 1
+      },
+      "evidence_kind": "none"
+    },
+    {
+      "case_id": "I49T",
+      "category": "romanized",
+      "folder": "空の旅",
+      "filename": "Sora no Tabi S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1103,
+          "name": "空の旅",
+          "title": "空の旅",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1103,
+        "name": "空の旅",
+        "title": "空の旅",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ],
+        "alternative_titles": {
+          "results": [
+            {
+              "title": "Sora no Tabi"
+            }
+          ]
+        }
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1103,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "合成 TMDB 详情明确提供备用标题",
+      "split": "evidence",
+      "other_files": [],
+      "ground_truth": {
+        "media_type": "tv",
+        "tmdb_id": 1103,
+        "season": 1,
+        "episode": 1
+      },
+      "setup": {
+        "aliases_enabled": true
+      },
+      "evidence_kind": "tmdb"
+    },
+    {
+      "case_id": "I49M",
+      "category": "romanized",
+      "folder": "空の旅",
+      "filename": "Sora no Tabi S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1103,
+          "name": "空の旅",
+          "title": "空の旅",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1103,
+        "name": "空の旅",
+        "title": "空の旅",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1103,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "人工显式确认且限定源目录的合成别名",
+      "split": "evidence",
+      "other_files": [],
+      "ground_truth": {
+        "media_type": "tv",
+        "tmdb_id": 1103,
+        "season": 1,
+        "episode": 1
+      },
+      "setup": {
+        "aliases": {
+          "tmdb_id": 1103,
+          "names": [
+            "Sora no Tabi",
+            "空の旅"
+          ],
+          "sources": [
+            "manual",
+            "tmdb"
+          ],
+          "scope_source": true
+        }
+      },
+      "evidence_kind": "manual"
+    }
+  ]
+}

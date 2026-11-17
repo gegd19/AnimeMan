@@ -85,10 +85,15 @@ def _run_pair(case, base, modules, ai_enabled):
         from core import user_recognition_rules
         rule=setup['series_rule'];config['user_rules']={'enabled':True}
         user_recognition_rules.create_rule(config,str(src),'series',rule['tmdb_id'],'tv',anchor_title=rule['anchor_title'])
+    if setup.get('aliases_enabled'):config['recognition_aliases']={'enabled':True}
     if setup.get('aliases'):
         from core import recognition_aliases
         record=setup['aliases'];config['recognition_aliases']={'enabled':True}
-        for name in record['names']:recognition_aliases.add_alias(name,'tv',record['tmdb_id'],'manual')
+        sources=record.get('sources',['manual']*len(record['names']))
+        if len(sources)!=len(record['names']):raise ValueError('invalid synthetic alias sources')
+        for name,origin in zip(record['names'],sources):
+            recognition_aliases.add_alias(name,'tv',record['tmdb_id'],origin,
+                                          scope=str(source) if record.get('scope_source') else None)
     if setup.get('numbering'):
         from core import numbering_maps
         record=setup['numbering'];config['numbering_maps']={'enabled':True}
@@ -223,6 +228,7 @@ def evaluate(raw, baseline, extension_raw=None):
                         os.environ['CACHE_PATH']=str(base/'cache')
                         extension_rows.append({'case_id':case['case_id'],'category':case['category'],
                                                'media_group':_group(case),'expected':case['expected'],
+                                               'ground_truth':case.get('ground_truth'),'evidence_kind':case.get('evidence_kind'),
                                                'scenarios':{'ai_off_cold':pairs['ai_off']['cold'],'ai_off_warm':pairs['ai_off']['warm'],
                                                             'ai_on_cold':pairs['ai_on']['cold'],'ai_on_warm':pairs['ai_on']['warm']}})
                 if network_attempts or process_attempts:raise RuntimeError('unexpected external network/process attempted')
