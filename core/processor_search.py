@@ -238,17 +238,24 @@ def search_tmdb_with_fallback(
                   and (media_type not in ('tv','movie') or a.get('media_type') == media_type)]
     requested_ids = list(dict.fromkeys(identities + legacy_ids))[:4]
     alias_results = {}
+    unresolved_trusted = False
     for kind, ident in requested_ids:
         details = tmdb_client.get_tmdb_details(kind, ident, api_key, language, log_func, proxy=proxy)
-        if not isinstance(details,dict) or details.get('id') != ident or not isinstance(details.get('name' if kind == 'tv' else 'title'),str):
+        primary = details.get('name' if kind == 'tv' else 'title') if isinstance(details,dict) else None
+        if not isinstance(details,dict) or type(details.get('id')) is not int or details['id'] != ident or not isinstance(primary,str) or not primary.strip():
+            if (kind,ident) in identities: unresolved_trusted = True
             continue
         date = details.get('first_air_date' if kind == 'tv' else 'release_date')
         actual_year = date[:4] if isinstance(date,str) else None
         declared = {r['year'] for r in relevant if r['media_type']==kind and r['tmdb_id']==ident and r['year']}
         if len(declared) > 1 or (actual_year and declared and actual_year not in declared):
             trusted_names.pop((kind,ident), None)
+            if (kind,ident) in identities: unresolved_trusted = True
             continue
         alias_results[(kind,ident)] = details
+    if unresolved_trusted:
+        if log_func: log_func('人工别名关联的作品详情不可用或冲突，需要人工确认', LOG_WARNING)
+        return None, media_type, 0
 
     # Gather a bounded set of result pages before choosing; identical IDs are
     # deduplicated, while aliases from different languages remain evidence.

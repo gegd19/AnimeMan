@@ -121,6 +121,20 @@ def validate_request():
         boolean(data.get('delete_source', False), 'delete_source')
     elif endpoint in ('correct_failed_item', 'batch_correct_failed_items'):
         _correction(data, endpoint == 'batch_correct_failed_items')
+    elif endpoint in ('preview_recognition_alias', 'create_recognition_alias'):
+        string(data.get('scope'), 'scope')
+        string(data.get('name'), 'name', maximum=256)
+        choice(data.get('media_type'), 'media_type', ('tv','movie'))
+        integer(data.get('tmdb_id'), 'tmdb_id', 1, 2147483647)
+        if endpoint=='create_recognition_alias': string(data.get('preview_token'), 'preview_token', maximum=64)
+    elif endpoint == 'delete_recognition_alias':
+        record=object_value(data.get('record'), 'record')
+        string(record.get('scope'), 'scope')
+        string(record.get('name'), 'name', maximum=256)
+        choice(record.get('media_type'), 'media_type', ('tv','movie'))
+        integer(record.get('tmdb_id'), 'tmdb_id', 1, 2147483647)
+        choice(record.get('source'), 'source', ('manual',))
+        if record.get('year') is not None:string(record['year'], 'year', maximum=4)
     elif endpoint in ('preview_numbering_map', 'create_numbering_map'):
         string(data.get('scope'), 'scope')
         string(data.get('src_path'), 'src_path')

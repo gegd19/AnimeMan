@@ -20,6 +20,7 @@ from . import routes_media
 from . import routes_cache
 from . import routes_user_rules
 from . import routes_numbering_maps
+from . import routes_recognition_aliases
 
 
 def create_app(config_path=None):
@@ -56,7 +57,7 @@ def create_app(config_path=None):
             'delete_media_item', 'batch_delete_media_items', 'clear_processed_cache',
             'delete_processed_cache_item', 'batch_delete_processed_cache', 'clear_failed_cache',
             'execute_subtitle', 'batch_rename_subtitles',
-            'set_recognition_rule_state', 'delete_recognition_rule', 'create_numbering_map', 'set_numbering_map_state',
+            'set_recognition_rule_state', 'delete_recognition_rule', 'create_numbering_map', 'set_numbering_map_state', 'create_recognition_alias', 'delete_recognition_alias',
         }
         asynchronous = {'run_task', 'batch_correct_failed_items', 'offline_preparse_scan',
                         'offline_preparse_parse', 'refresh_poster_cache'}
@@ -161,6 +162,7 @@ def create_app(config_path=None):
     routes_mapping.register(app)
     routes_user_rules.register(app)
     routes_numbering_maps.register(app)
+    routes_recognition_aliases.register(app)
     routes_offline.register(app)
     routes_media.register(app)
     routes_cache.register(app)

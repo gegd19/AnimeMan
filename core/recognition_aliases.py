@@ -72,15 +72,44 @@ def revision(*, include_new=True):
     return hashlib.sha256(json.dumps([SCHEMA,raw],ensure_ascii=False).encode()).hexdigest()
 
 
-def add_alias(name, media_type, tmdb_id, source, *, year=None, scope=None):
-    record=_validated({'name':name,'media_type':media_type,'tmdb_id':tmdb_id,'source':source,'year':year,'scope':scope})
+def add_aliases(records):
+    """Validate the complete explicit batch before making one atomic write."""
+    if not isinstance(records,list) or not 1 <= len(records) <= 50:
+        raise ValueError('别名批次数量无效')
+    checked=[_validated(record) for record in records]
     def mutate(data):
         state=_load()
-        if record not in state['records']:
-            state['records'].append(record)
+        for record in checked:
+            if record not in state['records']:
+                state['records'].append(record)
         data.clear();data.update(state)
     update_json(cache_file(ALIASES_FILE),mutate)
-    return deepcopy(record)
+    return deepcopy(checked)
+
+
+def add_alias(name, media_type, tmdb_id, source, *, year=None, scope=None):
+    return add_aliases([{'name':name,'media_type':media_type,'tmdb_id':tmdb_id,
+                         'source':source,'year':year,'scope':scope}])[0]
+
+
+def stored_aliases():
+    return deepcopy(_load()['records'])
+
+
+def manual_aliases():
+    return deepcopy([record for record in _load()['records'] if record['source']=='manual'])
+
+
+def remove_manual_alias(record):
+    record=_validated(record)
+    if record['source']!='manual' or not record['scope']:
+        raise ValueError('只能删除指定范围的人工别名')
+    def mutate(data):
+        state=_load()
+        if record not in state['records']:raise ValueError('人工别名不存在或已变化')
+        state['records'].remove(record)
+        data.clear();data.update(state)
+    update_json(cache_file(ALIASES_FILE),mutate)
 
 
 def all_aliases(*, src=None):
