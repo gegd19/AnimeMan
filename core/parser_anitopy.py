@@ -5,7 +5,7 @@
 - 纯数字文件名时直接从父目录提取标题和季号
 - 保留标题中的罗马数字，避免更改作品身份
 - 当文件名信息不足时，用目录信息补充标题和季号
-- 罗马数字季号（如 III）自动转换为 Sxx 格式便于 anitopy 识别
+- 罗马数字可能属于片名时保留未知季号，等待人工确认
 """
 
 import re
@@ -42,6 +42,17 @@ def _build_roman_map(max_season: int = 30) -> Dict[str, str]:
 
 
 ROMAN_TO_ARABIC = _build_roman_map(30)
+
+_ROMAN_EPISODE = re.compile(
+    r'(?i)(?<![A-Za-z0-9])(?=[IVXLCDM]{1,15}(?![A-Za-z0-9]))'
+    r'M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})(?![A-Za-z0-9])'
+    r'\s*(?=\[\s*\d+\s*\]|\(\s*\d+\s*\)|\d+(?!\d))'
+)
+
+
+def has_ambiguous_roman_episode(filename):
+    """A Roman token followed by an episode number is not an explicit season."""
+    return bool(_ROMAN_EPISODE.search(Path(filename).stem))
 
 
 def parse_with_anitopy(
@@ -100,28 +111,12 @@ def parse_with_anitopy(
             "total_episode": None
         }
 
-    # ========== 预处理：罗马数字季号转换为 Sxx 格式 ==========
+    # A numeral such as "X" or "II" may be part of the title.  Do not
+    # rewrite it or treat it as an established season without explicit context.
+    roman_ambiguous = (has_ambiguous_roman_episode(filename)
+                       and explicit_season_number(filename) is None
+                       and explicit_season_number(parent_dir) is None)
     processed_filename = filename
-
-    # 匹配标题末尾的罗马数字季号（如 "Title III [21]" 中的 III）
-    # 确保罗马数字后面紧跟着集号标识或空格/括号
-    roman_season_pattern = re.compile(
-        r'\b(?P<base>.*?)\s+(?P<roman>I{1,3}|IV|V|VI{0,3}|IX|X{1,3}|XI{0,3})\b(?=\s*[\[\(]?\d+[\]\)]?)',
-        re.IGNORECASE
-    )
-    match = roman_season_pattern.search(processed_filename)
-    if match:
-        roman = match.group('roman').upper()
-        arabic = ROMAN_TO_ARABIC.get(roman) or ROMAN_TO_ARABIC.get(roman.lower())
-        if arabic:
-            base_title = match.group('base')
-            # 用 Sxx 格式替换原罗马数字
-            processed_filename = processed_filename.replace(
-                match.group(0),
-                f"{base_title} S{int(arabic):02d}"
-            )
-            if log_func:
-                log_func(f"🔤 检测到罗马数字季号: {roman} → S{int(arabic):02d}", LOG_INFO)
 
     cleaned_filename = processed_filename
     if log_func and cleaned_filename != filename:
@@ -156,8 +151,10 @@ def parse_with_anitopy(
             log_func(f"📁 从父目录提取标题: {title}", LOG_INFO)
 
     season = extract_first_number(parsed.get('anime_season'))
-    if season is None:
+    if season is None and not roman_ambiguous:
         season = 1
+    if roman_ambiguous:
+        season = None
     episode = extract_first_number(parsed.get('episode_number'))
     year = parsed.get('anime_year')
     release_group = parsed.get('release_group', '')
@@ -222,6 +219,9 @@ def parse_with_anitopy(
         "total_episode": total_episode,
         "numbering_source": numbering_source
     })
+
+    if roman_ambiguous:
+        result["reason_code"] = "ambiguous_roman_season"
 
     if log_func and result["_anitopy_success"]:
         season_str = f"{season:02d}" if season is not None else "??"

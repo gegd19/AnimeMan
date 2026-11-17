@@ -16,7 +16,7 @@ class ParseInputChanged(OSError):
 
 
 RULE_VERSION='e01b-v1'
-ROMAN_TITLE_POLICY='preserve-title-v1'
+ROMAN_TITLE_POLICY='preserve-title-v2'
 _memo=ContextVar('animeman_parse_identity',default=None)
 
 

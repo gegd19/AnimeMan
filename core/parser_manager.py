@@ -15,7 +15,7 @@ from .json_store import CacheCorruptionError
 from .parse_cache import update_record
 from .parse_contract import normalize_media,normalize_folder,file_id
 from .parser_helpers import get_ai_parse_cache_key, clean_parent_dir_name
-from .parser_anitopy import parse_with_anitopy,ANITOPY_AVAILABLE
+from .parser_anitopy import parse_with_anitopy,ANITOPY_AVAILABLE,has_ambiguous_roman_episode
 from .parser_regex import parse_with_regex, explicit_season_number
 from .runtime_paths import cache_file
 
@@ -166,6 +166,12 @@ def parse_filename(file_path,config,log_func=None):
     dir_seasons=[value for value in (explicit_season_number(path.name) for path in ancestors) if value is not None]
     if file_season is not None and any(value != file_season for value in dir_seasons):
         return {'media_type':'unknown','reason_code':'conflicting_season_evidence'}
+    if has_ambiguous_roman_episode(stem) and file_season is None and not dir_seasons:
+        if config.get('anime_parser',{}).get('enabled') and ANITOPY_AVAILABLE:
+            partial=parse_with_anitopy(file_path.name,folder.name,log_func)
+        else:
+            partial=parse_with_regex(file_path.name,folder.name)
+        return dict(partial, season=None, explicit_season=None, reason_code='ambiguous_roman_season')
     if re.fullmatch(r'\d+',stem):
         generic=re.compile(r'(?i)^(?:season\s*\d+|s\d+|第\s*[零一二两三四五六七八九十\d]+\s*季|bdrip|bluray|web-?dl|library|media)$')
         title=next((clean_parent_dir_name(path.name) for path in ancestors

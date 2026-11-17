@@ -152,7 +152,7 @@ def process_video(
         # A decimal source label can proceed only with separately confirmed TV identity
         # and an exact explicit mapping; ranges and mixed identity stay for review.
         if (config.get('numbering_maps', {}).get('enabled') is True
-                and info.get('reason_code') == 'unsupported_episode_numbering'):
+                and info.get('reason_code') in ('unsupported_episode_numbering','ambiguous_roman_season')):
             from . import numbering_maps
             try:
                 label = numbering_maps.extract_source_label(src.name)
@@ -173,8 +173,20 @@ def process_video(
                 save_failed_cache(src, str(error), cache_dict, wrapped_log)
                 return False
 
+        if info.get('reason_code') == 'ambiguous_roman_season':
+            confirmed = ((user_rule['season'], user_rule['episode'])
+                         if user_rule and user_rule['scope']=='file' and user_rule['media_type']=='tv'
+                         else (force_season, force_episode) if force_tmdb_id and force_media_type=='tv' else None)
+            if (confirmed and type(confirmed[0]) is int and 0 <= confirmed[0] <= 99
+                    and type(confirmed[1]) is int and 1 <= confirmed[1] <= 9999
+                    and isinstance(info.get('title'),str) and info['title'].strip()):
+                info = dict(info, media_type='tv', season=confirmed[0], episode=confirmed[1],
+                            explicit_season=confirmed[0], numbering_source='season_relative')
+                info.pop('reason_code',None)
+
         review_reasons = {
             "unsupported_episode_numbering": "集号范围或小数需要人工确认",
+            "ambiguous_roman_season": "片名中的罗马数字不能确定季号，需要人工确认",
             "conflicting_season_evidence": "文件名与目录季号冲突，需要人工确认",
             "missing_series_title": "源目录内缺少可确认的剧集标题",
         }
