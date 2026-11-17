@@ -32,6 +32,8 @@ def test_separate_evidence_suite_is_offline_and_preserves_historical_acceptance(
     assert str(tmp_path) not in output.read_text() and '/mnt/data' not in output.read_text()
     assert report['fixed_acceptance']['ai_off_cold']['passed'] is False
     assert report['fixed_acceptance']['ai_off_cold']['regressions']==['C46','C49']
+    assert report['acceptance_policy']=='identity-evidence-approved-v1'
+    assert all(result['passed'] for result in report['approved_acceptance'].values())
     evidence=report['evidence_suite']
     assert evidence['fixture_version']=='identity-evidence-v1' and len(evidence['cases'])==6
     for scenario,metrics in evidence['scenarios'].items():
@@ -39,3 +41,41 @@ def test_separate_evidence_suite_is_offline_and_preserves_historical_acceptance(
         assert metrics['unsafe_auto']==0 and metrics['wrong_auto']==0 and metrics['review']==2
         assert evidence['acceptance'][scenario]['passed']
     assert evidence['cold_warm_decision_differences']=={'ai_off':[], 'ai_on':[]}
+
+
+def test_approved_gate_requires_review_and_all_other_normal_cases():
+    from tools.evaluate_recognition_identity import adjudicate
+    expected=lambda ident:{'media_type':'tv','tmdb_id':ident,'season':1,'episode':1}
+    scenario='ai_off_cold'
+    fixed=[{'case_id':'C46','expected':expected(46),'scenarios':{scenario:{'actual':None}}},
+           {'case_id':'C49','expected':expected(49),'scenarios':{scenario:{'actual':None}}},
+           {'case_id':'C01','expected':expected(1),'scenarios':{scenario:{'actual':expected(1)}}}]
+    evidence=[]
+    for number in (46,49):
+        for suffix,kind in (('N','none'),('T','tmdb'),('M','manual')):
+            target=None if suffix=='N' else expected(number)
+            evidence.append({'case_id':f'I{number}{suffix}','ground_truth':expected(number),
+                             'evidence_kind':kind,'expected':target,'scenarios':{scenario:{'actual':target}}})
+    full={'cases':fixed,'scenarios':{scenario:{'unsafe_auto':0,'runtime_errors':0}},
+          'extension':{'fixture_version':'identity-evidence-v1',
+                       'fixture_sha256':'c37d135ba24dc5213e655373009401c44303888538e54411c772a1315b3c5e9f',
+                       'cases':evidence,'acceptance':{scenario:{'passed':True}}}}
+    result=adjudicate(full)[scenario]
+    assert result['passed'] and result['evidence_required_review']==['C46','C49']
+    fixed[0]['scenarios'][scenario]['actual']=expected(46)
+    assert not adjudicate(full)[scenario]['passed']
+    fixed[0]['scenarios'][scenario]['actual']=None
+    fixed[2]['scenarios'][scenario]['actual']=None
+    assert not adjudicate(full)[scenario]['passed']
+    fixed[2]['scenarios'][scenario]['actual']=expected(1)
+    full['extension']['acceptance'][scenario]['passed']=False
+    assert not adjudicate(full)[scenario]['passed']
+    full['extension']['acceptance'][scenario]['passed']=True
+    full['scenarios'][scenario]['unsafe_auto']=1
+    assert not adjudicate(full)[scenario]['passed']
+    full['scenarios'][scenario]['unsafe_auto']=0
+    full['extension']['fixture_sha256']='tampered'
+    assert not adjudicate(full)[scenario]['passed']
+    full['extension']['fixture_sha256']='c37d135ba24dc5213e655373009401c44303888538e54411c772a1315b3c5e9f'
+    evidence[1]['scenarios'][scenario]['actual']=None
+    assert not adjudicate(full)[scenario]['passed']
