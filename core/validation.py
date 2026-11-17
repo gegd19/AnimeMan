@@ -153,6 +153,9 @@ def validate_config(config):
     for key in ('source_folders', 'video_extensions', 'ignore_patterns', 'special_mappings'):
         array(config[key], key, maximum=64 if key == 'video_extensions' else MAX_ITEMS)
     for value in config['source_folders']: string(value, 'source_folders 路径')
+    if 'identity_hints' in config:
+        identity = object_value(config['identity_hints'], 'identity_hints')
+        if 'enabled' in identity: boolean(identity['enabled'], 'identity_hints.enabled')
     if 'browse_roots' in config:
         for value in array(config['browse_roots'], 'browse_roots'):
             string(value, 'browse_roots 路径')

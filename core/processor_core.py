@@ -71,7 +71,27 @@ def process_video(
 
     try:
         force_tmdb_id, force_media_type, force_season, force_episode = apply_special_mapping(src, config, wrapped_log)
-        info = parse_filename_info(src, config, wrapped_log, force_tmdb_id, force_media_type, force_season, force_episode)
+        hint_id = None
+        hint_type = None
+        if config.get("identity_hints", {}).get("enabled", False):
+            from .explicit_media_identity import extract_path_identity, explicit_media_type, IdentityEvidenceError
+            try:
+                hint_id = extract_path_identity(src, config.get("source_folders", []))
+                if hint_id is not None:
+                    hint_type = force_media_type if force_tmdb_id else explicit_media_type(src, config.get("source_folders", []))
+                    if hint_type not in ("tv", "movie"):
+                        raise IdentityEvidenceError("路径中的 TMDB ID 缺少明确媒体类型")
+                    if force_tmdb_id and (force_tmdb_id != hint_id or force_media_type != hint_type):
+                        raise IdentityEvidenceError("人工映射与路径中的 TMDB ID 冲突")
+            except IdentityEvidenceError as error:
+                save_failed_cache(src, f"身份信息需要人工确认: {error}", cache_dict, wrapped_log)
+                if config.get("dry_run") and wrapped_log:
+                    wrapped_log(f"身份信息需要人工确认: {error}", LOG_WARNING)
+                return False
+        parse_config = config
+        if hint_id is not None:
+            parse_config = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
+        info = parse_filename_info(src, parse_config, wrapped_log, force_tmdb_id, force_media_type, force_season, force_episode)
 
         review_reasons = {
             "unsupported_episode_numbering": "集号范围或小数需要人工确认",
@@ -86,8 +106,18 @@ def process_video(
                 wrapped_log(message, LOG_WARNING)
             return False
 
+        if hint_id is not None:
+            if info.get("media_type") != hint_type:
+                message = "解析媒体类型与路径中的 TMDB ID 冲突，需要人工确认"
+                save_failed_cache(src, message, cache_dict, wrapped_log)
+                if config.get("dry_run") and wrapped_log:
+                    wrapped_log(message, LOG_WARNING)
+                return False
+            info = dict(info, tmdb_id=hint_id, _explicit_identity=True)
+
         # 文件夹级 AI 批量解析
-        updated_info = try_folder_ai_batch(src, config, info, force_tmdb_id, wrapped_log)
+        updated_info = (None if info.get("_explicit_identity") else
+                        try_folder_ai_batch(src, config, info, force_tmdb_id, wrapped_log))
         if updated_info:
             info = updated_info
 
@@ -165,6 +195,12 @@ def process_video(
             )
             if not details:
                 return (False, None, None, None, None, None, confidence, current_info)
+            if current_info.get("_explicit_identity"):
+                type_name = "title" if media_type == "movie" else "name"
+                if (not isinstance(details, dict) or type(details.get("id")) is not int
+                        or details['id'] != tmdb_id or not isinstance(details.get(type_name), str)
+                        or not details[type_name].strip()):
+                    return (False, None, None, None, None, None, confidence, current_info)
 
             if media_type == "movie":
                 official_title = details.get("title")
@@ -219,6 +255,8 @@ def process_video(
                 score_evidence.append(f"解析来源：{parser_name}")
             if force_tmdb_id is not None:
                 score_evidence.append("人工映射指定 TMDB 身份")
+            elif current_info.get("_explicit_identity"):
+                score_evidence.append("源路径中明确指定 TMDB ID")
             else:
                 from .candidate_evaluator import evaluate_candidates
                 assessment = evaluate_candidates([tmdb_result], media_type,
@@ -239,6 +277,9 @@ def process_video(
             initial_confidence = max(initial_confidence, 85)
         success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = try_process_with_info(info, initial_confidence)
 
+        if not success and final_info.get('_explicit_identity'):
+            save_failed_cache(src, "明确 TMDB ID 的详情无法验证，需要人工确认", cache_dict, wrapped_log)
+            return False
         if not success and final_info.get('_duration_conflict'):
             save_failed_cache(src, final_info['_duration_conflict'], cache_dict, wrapped_log)
             return False
