@@ -81,3 +81,13 @@ def test_long_roman_tokens_remain_title_and_unknown_season(filename,roman):
     result=parse_with_anitopy(filename)
     assert result['title'].endswith(roman)
     assert result['season'] is None and result['reason_code']=='ambiguous_roman_season'
+
+
+def test_technical_words_and_resolutions_are_not_roman_seasons():
+    from core.parser_anitopy import has_ambiguous_roman_episode
+    for name in ('[Prejudice-Studio] 摇曳露营△ Yuru Camp△ - 01 [AcFun WEB-DL 1080P AVC 8bit AAC MP4][简体内嵌].mp4',
+                 '[Prejudice-Studio] 葬送的芙莉莲 Sousou no Frieren - 01 [Bilibili WEB-DL 1080P AVC 8bit AAC MP4][简日内嵌].mp4',
+                 'Show MP4 1080.mkv', 'Show DL 720p.mkv'):
+        assert not has_ambiguous_roman_episode(name), name
+    for name in ('[Grp] Show II 05.mkv', '[Grp] Show X 12.mkv', 'Show II (03).mkv', '[Grp] Show IV [07].mkv'):
+        assert has_ambiguous_roman_episode(name), name

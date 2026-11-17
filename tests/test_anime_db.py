@@ -25,6 +25,7 @@ MANAMI = {"data": [
     {"sources": ["https://anilist.co/anime/201"], "title": "Twin Show", "type": "TV", "episodes": 12, "animeSeason": {"year": 2019},
      "duration": {"value": 1440, "unit": "SECONDS"}, "synonyms": []},
     {"sources": ["https://anilist.co/anime/300"], "title": "Movie Only", "type": "MOVIE", "episodes": 1, "synonyms": []},
+    {"sources": ["https://anilist.co/anime/400"], "title": "Room Camp", "type": "TV", "episodes": 12, "synonyms": ["Heya Camp"]},
 ]}
 BANGUMI = {"items": [
     {"title": "左ききのエレン", "titleTranslate": {"zh-Hans": ["左撇子艾伦"], "en": ["Eren the Southpaw"]}, "type": "tv",
@@ -43,6 +44,7 @@ BRIDGE = {
     "anilist:200": {"tmdb_show:500:s1": {}},
     "anilist:201": {"tmdb_show:501:s1": {}},
     "anilist:300": {"tmdb_movie:9": {}},
+    "anilist:400": {"tmdb_show:95623:s1": {}},
 }
 
 
@@ -263,3 +265,65 @@ def test_a_stated_year_rules_out_an_older_series_of_the_same_name(db, tmp_path):
     single = resolve(tmp_path, "[Group] Baka to Test to Shokanju Ni (2011) - 09.mkv", "Baka to Test to Shokanju Ni", 9, folder="y")
     assert single["tmdb_id"] == 56343
     assert resolve(tmp_path, "[Group] Baka to Test to Shokanju Ni (2001) - 09.mkv", "Baka to Test to Shokanju Ni", 9, folder="z") is None
+
+
+def test_a_search_result_the_databases_know_by_another_name(db):
+    assert anime_db.known_under_other_name(95623, ["Yuru Camp"], ["Room Camp"])
+    assert not anime_db.known_under_other_name(95623, ["Heya Camp"], ["Room Camp"])
+    assert not anime_db.known_under_other_name(95623, ["Yuru Camp"], ["Unverified Name"])
+    assert not anime_db.known_under_other_name(97418, ["Hidarikiki no Eren"], ["Another Name"])
+
+
+def test_processor_prefers_the_database_when_the_search_found_another_known_anime(tmp_path, config_file, monkeypatch):
+    from core import config_manager, processor_core, tmdb_client, video_info
+    folder = tmp_path / "source" / "anime"; folder.mkdir(parents=True)
+    src = folder / "Yuru Camp S02E11.mkv"; src.write_bytes(b"synthetic")
+    cfg = config_manager.load_config(config_file); cfg.update(source_folders=[str(tmp_path / "source")])
+    monkeypatch.setattr(anime_db, "resolve", lambda *a, **k: {"status": "match", "tmdb_id": 76075, "season": 2, "episode": 11,
+                                                              "evidence": "离线番剧库：测试", "names": "Yuru Camp Season 2"})
+    monkeypatch.setattr(video_info, "get_video_duration", lambda *a: None)
+    camp = {"id": 76075, "name": "摇曳露营△", "first_air_date": "2018-01-04", "seasons": [{"season_number": 1}, {"season_number": 2}]}
+    spin = {"id": 95623, "name": "Yuru Camp", "original_name": "Yuru Camp", "first_air_date": "2020-01-06", "seasons": [{"season_number": 1}]}
+    monkeypatch.setattr(tmdb_client, "search_tmdb_multi", lambda *a, **k: [spin])
+    spin_details = dict(spin, name="Room Camp", original_name="Heya Camp")
+    monkeypatch.setattr(tmdb_client, "get_tmdb_details", lambda *a, **k: spin_details if 95623 in (*a, k.get("tmdb_id")) else camp)
+    observed = []
+    monkeypatch.setattr(processor_core, "process_tv_branch", lambda *a: (observed.append(a) or True))
+    monkeypatch.setattr(anime_db, "known_under_other_name", lambda tmdb_id, titles, names: tmdb_id == 95623 and "Room Camp" in names)
+    assert processor_core.process_video(src, cfg, {})
+    assert observed[0][6] == 76075 and "另一部作品" in " ".join(observed[0][-2]["_recognition_score"]["evidence"])
+
+
+def test_bilingual_fansub_titles_are_looked_up_by_each_name(db, tmp_path):
+    assert anime_db.bilingual_parts("摇曳露营△ Yuru Camp△") == ["摇曳露营△", "Yuru Camp△"]
+    assert anime_db.bilingual_parts("Hentatsu") == []
+    result = resolve(tmp_path, "[Prejudice-Studio] 左撇子艾伦 Hidarikiki no Eren - 03 [1080P].mp4", "左撇子艾伦 Hidarikiki no Eren", 3, folder="bi")
+    assert (result["tmdb_id"], result["season"], result["episode"]) == (305567, 1, 3)
+
+
+def test_the_episode_title_settles_a_disagreement_with_the_search(tmp_path, config_file, monkeypatch):
+    from core import config_manager, processor_core, processor_tv, tmdb_client, video_info
+    folder = tmp_path / "source" / "anime"; folder.mkdir(parents=True)
+    src = folder / "Yuru Camp S02E11.mkv"; src.write_bytes(b"synthetic")
+    cfg = config_manager.load_config(config_file); cfg.update(source_folders=[str(tmp_path / "source")])
+    monkeypatch.setattr(anime_db, "resolve", lambda *a, **k: {"status": "match", "tmdb_id": 76075, "season": 2, "episode": 11,
+                                                              "evidence": "离线番剧库：测试", "names": "Yuru Camp Season 2"})
+    monkeypatch.setattr(anime_db, "known_under_other_name", lambda *a: False)    # e.g. a live-action series
+    monkeypatch.setattr(video_info, "get_video_duration", lambda *a: None)
+    camp = {"id": 76075, "name": "摇曳露营△", "first_air_date": "2018-01-04", "seasons": [{"season_number": 2}]}
+    drama = {"id": 95623, "name": "Yuru Camp", "original_name": "Yuru Camp", "first_air_date": "2020-01-10", "seasons": [{"season_number": 1}]}
+    monkeypatch.setattr(tmdb_client, "search_tmdb_multi", lambda *a, **k: [drama])
+    monkeypatch.setattr(tmdb_client, "get_tmdb_details", lambda *a, **k: drama if 95623 in (*a, k.get("tmdb_id")) else camp)
+    observed = []
+    monkeypatch.setattr(processor_core, "process_tv_branch", lambda *a: (observed.append(a) or True))
+    monkeypatch.setattr(processor_core, "parse_filename_info", lambda *a, **k: {
+        "media_type": "tv", "title": "Yuru Camp", "season": 2, "episode": 11, "episode_title": "Izu Camping!! On the Way", "_parser": "regex"})
+    monkeypatch.setattr(processor_tv, "episodes_named", lambda key, tmdb_id, seasons, *a: [(2, 11)] if tmdb_id == 76075 else [])
+    assert processor_core.process_video(src, cfg, {})
+    assert observed[0][6] == 76075
+    monkeypatch.setattr(processor_tv, "episodes_named", lambda *a: [(2, 11), (2, 12)])
+    observed.clear(); processor_core._folder_tmdb_cache.clear()
+    assert not processor_core.process_video(src, cfg, {}) and not observed
+    monkeypatch.setattr(processor_tv, "episodes_named", lambda *a: [])               # no title evidence: a person decides
+    observed.clear(); processor_core._folder_tmdb_cache.clear()
+    assert not processor_core.process_video(src, cfg, {}) and not observed

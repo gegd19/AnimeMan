@@ -66,12 +66,14 @@ def _english_episodes(tmdb_id, season, api_key, proxy):
     return found
 
 
-def episodes_named(key, tmdb_id, seasons, api_key, proxy):
+def episodes_named(key, tmdb_id, seasons, api_key, proxy, exact=False):
     """(season, episode) pairs whose English TMDB title is the one written in the file name."""
     hits = []
     for season in seasons:
         for number, name in _english_episodes(tmdb_id, season, api_key, proxy):
-            if type(number) is int and name and (name == key or (len(key) >= 10 and (name.startswith(key) or key.startswith(name)))):
+            if type(number) is int and name and (
+                name == key or (not exact and len(key) >= 10 and (name.startswith(key) or key.startswith(name)))
+            ):
                 hits.append((season, number))
     return hits
 

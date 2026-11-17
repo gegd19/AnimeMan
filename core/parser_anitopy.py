@@ -43,10 +43,12 @@ def _build_roman_map(max_season: int = 30) -> Dict[str, str]:
 
 ROMAN_TO_ARABIC = _build_roman_map(30)
 
+# Season-like Roman numerals (I to XXXIX) in front of an episode number. Not part of a hyphenated or
+# technical word ("WEB-DL 1080P": DL is no season), and the number is an episode, not a resolution.
 _ROMAN_EPISODE = re.compile(
-    r'(?i)(?<![A-Za-z0-9])(?=[IVXLCDM]{1,15}(?![A-Za-z0-9]))'
-    r'M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})(?![A-Za-z0-9])'
-    r'\s*(?=\[\s*\d+\s*\]|\(\s*\d+\s*\)|\d+(?!\d))'
+    r'(?i)(?<![A-Za-z0-9-])(?=[IVX]{1,7}(?![A-Za-z0-9]))'
+    r'X{0,3}(?:IX|IV|V?I{0,3})(?![A-Za-z0-9])'
+    r'\s*(?=\[\s*\d+\s*\]|\(\s*\d+\s*\)|\d{1,4}(?![\dpPkK]))'
 )
 
 
@@ -137,6 +139,19 @@ def parse_with_anitopy(
         return result
 
     title = parsed.get('anime_title')
+    # "Attack on Titan - 11 - Idol The Struggle for Trost, Part 7 (S01E11)": anitopy keeps the episode
+    # number and title inside the work title; split them at the first "- number -".
+    split = re.match(r'^(.+?[^\d\s])\s+-\s+(\d{1,4})\s+-\s+(.+)$', title or '')
+    if split:
+        title = split.group(1).strip()
+        parsed = dict(parsed)
+        episode_title = parsed.get('episode_title') or split.group(3)
+        parsed['episode_title'] = re.sub(r'\s*\(S\d{1,2}E\d{1,4}\)\s*$', '', episode_title, flags=re.I).strip()
+        explicit_pairs = re.findall(r'\(S\d{1,2}E(\d{1,4})\)', stem, flags=re.I)
+        if len(explicit_pairs) == 1 and int(explicit_pairs[0]) > 0:
+            parsed['episode_number'] = explicit_pairs[0]
+        elif parsed.get('episode_number') is None and 0 < int(split.group(2)) < 1000:
+            parsed['episode_number'] = split.group(2)
 
     # 如果标题为空或不理想，用目录信息补充
     if not title or title == "Unknown" or re.match(r'^[\d\s\.]+$', title):

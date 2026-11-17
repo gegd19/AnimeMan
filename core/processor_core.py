@@ -456,15 +456,50 @@ def process_video(
             # Independent second opinion: the ordinary TMDB search, without paid AI calls.
             plain = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
             searched = try_process_with_info(info, initial_confidence, search_config=plain)
-            if searched[0] and searched[3] != db["tmdb_id"]:
-                save_failed_cache(src, f"离线番剧库对应「{db['names']}」（TMDB {db['tmdb_id']}），TMDB 搜索得到另一部作品"
-                                       f"（TMDB {searched[3]}），需要人工确认", cache_dict, wrapped_log)
-                return False
-            if searched[0] and wrapped_log:
+            search_agrees = searched[0] and searched[2] == "tv" and searched[3] == db["tmdb_id"]
+            if searched[0] and not search_agrees:
+                from . import anime_db
+                from .candidate_evaluator import evaluate_candidates
+                from .processor_tv import episode_title_key, episodes_named
+                check_cancelled()
+                key = episode_title_key(info.get("episode_title"))
+                named = (episodes_named(key, db["tmdb_id"], [db["season"]], config["tmdb_api"]["api_key"],
+                                        config["tmdb_api"].get("proxy"), True) if key else [])
+                check_cancelled()
+                titles = anime_db.candidate_titles(info)
+                competing_type, competing_id = searched[2:4]
+                competing_details = searched[1]
+                other_name = False
+                if (not named and competing_type == "tv" and isinstance(competing_details, dict)
+                        and competing_details.get("id") == competing_id):
+                    assessment = evaluate_candidates([competing_details], "tv", titles, include_alternatives=True)
+                    if assessment["candidates"][0]["reason"] == "title_mismatch":
+                        other_name = anime_db.known_under_other_name(
+                            competing_id, titles, [competing_details.get("name"), competing_details.get("original_name")]
+                        )
+                if set(named) == {(db["season"], db["episode"])}:
+                    # The episode title written in the name is that very episode's title.
+                    if wrapped_log:
+                        wrapped_log(f"⚖️ TMDB 搜索得到 TMDB {searched[3]}，但文件里的集名正是番剧库对应那一集的集名；按番剧库处理", LOG_INFO)
+                    db = dict(db, evidence=db["evidence"] + "；文件里的集名与这一集一致")
+                elif other_name:
+                    # Both are anime the databases know; only one of them goes by this name.
+                    if wrapped_log:
+                        wrapped_log(f"⚖️ TMDB 搜索得到的 TMDB {searched[3]} 在番剧库里是另一部作品，不叫这个名字；按番剧库处理", LOG_INFO)
+                    db = dict(db, evidence=db["evidence"] + f"；TMDB 搜索得到的 {searched[3]} 在番剧库里是另一部作品")
+                else:
+                    save_failed_cache(src, f"离线番剧库对应「{db['names']}」（TMDB {db['tmdb_id']}），TMDB 搜索得到另一部作品"
+                                           f"（TMDB {searched[3]}），需要人工确认", cache_dict, wrapped_log)
+                    return False
+            if search_agrees and wrapped_log:
                 wrapped_log("✅ TMDB 搜索与离线番剧库指向同一部作品", LOG_SUCCESS)
-            db_info, result = with_anime_db(db, info, max(initial_confidence, 85 if searched[0] else 80))
+            db_info, result = with_anime_db(db, info, max(initial_confidence, 85 if search_agrees else 80))
             if result[0]:
                 info = db_info
+            elif searched[0] and not search_agrees:
+                save_failed_cache(src, "离线番剧库对应的 TMDB 详情无法验证，且与搜索结果冲突，需要人工确认",
+                                  cache_dict, wrapped_log)
+                return False
             else:
                 result = None
         if result is None:

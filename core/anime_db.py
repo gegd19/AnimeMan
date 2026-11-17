@@ -23,6 +23,7 @@ import sqlite3
 import threading
 import time
 import unicodedata
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -35,7 +36,7 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 LOG_INFO, LOG_SUCCESS, LOG_WARNING = "info", "success", "warning"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_DOWNLOAD_BYTES = 300 * 1024 * 1024
 
 SOURCES = {
@@ -366,6 +367,7 @@ def build_index(files: Dict[str, Path], target: Path) -> Dict[str, int]:
         CREATE TABLE titles (key TEXT NOT NULL, gid INTEGER NOT NULL, kind TEXT NOT NULL);
         CREATE TABLE ids (key TEXT PRIMARY KEY, gid INTEGER NOT NULL);
         CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE tmdb (tmdb_id INTEGER NOT NULL, gid INTEGER NOT NULL);
     """)
     title_rows = 0
     for gid, group in enumerate(groups.values(), 1):
@@ -375,6 +377,10 @@ def build_index(files: Dict[str, Path], target: Path) -> Dict[str, int]:
                 "ids": sorted(group["ids"]), "maps": maps, "bgm_tmdb": group["bgm_tmdb"]}
         db.execute("INSERT INTO works VALUES (?, ?)", (gid, json.dumps(data, ensure_ascii=False)))
         db.executemany("INSERT OR IGNORE INTO ids VALUES (?, ?)", [(key, gid) for key in group["ids"]])
+        shows = {int(m.group(1)) for targets in maps.values() for target in targets
+                 for m in [re.match(r"tmdb_show:(\d+):", target)] if m}
+        shows |= {int(m.group(1)) for link in group["bgm_tmdb"] for m in [re.match(r"tv/(\d+)", link)] if m}
+        db.executemany("INSERT INTO tmdb VALUES (?, ?)", [(show, gid) for show in shows])
         keys = set()
         for title in group["titles"]:
             keys.add((fold(title), "exact"))
@@ -386,9 +392,20 @@ def build_index(files: Dict[str, Path], target: Path) -> Dict[str, int]:
         title_rows += len(rows)
         db.executemany("INSERT INTO titles VALUES (?, ?, ?)", rows)
     db.execute("CREATE INDEX titles_key ON titles(key)")
+    db.execute("CREATE INDEX tmdb_show ON tmdb(tmdb_id)")
     db.execute("INSERT INTO meta VALUES ('schema', ?)", (str(SCHEMA_VERSION),))
     db.commit()
     db.close()
+    backup = target.with_suffix(".schema-v1.sqlite")
+    if target.is_file() and not backup.exists():
+        try:
+            with closing(sqlite3.connect(f"file:{target}?mode=ro", uri=True)) as previous:
+                schema = previous.execute("SELECT value FROM meta WHERE key = 'schema'").fetchone()
+        except sqlite3.Error as error:
+            note_error(error)
+            schema = None
+        if schema != (str(SCHEMA_VERSION),):
+            os.link(target, backup)
     os.replace(tmp, target)
     _local.__dict__.clear()
     return {"works": len(groups), "titles": title_rows, "mapped_ids": len(bridge)}
@@ -510,12 +527,25 @@ def _year_of(info: Dict[str, Any], src: Path) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
+_CJK = r"\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff"
+
+
+def bilingual_parts(title: str) -> List[str]:
+    """Chinese/Japanese fansub names often carry two names: "摇曳露营△ Yuru Camp△", "Lycoris Recoil 莉可麗絲"."""
+    cjk = re.findall(rf"[{_CJK}][{_CJK}\s△☆！!?？・·：～~]*", title)
+    latin = re.findall(rf"[A-Za-z][^{_CJK}]*", title)
+    parts = [p.strip(" -:：") for p in cjk + latin]
+    return [p for p in parts if len(fold(p)) >= 2 and p != title.strip()] if cjk and latin else []
+
+
 def candidate_titles(info: Dict[str, Any]) -> List[str]:
     titles = []
     for value in [info.get("title"), info.get("search_title"), *(info.get("alternative_titles") or [])]:
-        if isinstance(value, str) and value.strip() and value.strip().casefold() != "unknown" and value.strip() not in titles:
-            titles.append(value.strip())
-    return titles[:6]
+        if isinstance(value, str) and value.strip() and value.strip().casefold() != "unknown":
+            for item in [value.strip(), *bilingual_parts(value.strip())]:
+                if item not in titles:
+                    titles.append(item)
+    return titles[:8]
 
 
 def resolve(src: Path, info: Dict[str, Any], config: Dict[str, Any], log: Optional[Callable] = None,
@@ -617,6 +647,31 @@ def resolve(src: Path, info: Dict[str, Any], config: Dict[str, Any], log: Option
         if log:
             log(f"⚠️ 番剧数据库不可用：{redact(error)}", LOG_WARNING)
         return None
+
+
+def known_under_other_name(tmdb_id: int, titles: List[str], official_names: List[str]) -> bool:
+    """Check that the TMDB details corroborate the name of a different indexed show."""
+    if type(tmdb_id) is not int:
+        return False
+    keys = {k for title in titles for k in (fold(title), loose(title)) if k}
+    official_keys = {fold(name) for name in official_names if name}
+    if not keys or not official_keys:
+        return False
+    try:
+        conn = _connection()
+        if conn is None or not conn.execute(
+            "SELECT 1 FROM meta WHERE key = 'schema' AND value = ?", (str(SCHEMA_VERSION),)
+        ).fetchone():
+            return False
+        names = list(conn.execute(
+            "SELECT titles.key, titles.kind FROM titles JOIN tmdb USING (gid) WHERE tmdb.tmdb_id = ?",
+            (tmdb_id,),
+        ))
+        return (any(kind == "exact" and key in official_keys for key, kind in names)
+                and all(key not in keys for key, _ in names))
+    except sqlite3.Error as error:
+        note_error(error)
+        return False
 
 
 # ---------------------------------------------------------------- per-run state
