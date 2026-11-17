@@ -13,7 +13,7 @@ CACHE_NAMES = (
     "auto_processed_cache.json", "ai_parse_cache.json", "folder_ai_parse_cache.json",
     "folder_ai_cache.json", "raw_scan_cache.json", "ai_preparse_cache.json",
     "tmdb_search_cache.json", "media_library_cache.json", "poster_cache.json",
-    "tmdb_aliases.json", "recognition_user_rules_v1.json",
+    "tmdb_aliases.json", "recognition_user_rules_v1.json", "recognition_aliases_v1.json",
 )
 
 
