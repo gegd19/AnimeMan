@@ -1,0 +1,308 @@
+{
+  "version": "r10-extension-v1",
+  "cases": [
+    {
+      "case_id": "X01",
+      "category": "tv",
+      "folder": "Aurora",
+      "filename": "Aurora S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1000,
+          "name": "Aurora",
+          "title": "Aurora",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1000,
+        "name": "Aurora",
+        "title": "Aurora",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1000,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "明确系列和季集",
+      "split": "extension",
+      "other_files": [],
+      "setup": {
+        "nfo_tmdb_id": 1000
+      }
+    },
+    {
+      "case_id": "X02",
+      "category": "tv",
+      "folder": "Blue River",
+      "filename": "Blue River S01E02.mkv",
+      "search_results": [
+        {
+          "id": 1001,
+          "name": "Blue River",
+          "title": "Blue River",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1001,
+        "name": "Blue River",
+        "title": "Blue River",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 2,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1001,
+        "season": 1,
+        "episode": 2
+      },
+      "basis": "明确系列和季集",
+      "split": "extension",
+      "other_files": [],
+      "setup": {
+        "series_rule": {
+          "tmdb_id": 1001,
+          "anchor_title": "Blue River"
+        }
+      }
+    },
+    {
+      "case_id": "X03",
+      "category": "romanized",
+      "folder": "空の旅",
+      "filename": "Sora no Tabi S01E01.mkv",
+      "search_results": [
+        {
+          "id": 1103,
+          "name": "空の旅",
+          "title": "空の旅",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1103,
+        "name": "空の旅",
+        "title": "空の旅",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1103,
+        "season": 1,
+        "episode": 1
+      },
+      "basis": "合成的别名或续作身份需证据确认",
+      "split": "extension",
+      "other_files": [],
+      "setup": {
+        "aliases": {
+          "tmdb_id": 1103,
+          "names": [
+            "Sora no Tabi",
+            "空の旅"
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "X04",
+      "category": "special",
+      "folder": "Aurora",
+      "filename": "Aurora - 12.5.mkv",
+      "search_results": [
+        {
+          "id": 1000,
+          "name": "Aurora",
+          "title": "Aurora",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1000,
+        "name": "Aurora",
+        "title": "Aurora",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 0,
+            "episode_count": 3
+          }
+        ]
+      },
+      "seasons": {
+        "0": [
+          {
+            "episode_number": 3,
+            "name": "Synthetic special"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "tv",
+        "tmdb_id": 1000,
+        "season": 0,
+        "episode": 3
+      },
+      "basis": "明确系列 NFO 与人工编号映射",
+      "split": "extension",
+      "other_files": [],
+      "setup": {
+        "nfo_tmdb_id": 1000,
+        "numbering": {
+          "source_label": "12.5",
+          "season": 0,
+          "episode": 3
+        }
+      }
+    },
+    {
+      "case_id": "X05",
+      "category": "range",
+      "folder": "Range 0",
+      "filename": "Range 0 - 01-02.mkv",
+      "search_results": [
+        {
+          "id": 1026,
+          "name": "Range 0",
+          "title": "Range 0",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1026,
+        "name": "Range 0",
+        "title": "Range 0",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": null,
+      "basis": "多集范围尚无目标映射",
+      "split": "extension",
+      "other_files": [],
+      "setup": {
+        "numbering_enabled": true
+      }
+    },
+    {
+      "case_id": "X06",
+      "category": "movie",
+      "folder": "Glass Garden",
+      "filename": "Glass Garden (2020).mkv",
+      "search_results": [
+        {
+          "id": 1010,
+          "name": "Glass Garden",
+          "title": "Glass Garden",
+          "first_air_date": "2020-01-01",
+          "release_date": "2020-01-01"
+        }
+      ],
+      "details": {
+        "id": 1010,
+        "name": "Glass Garden",
+        "title": "Glass Garden",
+        "first_air_date": "2020-01-01",
+        "release_date": "2020-01-01",
+        "seasons": [
+          {
+            "season_number": 1,
+            "episode_count": 12
+          }
+        ]
+      },
+      "seasons": {
+        "1": [
+          {
+            "episode_number": 1,
+            "name": "Synthetic episode"
+          }
+        ]
+      },
+      "network_error": false,
+      "expected": {
+        "media_type": "movie",
+        "tmdb_id": 1010,
+        "season": null,
+        "episode": null
+      },
+      "basis": "电影名称及年份明确",
+      "split": "extension",
+      "other_files": [],
+      "setup": {
+        "all_optional_enabled": true
+      }
+    }
+  ]
+}
