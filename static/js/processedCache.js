@@ -45,8 +45,9 @@ App.ProcessedCache = (function(app) {
             return chineseNumMap[numStr] || null;
         }
 
-        match = filename.match(/[Ss]\d{1,2}[Ee](\d{1,3})|(\d{1,2})[xX](\d{1,3})/);
-        if (match) return parseInt(match[1] || match[2] || match[3]);
+        // S01E05, or 1x05 (season x episode). A resolution such as 640x480 or 1280x720 is neither.
+        match = filename.match(/[Ss]\d{1,2}[Ee](\d{1,3})|(?<!\d)(\d{1,2})[xX](\d{1,3})(?!\d)/);
+        if (match) return parseInt(match[1] || match[3]);
 
         const parts = filename.split(/[-_\s.]+/);
         for (let part of parts) {
@@ -74,15 +75,15 @@ App.ProcessedCache = (function(app) {
 
     function smartSortFiles(files) {
         return files.slice().sort((a, b) => {
-            const aEp = extractEpisodeNumber(a.src_name);
-            const bEp = extractEpisodeNumber(b.src_name);
-            const aSpecial = isSpecialLike(a.src_name);
-            const bSpecial = isSpecialLike(b.src_name);
+            const aEp = extractEpisodeNumber(a.name);
+            const bEp = extractEpisodeNumber(b.name);
+            const aSpecial = isSpecialLike(a.name);
+            const bSpecial = isSpecialLike(b.name);
 
             if (aSpecial !== bSpecial) return aSpecial ? 1 : -1;
             if (aEp === null && bEp !== null) return 1;
             if (aEp !== null && bEp === null) return -1;
-            if (aEp === null && bEp === null) return a.src_name.localeCompare(b.src_name);
+            if (aEp === null && bEp === null) return a.name.localeCompare(b.name);
 
             const aIsInt = isIntegerEpisode(aEp);
             const bIsInt = isIntegerEpisode(bEp);

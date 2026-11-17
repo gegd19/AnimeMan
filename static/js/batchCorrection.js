@@ -30,8 +30,9 @@ App.BatchCorrection = (function(app) {
             return chineseNumMap[numStr] || null;
         }
 
-        match = filename.match(/[Ss]\d{1,2}[Ee](\d{1,3})|(\d{1,2})[xX](\d{1,3})/);
-        if (match) return parseInt(match[1] || match[2] || match[3]);
+        // S01E05, or 1x05 (season x episode). A resolution such as 640x480 or 1280x720 is neither.
+        match = filename.match(/[Ss]\d{1,2}[Ee](\d{1,3})|(?<!\d)(\d{1,2})[xX](\d{1,3})(?!\d)/);
+        if (match) return parseInt(match[1] || match[3]);
 
         const parts = filename.split(/[-_\s.]+/);
         for (let part of parts) {

@@ -1232,3 +1232,41 @@ test('workbench keeps the generic text when the failed count cannot be read', as
     assert.equal(await page.locator('#homeFailedHint').textContent(), '没能自动识别的文件，在这里手动修正');
     assert.equal(await page.locator('#homeFailedRow').getAttribute('data-attention'), null);
 });
+
+test('batch correction reads episode numbers past resolutions like 640x480 and 1x05 as the episode', async t => {
+    const {page} = await setup(t);
+    const name = n => `[Rising Sun] Nadia - Secret of Blue Water - ${n} [640x480-H264-AC3][ABCDEF01].mkv`;
+    const files = [17, 13, 21, 14].map(n => ({path: '/src/Nadia/' + name(n), name: name(n)}));
+    await page.evaluate(files => App.BatchCorrection.openModal('/src/Nadia', files), files);
+    await page.locator('#batchFileList button:has-text("智能排序")').click();
+    const order = await page.locator('#batchFileList tr td:nth-child(3)').allTextContents();
+    assert.deepEqual(order.map(text => Number(text.match(/ - (\d+) \[/)[1])), [13, 14, 17, 21]);
+    await page.locator('#batchFileList button:has-text("提取起始集号")').click();
+    assert.equal(await page.inputValue('#batchStartEpisode'), '13');
+    // "1x05" is season 1, episode 5: the episode is extracted, not the season.
+    await page.evaluate(() => App.BatchCorrection.openModal('/src/S', [{path: '/src/S/Show 1x05.mkv', name: 'Show 1x05.mkv'}]));
+    await page.locator('#batchFileList button:has-text("提取起始集号")').click();
+    assert.equal(await page.inputValue('#batchStartEpisode'), '5');
+});
+
+test('processed cache passes selected names to episode sort and keeps source paths', async t => {
+    const name = n => `Show ${n} [640x480-H264-AC3].mkv`;
+    const items = ['1x05', '1x03', '1x04'].map(n => ({src: '/src/' + name(n), src_name: name(n),
+        parent_dir: 'Show', target: '/library/' + name(n), target_exists: true, media_type: 'tv', title: 'Show', processed_time: 1}));
+    const {page, pageErrors, requests} = await setup(t, {overrides: {
+        '/api/processed_cache': route => route.fulfill({json: {items, total_pages: 1}}),
+    }});
+    await page.evaluate(() => App.ProcessedCache.viewProcessedCache());
+    await page.locator('#processedCacheBody .processed-cache-checkbox').first().waitFor();
+    await page.evaluate(() => App.ProcessedCache.toggleSelectAll(true));
+    await page.waitForFunction(() => document.querySelectorAll('#processedCacheBody input:checked').length === 3);
+    await page.evaluate(() => App.ProcessedCache.smartSortAndBatchCorrect());
+    const names = await page.locator('#batchFileList tr td:nth-child(3)').allTextContents();
+    assert.deepEqual(names, ['1x03', '1x04', '1x05'].map(name));
+    assert.deepEqual(await page.locator('#batchFileList tr td:nth-child(3)').evaluateAll(nodes => nodes.map(n => n.title)),
+        ['1x03', '1x04', '1x05'].map(n => '/src/' + name(n)));
+    await page.locator('#batchFileList button:has-text("提取起始集号")').click();
+    assert.equal(await page.inputValue('#batchStartEpisode'), '3');
+    assert.deepEqual(pageErrors, []);
+    assert.equal(requests.filter(r => r.method !== 'GET').length, 0);
+});
