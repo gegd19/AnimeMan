@@ -50,7 +50,11 @@ def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_a
 
 def policy_key(config):
     fields=['ai_parser','anime_parser','video_extensions','ignore_patterns','scan_policy','special_mappings','source_folders','parse_rules_version','parse_context','identity_hints']
-    return digest([RULE_VERSION,{field:config.get(field) for field in fields}])
+    values = {field:config.get(field) for field in fields}
+    if config.get('user_rules', {}).get('enabled') is True:
+        from .user_recognition_rules import revision
+        values['user_rules_revision'] = revision(config)
+    return digest([RULE_VERSION, values])
 
 
 def file_signature(path):

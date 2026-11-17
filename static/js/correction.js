@@ -215,7 +215,13 @@ App.Correction = (function(app) {
                 });
                 const data = await resp.json();
                 if (data.status === 'success') {
-                    app.showToast(data.dry_run ? '模拟修正完成，未修改文件或缓存' : '修正成功！文件已重新处理。', 'success');
+                    if (data.rule_status === 'failed') {
+                        app.showToast('修正成功，但规则未保存：' + (data.rule_message || '未知错误'), 'warning', 6000);
+                    } else if (data.rule_status === 'saved' && !data.rule_active) {
+                        app.showToast('修正成功，规则已保存；请在设置中启用人工识别规则。', 'warning', 6000);
+                    } else {
+                        app.showToast(data.dry_run ? '模拟修正完成，未修改文件或缓存' : '修正成功！文件已重新处理。', 'success');
+                    }
                     _closeModal();
                     if (typeof App.FailedCache !== 'undefined') App.FailedCache.loadFailedCache();
                     if (typeof App.History !== 'undefined') App.History.loadProcessedHistory();

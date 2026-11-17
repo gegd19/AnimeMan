@@ -91,6 +91,9 @@ def run_processor_with_callback(
 def _run_with_config(config, progress_callback, repair_mode):
     if is_preview(config):
         config = dict(config, dry_run=True)
+    if config.get("user_rules", {}).get("enabled") is True:
+        from .user_recognition_rules import revision
+        config = dict(config, recognition_rule_revision=revision(config))
     tmdb_client._tmdb_limiter = tmdb_client.RateLimiter(min_interval=config.get("tmdb_rate_limit", 0.05))
 
     with cache_manager.cache_lock:

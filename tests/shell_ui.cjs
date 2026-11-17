@@ -395,3 +395,22 @@ test('manual rule scope is explicit, previews impact and preserves special seaso
     assert.equal(req.body.episode,2);
     assert.equal(req.body.save_rule_scope,'series');
 });
+
+test('manual correction reports rule save failure without repeating media operation', async t => {
+    const {page, requests} = await setup(t, {overrides:{
+        '/api/failed_cache/correct': route => route.fulfill({json:{status:'success', rule_status:'failed', rule_message:'synthetic failure'}})
+    }});
+    await page.evaluate(() => {
+        window.capturedRuleToast = '';
+        App.showToast = message => { window.capturedRuleToast = message; };
+        App.Correction.openCorrectionModal('/src/Show/Show S01E01.mkv','Show S01E01.mkv');
+        App.Correction.selectTmdbForCorrection(42,'Show','tv');
+    });
+    await page.locator('#correctionRuleScope').selectOption('file');
+    await page.locator('#correctionSeason').fill('1');
+    await page.locator('#correctionEpisode').fill('1');
+    await page.evaluate(() => App.Correction.executeCorrection());
+    await page.waitForFunction(() => window.capturedRuleToast.includes('规则未保存'));
+    assert.match(await page.evaluate(() => window.capturedRuleToast), /修正成功.*synthetic failure/);
+    assert.equal(requests.filter(r => r.url === '/api/failed_cache/correct').length, 1);
+});

@@ -1,6 +1,7 @@
 """Versioned, source-bounded user rules; no automatic global alias learning."""
 from copy import deepcopy
 import json
+import hashlib
 from pathlib import Path
 import time
 import unicodedata
@@ -79,7 +80,7 @@ def list_rules(config):
 
 def revision(config):
     state = _load_state()
-    return f"{state['schema']}:{state['revision']}"
+    return f"{state['schema']}:{state['revision']}:" + hashlib.sha256(json.dumps(state, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
 def create_rule(config, src, scope, tmdb_id, media_type, *, season=None, episode=None, anchor_title=None):
@@ -148,17 +149,25 @@ def match_rule(src, config, info):
         if rule.get('enabled') is not True or rule.get('deleted') is True:continue
         scope=rule.get('scope')
         if scope not in matches:raise RuleValidationError('规则范围无效')
+        candidate = Path(rule['path'])
+        if scope == 'file' and candidate != source:
+            continue
+        if scope == 'series' and candidate not in source.parents:
+            continue
         target=_path(rule.get('path'),config,directory=scope=='series')
         if scope=='file' and source==target:
             matches['file'].append(rule)
         elif scope=='series' and target in source.parents:
             anchor=_title(rule.get('anchor_title'))
             if anchor and anchor==_title(info.get('title')):
-                if info.get('media_type') != rule.get('media_type'):
-                    raise RuleConflict('系列规则与文件类型冲突，需要人工确认')
                 matches['series'].append(rule)
     selected=matches['file'] or matches['series']
     if not selected:return None
+    if not matches['file'] and any(info.get('media_type') != rule['media_type'] for rule in matches['series']):
+        raise RuleConflict('系列规则与文件类型冲突，需要人工确认')
     identities={(r.get('tmdb_id'),r.get('media_type'),r.get('season'),r.get('episode')) for r in selected}
     if len(identities)>1:raise RuleConflict('同一作用域存在冲突的人工规则')
-    return deepcopy(selected[0])
+    result = deepcopy(selected[0])
+    if matches['file'] and any((rule['tmdb_id'],rule['media_type']) != (result['tmdb_id'],result['media_type']) for rule in matches['series']):
+        result['_lower_priority_conflict'] = '单文件规则与系列规则身份冲突，采用单文件规则'
+    return result

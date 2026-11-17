@@ -355,7 +355,33 @@ def register(app):
                 src, config, lambda effective, result: process_video_with_manual_correction(
                     src, effective, result, tmdb_id, media_type, season, episode, progress_callback))
             if success:
-                return jsonify({"status": "success", "dry_run": bool(config.get("dry_run"))})
+                result = {"status": "success", "dry_run": bool(config.get("dry_run"))}
+                scope = data.get('save_rule_scope', 'none')
+                if scope != 'none':
+                    if config.get('dry_run'):
+                        result['rule_status'] = 'preview'
+                    else:
+                        try:
+                            from core import user_recognition_rules
+                            from core.cancellation import check_cancelled
+                            anchor = None
+                            if scope == 'series':
+                                from core import parser_manager
+                                local_config = dict(config, ai_parser=dict(config.get('ai_parser', {}), enabled=False))
+                                parsed = parser_manager.parse_filename(src, local_config)
+                                if parsed.get('reason_code') or parsed.get('media_type') != media_type:
+                                    raise user_recognition_rules.RuleValidationError('无法安全确定系列源标题和类型')
+                                anchor = parsed.get('title')
+                            check_cancelled()
+                            user_recognition_rules.create_rule(config, str(src), scope, tmdb_id, media_type,
+                                                               season=season, episode=episode, anchor_title=anchor)
+                            result['rule_status'] = 'saved'
+                            result['rule_active'] = config.get('user_rules', {}).get('enabled') is True
+                        except ProcessingCancelled:
+                            result.update(rule_status='failed', rule_message='操作已取消，规则未保存')
+                        except Exception as error:
+                            result.update(rule_status='failed', rule_message=redact(error))
+                return jsonify(result)
             return jsonify({"status": "error", "code": code, "message": "重新处理失败，旧产物已保留"}), 409 if code == "target_conflict" else 500
 
         except UnsafePathError as exc:

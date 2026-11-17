@@ -17,6 +17,8 @@ def register(app):
     @app.route('/api/recognition_rules/state', methods=['POST'])
     @require_auth
     def set_recognition_rule_state():
+        if request_config(config_path).get('dry_run'):
+            return jsonify({'status': 'error', 'message': '模拟模式下无法修改规则'}), 409
         try:
             rules.set_enabled(request_config(config_path), g.validated_body['id'], g.validated_body['enabled'])
         except rules.RuleValidationError as error:
@@ -26,6 +28,8 @@ def register(app):
     @app.route('/api/recognition_rules/delete', methods=['POST'])
     @require_auth
     def delete_recognition_rule():
+        if request_config(config_path).get('dry_run'):
+            return jsonify({'status': 'error', 'message': '模拟模式下无法修改规则'}), 409
         try:
             rules.delete_rule(request_config(config_path), g.validated_body['id'])
         except rules.RuleValidationError as error:

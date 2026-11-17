@@ -71,6 +71,26 @@ def process_video(
 
     try:
         force_tmdb_id, force_media_type, force_season, force_episode = apply_special_mapping(src, config, wrapped_log)
+        user_rule = None
+        local_info = None
+        if config.get("user_rules", {}).get("enabled") is True:
+            from .user_recognition_rules import match_rule, RuleValidationError
+            try:
+                user_rule = match_rule(src, config, {})
+                local_config = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
+                local_info = parse_filename_info(src, local_config, wrapped_log)
+                user_rule = match_rule(src, config, local_info)
+                if user_rule and user_rule.get('_lower_priority_conflict') and wrapped_log:
+                    wrapped_log(user_rule['_lower_priority_conflict'], LOG_WARNING)
+                if user_rule and force_tmdb_id is not None:
+                    conflict = (force_tmdb_id != user_rule['tmdb_id'] or force_media_type != user_rule['media_type'])
+                    if user_rule['scope'] == 'file' and user_rule['media_type'] == 'tv':
+                        conflict = conflict or (force_season is not None and force_season != user_rule['season']) or (force_episode is not None and force_episode != user_rule['episode'])
+                    if conflict:
+                        raise RuleValidationError("人工规则与已有特辑映射冲突，需要人工确认")
+            except RuleValidationError as error:
+                save_failed_cache(src, f"身份信息需要人工确认: {error}", cache_dict, wrapped_log)
+                return False
         hint_id = None
         hint_type = None
         if config.get("identity_hints", {}).get("enabled", False):
@@ -100,8 +120,11 @@ def process_video(
                 if config.get("dry_run") and wrapped_log:
                     wrapped_log(f"身份信息需要人工确认: {error}", LOG_WARNING)
                 return False
+        if user_rule and hint_id is not None and (user_rule['tmdb_id'] != hint_id or user_rule['media_type'] != hint_type):
+            save_failed_cache(src, "人工规则与路径或 NFO 的 TMDB 身份冲突，需要人工确认", cache_dict, wrapped_log)
+            return False
         parse_config = config
-        if hint_id is not None:
+        if hint_id is not None or user_rule:
             parse_config = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
         info = parse_filename_info(src, parse_config, wrapped_log, force_tmdb_id, force_media_type, force_season, force_episode)
 
@@ -126,6 +149,14 @@ def process_video(
                     wrapped_log(message, LOG_WARNING)
                 return False
             info = dict(info, tmdb_id=hint_id, _explicit_identity=True)
+
+        if user_rule:
+            if info.get('media_type') != user_rule['media_type']:
+                save_failed_cache(src, "人工规则与解析媒体类型冲突，需要人工确认", cache_dict, wrapped_log)
+                return False
+            info = dict(info, tmdb_id=user_rule['tmdb_id'], _explicit_identity=True, _user_rule_id=user_rule['id'])
+            if user_rule['scope'] == 'file' and user_rule['media_type'] == 'tv':
+                info.update(season=user_rule['season'], episode=user_rule['episode'])
 
         # 文件夹级 AI 批量解析
         updated_info = (None if info.get("_explicit_identity") else
@@ -267,6 +298,8 @@ def process_video(
                 score_evidence.append(f"解析来源：{parser_name}")
             if force_tmdb_id is not None:
                 score_evidence.append("人工映射指定 TMDB 身份")
+            elif current_info.get("_user_rule_id"):
+                score_evidence.append("已保存的人工规则指定 TMDB 身份")
             elif current_info.get("_explicit_identity"):
                 score_evidence.append("源路径或关联 NFO 中明确指定 TMDB ID")
             else:
@@ -279,8 +312,10 @@ def process_video(
             if duration_evidence['status'] == 'supported':
                 score_evidence.append("影片时长与 TMDB 在容差内")
             score_conflicts = (["搜索存在多个候选，评分已降低"] if candidate_count > 1 else [])
+            if user_rule and user_rule.get("_lower_priority_conflict"):
+                score_conflicts.append(user_rule["_lower_priority_conflict"])
             current_info = dict(current_info, _local_video_duration=local_duration, _recognition_score={
-                "origin": "manual_mapping" if force_tmdb_id is not None else "automatic",
+                "origin": "manual_mapping" if force_tmdb_id is not None or current_info.get("_user_rule_id") else "automatic",
                 "evidence": score_evidence, "conflicts": score_conflicts})
             return (True, details, media_type, tmdb_id, official_title, official_year, confidence, current_info)
 
