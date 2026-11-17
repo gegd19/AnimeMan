@@ -15,7 +15,7 @@ class ParseInputChanged(OSError):
     pass
 
 
-RULE_VERSION='e01a-v1'
+RULE_VERSION='e01b-v1'
 _memo=ContextVar('animeman_parse_identity',default=None)
 
 

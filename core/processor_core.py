@@ -74,15 +74,27 @@ def process_video(
         hint_id = None
         hint_type = None
         if config.get("identity_hints", {}).get("enabled", False):
-            from .explicit_media_identity import extract_path_identity, explicit_media_type, IdentityEvidenceError
+            from .explicit_media_identity import extract_path_identity, extract_nfo_identity, explicit_media_type, IdentityEvidenceError
             try:
-                hint_id = extract_path_identity(src, config.get("source_folders", []))
+                roots = config.get("source_folders", [])
+                path_id = extract_path_identity(src, roots)
+                nfo_identity = extract_nfo_identity(src, roots)
+                path_type = (explicit_media_type(src, roots)
+                             if path_id is not None or nfo_identity or force_tmdb_id else None)
+                if force_tmdb_id and path_type and path_type != force_media_type:
+                    raise IdentityEvidenceError("人工映射与路径中的媒体类型冲突")
+                if path_id is not None and nfo_identity and path_id != nfo_identity[1]:
+                    raise IdentityEvidenceError("路径与 NFO 的 TMDB ID 冲突")
+                if nfo_identity and path_type and path_type != nfo_identity[0]:
+                    raise IdentityEvidenceError("路径与 NFO 的媒体类型冲突")
+                hint_id = path_id if path_id is not None else (nfo_identity[1] if nfo_identity else None)
                 if hint_id is not None:
-                    hint_type = force_media_type if force_tmdb_id else explicit_media_type(src, config.get("source_folders", []))
+                    hint_type = force_media_type if force_tmdb_id else (path_type or (nfo_identity[0] if nfo_identity else None))
                     if hint_type not in ("tv", "movie"):
-                        raise IdentityEvidenceError("路径中的 TMDB ID 缺少明确媒体类型")
-                    if force_tmdb_id and (force_tmdb_id != hint_id or force_media_type != hint_type):
-                        raise IdentityEvidenceError("人工映射与路径中的 TMDB ID 冲突")
+                        raise IdentityEvidenceError("TMDB ID 缺少明确媒体类型")
+                    if force_tmdb_id and (force_tmdb_id != hint_id or force_media_type != hint_type
+                                          or (nfo_identity and nfo_identity[0] != force_media_type)):
+                        raise IdentityEvidenceError("人工映射与路径或 NFO 的 TMDB 身份冲突")
             except IdentityEvidenceError as error:
                 save_failed_cache(src, f"身份信息需要人工确认: {error}", cache_dict, wrapped_log)
                 if config.get("dry_run") and wrapped_log:
@@ -256,7 +268,7 @@ def process_video(
             if force_tmdb_id is not None:
                 score_evidence.append("人工映射指定 TMDB 身份")
             elif current_info.get("_explicit_identity"):
-                score_evidence.append("源路径中明确指定 TMDB ID")
+                score_evidence.append("源路径或关联 NFO 中明确指定 TMDB ID")
             else:
                 from .candidate_evaluator import evaluate_candidates
                 assessment = evaluate_candidates([tmdb_result], media_type,
