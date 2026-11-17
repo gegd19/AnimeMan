@@ -121,6 +121,20 @@ def validate_request():
         boolean(data.get('delete_source', False), 'delete_source')
     elif endpoint in ('correct_failed_item', 'batch_correct_failed_items'):
         _correction(data, endpoint == 'batch_correct_failed_items')
+    elif endpoint in ('preview_numbering_map', 'create_numbering_map'):
+        string(data.get('scope'), 'scope')
+        string(data.get('src_path'), 'src_path')
+        integer(data.get('tmdb_id'), 'tmdb_id', 1, 2147483647)
+        kind=choice(data.get('kind'), 'kind', ('exact','range'))
+        integer(data.get('season'), 'season', 0, 99)
+        integer(data.get('episode'), 'episode', 1, 9999)
+        if kind=='exact': string(data.get('source_label'), 'source_label', maximum=128)
+        else:
+            integer(data.get('start'), 'start', 0, 9999)
+            integer(data.get('end'), 'end', 0, 9999)
+    elif endpoint == 'set_numbering_map_state':
+        string(data.get('id'), 'id', maximum=64)
+        boolean(data.get('enabled'), 'enabled')
     elif endpoint in ('set_recognition_rule_state', 'delete_recognition_rule'):
         string(data.get('id'), 'id', maximum=64)
         if endpoint == 'set_recognition_rule_state': boolean(data.get('enabled'), 'enabled')

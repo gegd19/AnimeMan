@@ -434,3 +434,33 @@ test('confirmed identity with unknown numbering requires explicit season and epi
     assert.equal(req.body.season,0);
     assert.equal(req.body.episode,3);
 });
+
+test('numbering maps require a reviewed preview and preserve decimal label', async t => {
+    const {page, requests} = await setup(t, {overrides:{
+        '/api/numbering_maps/preview': route => route.fulfill({json:{status:'success',preview:{source_label:'12.5',season:0,episode:3}}}),
+        '/api/numbering_maps': route => route.fulfill({json:{status:'success',rules:[]}})
+    }});
+    await openView(page,'settings');
+    assert.equal(await page.locator('#numberingMapsEnabledCheck').isChecked(),false);
+    await page.locator('#numberingMapsDetails summary').click();
+    await page.locator('#numberingScope').fill('/src/Show');
+    await page.locator('#numberingSrcPath').fill('/src/Show/Show - 12.5.mkv');
+    await page.locator('#numberingTmdbId').fill('42');
+    await page.locator('#numberingSourceLabel').fill('12.5');
+    await page.locator('#numberingTargetSeason').fill('0');
+    await page.locator('#numberingTargetEpisode').fill('3');
+    assert.equal(await page.locator('#numberingSave').isDisabled(),true);
+    await page.locator('#numberingPreview').click();
+    await page.waitForFunction(() => document.querySelector('#numberingPreviewResult').textContent.includes('12.5'));
+    assert.match(await page.locator('#numberingPreviewResult').textContent(),/S00E03/);
+    assert.equal(await page.locator('#numberingSave').isDisabled(),false);
+    await page.locator('#numberingTargetEpisode').fill('4');
+    assert.equal(await page.locator('#numberingSave').isDisabled(),true);
+    await page.locator('#numberingTargetEpisode').fill('3');
+    await page.locator('#numberingPreview').click();
+    await page.locator('#numberingSave').click();
+    const req=requests.find(r=>r.url==='/api/numbering_maps' && r.method==='POST');
+    assert.equal(req.body.source_label,'12.5');
+    assert.equal(req.body.season,0);
+    assert.equal(req.body.episode,3);
+});

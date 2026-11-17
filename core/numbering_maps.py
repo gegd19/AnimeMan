@@ -171,9 +171,39 @@ def extract_source_label(filename):
     """Extract one explicit numeric label verbatim; multi-episode names are rejected."""
     stem=Path(filename).stem
     if re.fullmatch(r'\d+(?:\.\d+)?',stem):return stem
-    multi = re.search(r'(?i)(?:E(?:P)?|OVA|OAD|SP|第|\s-\s|\[)\s*\d+(?:\.\d+)?\s*[-~–]\s*(?:E(?:P)?\s*)?\d+',stem)
+    multi = re.search(r'(?i)(?:E(?:P)?|OVA|OAD|SP|第|\s-\s|\[)\s*\d+(?:\.\d+)?\s*(?:[-~–&+,，]|\band\b)\s*(?:E(?:P)?\s*)?\d+',stem)
     if multi:raise MappingConflict('多集文件需要人工确认')
     pattern=r'(?i)(?:(?<![A-Za-z])(?:E(?:P)?|OVA|OAD|SP)\s*|第\s*|(?<=\s-\s)|\[)(\d+(?:\.\d+)?)(?![\d.])'
     labels=[match.group(1) for match in re.finditer(pattern,stem)]
     if len(labels)>1:raise MappingConflict('多集文件需要人工确认')
     return labels[0] if labels else None
+
+
+def preview(config, *, scope, src_path, tmdb_id, kind, season, episode, source_label=None, start=None, end=None):
+    """Validate a proposed rule and a real sample, without changing storage."""
+    path=_scope(scope,config)
+    src=Path(src_path)
+    if not src.is_absolute() or src.is_symlink() or src.resolve()!=src or not src.is_file() or path not in src.parents:
+        raise ValueError('示例文件不在映射作用域内')
+    label=extract_source_label(src.name)
+    fields={'source_label':source_label} if kind=='exact' else {'start':start,'end':end}
+    rule=_validate({'id':'preview','scope':str(path),'tmdb_id':tmdb_id,'kind':kind,'season':season,
+                    'episode':episode,'enabled':True,'deleted':False,**fields})
+    if kind=='exact':
+        if label is None or label!=source_label:raise ValueError('原始编号与示例文件不一致')
+        sample_episode=episode
+    else:
+        if label is None or not re.fullmatch(r'[0-9]+',label) or not start<=int(label)<=end:
+            raise ValueError('示例文件编号不在范围内')
+        sample_episode=episode+int(label)-start
+    _check_conflicts(rule,_load()['rules'])
+    return {'scope':str(path),'src_path':str(src),'tmdb_id':tmdb_id,'kind':kind,
+            'source_label':label,'season':season,'episode':sample_episode}
+
+
+def decimal_title_hint(filename):
+    """Extract a title only from a single, explicit decimal episode suffix."""
+    stem=Path(filename).stem
+    match=re.fullmatch(r'(?i)(.+?)\s+(?:-\s*|(?:S\d{1,2})?E(?:P)?\s*)(\d+\.\d+)',stem)
+    if not match or extract_source_label(filename)!=match.group(2):return None
+    return match.group(1).strip() or None

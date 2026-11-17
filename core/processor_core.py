@@ -80,6 +80,12 @@ def process_video(
                 local_config = dict(config, ai_parser=dict(config.get("ai_parser", {}), enabled=False))
                 local_info = parse_filename_info(src, local_config, wrapped_log)
                 user_rule = match_rule(src, config, local_info)
+                if (user_rule is None and config.get('numbering_maps', {}).get('enabled') is True
+                        and local_info.get('reason_code') == 'unsupported_episode_numbering'):
+                    from .numbering_maps import decimal_title_hint
+                    hint_title = decimal_title_hint(src.name)
+                    if hint_title:
+                        user_rule = match_rule(src, config, {'title':hint_title, 'media_type':'tv'})
                 if (user_rule is None and not local_info.get('reason_code') and local_info.get('episode') is None):
                     from .folder_evidence import special_series_hint
                     hint = special_series_hint(src)
@@ -156,7 +162,7 @@ def process_video(
                 if mapping:
                     prior = ((user_rule['season'], user_rule['episode']) if user_rule and user_rule['scope']=='file'
                              else (force_season, force_episode) if force_tmdb_id is not None else None)
-                    if prior and all(value is not None for value in prior) and prior != (mapping['season'], mapping['episode']):
+                    if prior and ((prior[0] is not None and prior[0] != mapping['season']) or (prior[1] is not None and prior[1] != mapping['episode'])):
                         raise numbering_maps.MappingConflict('编号映射与单文件人工规则冲突，需要人工确认')
                     info = {'title':src.stem, 'search_title':src.stem, 'media_type':'tv',
                             'season':mapping['season'], 'episode':mapping['episode'],
@@ -193,12 +199,14 @@ def process_video(
             if info.get('media_type') != user_rule['media_type']:
                 save_failed_cache(src, "人工规则与解析媒体类型冲突，需要人工确认", cache_dict, wrapped_log)
                 return False
-            info = dict(info, tmdb_id=user_rule['tmdb_id'], _explicit_identity=True, _user_rule_id=user_rule['id'])
+            info = dict(info, tmdb_id=user_rule['tmdb_id'], _explicit_identity=True, _user_rule_id=user_rule['id'], _user_rule_scope=user_rule['scope'])
             if user_rule['scope'] == 'file' and user_rule['media_type'] == 'tv':
                 info.update(season=user_rule['season'], episode=user_rule['episode'])
 
         if force_tmdb_id is not None:
             info['_special_mapping'] = True
+            info['_special_mapping_season'] = force_season
+            info['_special_mapping_episode'] = force_episode
 
         # 文件夹级 AI 批量解析
         folder_evidence = config.get('_folder_evidence')

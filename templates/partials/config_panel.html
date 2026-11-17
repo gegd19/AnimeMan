@@ -105,6 +105,25 @@
         <label class="check"><input type="checkbox" id="animeParserFallbackCheck" checked><span>解析失败时回退到原方法</span></label>
 
         <label class="check"><input type="checkbox" id="userRulesEnabledCheck"><span>启用已保存的人工识别规则<small>默认关闭；文件及系列规则仅在配置的源目录内生效。</small></span></label>
+        <label class="check"><input type="checkbox" id="numberingMapsEnabledCheck"><span>启用显式季集编号映射<small>默认关闭；映射只适用于指定源目录和剧集。</small></span></label>
+        <details id="numberingMapsDetails">
+            <summary>管理季集编号映射</summary>
+            <p class="field-hint">先填写并预览；保存前会验证 TMDB 目标季集。多集文件仍需人工处理。</p>
+            <div class="field"><label for="numberingScope">源目录作用域</label><input id="numberingScope" type="text" autocomplete="off"></div>
+            <div class="field"><label for="numberingSrcPath">示例源文件完整路径</label><input id="numberingSrcPath" type="text" autocomplete="off"></div>
+            <div class="field"><label for="numberingTmdbId">剧集 TMDB ID</label><input id="numberingTmdbId" type="number" min="1" max="2147483647"></div>
+            <div class="field"><label for="numberingKind">映射类型</label><select id="numberingKind"><option value="exact">精确编号</option><option value="range">整数范围</option></select></div>
+            <div class="field"><label for="numberingSourceLabel">原始编号（保留原文）</label><input id="numberingSourceLabel" type="text" autocomplete="off" placeholder="例如 12.5 或 01"></div>
+            <div class="field"><label for="numberingStart">范围起点（范围模式）</label><input id="numberingStart" type="number" min="0" max="9999"></div>
+            <div class="field"><label for="numberingEnd">范围终点（范围模式）</label><input id="numberingEnd" type="number" min="0" max="9999"></div>
+            <div class="field"><label for="numberingTargetSeason">目标季号</label><input id="numberingTargetSeason" type="number" min="0" max="99"></div>
+            <div class="field"><label for="numberingTargetEpisode">目标起始集号</label><input id="numberingTargetEpisode" type="number" min="1" max="9999"></div>
+            <button type="button" id="numberingPreview">预览并验证</button>
+            <button type="button" id="numberingSave" disabled>保存已预览映射</button>
+            <p class="field-hint" id="numberingPreviewResult" role="status">尚未预览。</p>
+            <button type="button" id="numberingRefresh">刷新已保存映射</button>
+            <div id="numberingList"></div>
+        </details>
         <h4>AI 解析</h4>
         <label class="check"><input type="checkbox" id="aiParserEnabledCheck"><span>启用 AI 解析</span></label>
         <label class="check"><input type="checkbox" id="aiBatchFolderCheck" checked><span>优先使用文件夹批量解析<small>同一文件夹只调用一次，推荐开启。</small></span></label>

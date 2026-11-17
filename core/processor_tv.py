@@ -64,6 +64,7 @@ def process_tv_branch(
         if config.get('numbering_maps', {}).get('enabled') is True:
             from . import numbering_maps
             try:
+                mapped_revision = numbering_maps.revision()
                 label = numbering_maps.extract_source_label(src.name)
                 mapped = numbering_maps.match(config, src, tmdb_id, label) if label else None
                 if info.get('_numbering_map_id') and (not mapped or mapped['id'] != info['_numbering_map_id']):
@@ -72,7 +73,13 @@ def process_tv_branch(
                     if (not isinstance(details,dict) or type(details.get('id')) is not int
                             or details['id'] != tmdb_id or not isinstance(details.get('name'),str) or not details['name'].strip()):
                         raise numbering_maps.MappingConflict('作品身份无法验证，需要人工确认')
-                    if (info.get('_user_rule_id') or info.get('_special_mapping')) and (season,episode) != (mapped['season'],mapped['episode']):
+                    user_file_conflict = (info.get('_user_rule_id') and info.get('_user_rule_scope', 'file') == 'file'
+                                          and (season,episode) != (mapped['season'],mapped['episode']))
+                    old_season, old_episode = info.get('_special_mapping_season'), info.get('_special_mapping_episode')
+                    special_conflict = (info.get('_special_mapping') and
+                                        ((old_season is not None and old_season != mapped['season']) or
+                                         (old_episode is not None and old_episode != mapped['episode'])))
+                    if user_file_conflict or special_conflict:
                         raise numbering_maps.MappingConflict('编号映射与人工规则指定的季集冲突，需要人工确认')
                     season,episode = mapped['season'],mapped['episode']
                     info = dict(info, season=season, episode=episode, explicit_season=season,
@@ -292,6 +299,10 @@ TMDB 搜索结果：
             if log_func and config.get("dry_run"):
                 log_func(f"⚠️ {reason}", LOG_WARNING)
             save_failed_cache(src, reason, cache_dict, log_func)
+            return False
+
+        if mapped is not None and numbering_maps.revision() != mapped_revision:
+            save_failed_cache(src, "编号映射在验证期间发生变化，需要人工确认", cache_dict, log_func)
             return False
 
         target_path = episode_video_path(src, config, official_title, official_year,
