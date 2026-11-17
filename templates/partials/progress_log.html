@@ -44,17 +44,33 @@
     </div>
 </section>
 
+<!-- 最近入库：由 mediaManager.js 用媒体库接口的数据填充；媒体库为空时隐藏 -->
+<section class="recent-strip" id="homeRecent" aria-labelledby="homeRecentTitle" hidden>
+    <div class="recent-head">
+        <h2 id="homeRecentTitle">最近入库</h2>
+        <button type="button" class="ghost btn-sm" onclick="App.Shell.show('library', {focus: true})">打开媒体库</button>
+    </div>
+    <div class="recent-row" id="homeRecentRow"></div>
+</section>
+
 <div class="home-grid">
     <section class="sheet" aria-labelledby="logTitle">
         <div class="sheet-head">
             <h2 id="logTitle">任务日志</h2>
+            <div class="segmented log-filter" role="group" aria-label="按级别筛选日志">
+                <button type="button" data-log-filter="all" aria-pressed="true">全部</button>
+                <button type="button" data-log-filter="progress" aria-pressed="false">进度</button>
+                <button type="button" data-log-filter="success" aria-pressed="false">入库 <span class="filter-count" data-log-count="success"></span></button>
+                <button type="button" data-log-filter="warning" aria-pressed="false">警告 <span class="filter-count" data-log-count="warning"></span></button>
+                <button type="button" data-log-filter="error" aria-pressed="false">错误 <span class="filter-count is-red" data-log-count="error"></span></button>
+            </div>
             <div class="toolbar">
                 <button type="button" id="pauseLogsBtn" onclick="App.toggleLogsPause()" class="secondary btn-sm">暂停日志</button>
                 <button type="button" onclick="App.clearLogs()" class="secondary btn-sm">清空日志</button>
                 <button type="button" onclick="App.Task.viewFullLog()" class="secondary btn-sm">完整日志</button>
             </div>
         </div>
-        <div class="log-box" id="logBox" role="log" aria-live="off" aria-label="任务日志" tabindex="0">
+        <div class="log-box" id="logBox" role="log" aria-live="off" aria-label="任务日志" tabindex="0" data-filter="all">
             <div class="log-empty">准备就绪。开始处理后，日志会显示在这里。</div>
         </div>
     </section>

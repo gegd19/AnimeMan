@@ -142,24 +142,39 @@ window.App = window.App || {};
         throw error;
     };
 
+    // TMDB 搜索结果：海报卡片。整张卡片是一个按钮，选中后 aria-pressed=true。
+    // 季集数只展示接口返回的 seasons_detail；没有时不显示。
     exports.renderTmdbResults = function(container, items, mediaType, select) {
-        const table = container.tagName === 'TBODY' ? container : exports.el('table', {className: 'failed-table'});
-        table.replaceChildren();
-        if (table !== container) {
-            table.append(exports.el('tr', {}, ...['海报', '标题', '年份', '季详情', '操作'].map(text => exports.el('th', {text}))));
-            container.replaceChildren(table);
-        }
+        const grid = exports.el('div', {className: 'tmdb-grid', attrs: {role: 'group', 'aria-label': 'TMDB 搜索结果'}});
         for (const item of items) {
             const details = item.media_type === 'tv' ? (item.seasons_detail || []) : [];
-            const seasons = exports.el('span', {
-                text: details.length ? details.map(s => `S${s.season_number}(${s.episode_count}集)`).join(', ') : '-',
-                title: details.map(s => `S${s.season_number}: ${s.name} (${s.episode_count}集)`).join('\n')
+            const regular = details.filter(s => Number(s.season_number) > 0);
+            const episodes = regular.reduce((sum, s) => sum + (Number(s.episode_count) || 0), 0);
+            const facts = [item.year || '', item.media_type === 'movie' ? '电影' : '剧集'];
+            if (regular.length) facts.push(`${regular.length} 季 ${episodes} 集`);
+            if (details.some(s => Number(s.season_number) === 0)) facts.push('含特别篇');
+            const card = exports.el('button', {type: 'button', className: 'tmdb-card',
+                title: [item.title, ...details.map(s => `S${s.season_number}: ${s.name} (${s.episode_count}集)`)].join('\n'),
+                attrs: {'aria-pressed': 'false'}},
+                exports.el('span', {className: 'tmdb-poster'},
+                    exports.el('span', {className: 'poster-fallback', text: String(item.title || '?').slice(0, 1), attrs: {'aria-hidden': 'true'}}),
+                    exports.poster(item.poster_url, {alt: ''})),
+                exports.el('span', {className: 'tmdb-title', text: item.title}),
+                exports.el('span', {className: 'tmdb-meta', text: facts.filter(Boolean).join(' · ')}),
+                exports.el('span', {className: 'tmdb-id', text: `TMDB ${item.id}`}));
+            card.addEventListener('click', () => {
+                for (const other of grid.querySelectorAll('.tmdb-card')) other.setAttribute('aria-pressed', 'false');
+                card.setAttribute('aria-pressed', 'true');
+                select(item.id, item.title, mediaType);
             });
-            table.append(exports.el('tr', {},
-                exports.el('td', {}, item.poster_url ? exports.poster(item.poster_url, {alt: ''}) : exports.el('span', {className: 'text-muted', text: '无图'})),
-                exports.el('td', {text: item.title}), exports.el('td', {text: item.year || ''}),
-                exports.el('td', {}, seasons), exports.el('td', {}, exports.button('选择', () => select(item.id, item.title, mediaType)))));
+            grid.append(card);
         }
+        container.replaceChildren(grid);
+    };
+
+    // 在结果区域显示一行提示（等待、空结果、错误），始终作为文本写入。
+    exports.resultMessage = function(container, text, kind = '') {
+        container.replaceChildren(exports.el('div', {className: `result-message ${kind ? 'is-' + kind : ''}`.trim(), text}));
     };
 
     /**

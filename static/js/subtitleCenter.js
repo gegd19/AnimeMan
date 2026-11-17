@@ -13,6 +13,8 @@ App.SubtitleCenter = (function(app) {
     const thresholdSpan = document.getElementById('thresholdValue');
     if (thresholdInput) {
         thresholdInput.addEventListener('input', e => thresholdSpan.innerText = e.target.value);
+        // 阈值只影响"需要确认"的标记；松开滑块后重画一次结果表。
+        thresholdInput.addEventListener('change', () => { if (app.matchResults && app.matchResults.length) renderMatchTable(); });
     }
 
     // 状态变量
@@ -129,13 +131,94 @@ App.SubtitleCenter = (function(app) {
         return scoreB - scoreA; // 降序，高分在前
     }
 
+    // 需要处理的在前：无匹配 → 低于阈值 → 其余，组内按文件名。
+    function attentionRank(item) {
+        const processed = item.subtitle && item.subtitle.processed_info;
+        if (!item.best_match) return processed && processed.target_exists ? 3 : 0;
+        return item.best_match.score < currentThreshold() ? 1 : 2;
+    }
+
+    function sortByAttention(a, b) {
+        return (attentionRank(a) - attentionRank(b)) || sortByName(a, b);
+    }
+
     function sortMatchResults(mode) {
         if (!app.matchResults || !app.matchResults.length) return;
+        // 勾选记录的是数组下标；排序前后按对象对应，避免勾选"跳"到别的字幕上。
+        const chosen = new Set(Array.from(selectedIndices).map(index => app.matchResults[index]).filter(Boolean));
         if (mode === 'confidence') {
             app.matchResults.sort(sortByConfidence);
+        } else if (mode === 'attention') {
+            app.matchResults.sort(sortByAttention);
         } else {
             app.matchResults.sort(sortByName);
         }
+        if (chosen.size) {
+            selectedIndices = new Set();
+            app.matchResults.forEach((item, index) => { if (chosen.has(item)) selectedIndices.add(index); });
+        }
+    }
+
+    function currentThreshold() {
+        const input = document.getElementById('matchThresholdInput');
+        const value = input ? Number(input.value) : 75;
+        return Number.isFinite(value) ? value : 75;
+    }
+
+    // 置信度：数字 + 色条。没有评分时不画色条，也不写成 0%。
+    function confidenceCell(best, processed) {
+        const td = document.createElement('td');
+        if (!best) {
+            td.append(app.el('span', {className: 'text-muted', text: processed ? '—' : '-'}));
+            return td;
+        }
+        const score = Math.max(0, Math.min(100, Number(best.score) || 0));
+        const low = score < currentThreshold();
+        td.append(app.el('div', {className: `meter ${low ? 'is-low' : ''}`.trim()},
+            app.el('span', {className: 'meter-track', attrs: {'aria-hidden': 'true'}},
+                app.el('span', {className: 'meter-fill', style: `width:${score}%`})),
+            app.el('span', {className: 'meter-value', text: `${best.score}%`})));
+        if (low) td.append(app.el('div', {className: 'cell-sub text-warning', text: '需要确认'}));
+        return td;
+    }
+
+    // 汇总与步骤状态，全部从当前扫描 / 匹配结果计算。
+    function updateSummary() {
+        const results = app.matchResults || [];
+        const scanned = (app.scannedSubtitles || []).length;
+        let matched = 0, low = 0, done = 0, none = 0;
+        const threshold = currentThreshold();
+        for (const item of results) {
+            const processed = item.subtitle && item.subtitle.processed_info;
+            if (item.best_match) { matched++; if (item.best_match.score < threshold) low++; }
+            else if (processed && processed.target_exists) done++;
+            else none++;
+        }
+        const anyMatched = results.some(item => item.best_match);
+        const summary = document.getElementById('subtitleSummary');
+        if (summary) {
+            const parts = [];
+            if (results.length) {
+                parts.push(app.el('span', {className: 'chip', text: `共 ${results.length}`}));
+                if (anyMatched) parts.push(app.el('span', {className: 'chip is-blue', text: `已匹配 ${matched}`}));
+                if (low) parts.push(app.el('span', {className: 'chip is-amber', text: `需要确认 ${low}`}));
+                if (done) parts.push(app.el('span', {className: 'chip is-green', text: `已入库 ${done}`}));
+                if (anyMatched && none) parts.push(app.el('span', {className: 'chip is-red', text: `无匹配 ${none}`}));
+            }
+            summary.replaceChildren(...parts);
+        }
+        const setStep = (id, state, text) => {
+            const step = document.getElementById(id);
+            if (!step) return;
+            step.dataset.state = state;
+            const label = document.getElementById(id + 'Text');
+            if (label && label.textContent !== text) label.textContent = text;
+        };
+        setStep('subStepScan', scanned ? 'done' : 'current', scanned ? `找到 ${scanned} 个字幕` : '选择字幕文件夹');
+        setStep('subStepMatch', anyMatched ? 'done' : (scanned ? 'current' : 'todo'),
+            anyMatched ? `已匹配 ${matched}，无匹配 ${none}` : (scanned ? '点击「自动匹配」' : '扫描后可用'));
+        setStep('subStepExec', anyMatched || done ? 'current' : 'todo',
+            selectedIndices.size ? `已勾选 ${selectedIndices.size} 个` : '勾选后执行');
     }
 
     // 用于 AI 分组的标题提取
@@ -230,6 +313,7 @@ App.SubtitleCenter = (function(app) {
             tbody.innerHTML = '<tr><td colspan="5">还没有数据。先扫描字幕文件夹，再自动匹配。</td></tr>';
             updateSelectionUI(0, 0);
             renderPagination(0);
+            updateSummary();
             return;
         }
 
@@ -272,17 +356,19 @@ App.SubtitleCenter = (function(app) {
             const tdName = document.createElement('td');
             tdName.title = sub.path;
             const dirDisplay = getDirectoryDisplay(sub);
-            tdName.textContent = dirDisplay ? `${sub.name} (${dirDisplay})` : sub.name;
+            tdName.replaceChildren(app.el('span', {className: 'sub-name', text: sub.name}),
+                ...(dirDisplay ? [app.el('span', {className: 'cell-sub', text: dirDisplay})] : []));
             tr.appendChild(tdName);
 
             // 匹配结果
             const tdMatch = document.createElement('td');
             if (best) {
                 const m = best.media;
-                const display = m.media_type === 'tv'
-                    ? `${m.title} S${(m.season || '').toString().padStart(2, '0')}E${(m.episode || '').toString().padStart(2, '0')}`
-                    : `${m.title} (${m.year || ''})`;
-                tdMatch.textContent = display;
+                const code = m.media_type === 'tv'
+                    ? `S${(m.season || '').toString().padStart(2, '0')}E${(m.episode || '').toString().padStart(2, '0')}`
+                    : (m.year ? String(m.year) : '电影');
+                tdMatch.replaceChildren(app.el('span', {className: 'match-title', text: m.title || ''}),
+                    ' ', app.el('span', {className: 'episode-code', text: code}));
             } else if (processed && processed.target_exists) {
                 const info = processed;
                 const display = info.media_type === 'tv'
@@ -291,15 +377,14 @@ App.SubtitleCenter = (function(app) {
                 tdMatch.replaceChildren(app.el('span', {text: '已入库', className: 'badge is-green'}),
                     app.el('br'), app.el('span', {text: display, className: 'cell-sub'}));
             } else {
-                tdMatch.textContent = '无匹配';
-                tdMatch.className = 'text-danger';
+                tdMatch.replaceChildren(app.el('span', {className: 'badge is-red', text: '无匹配'}));
             }
             tr.appendChild(tdMatch);
 
             // 置信度
-            const tdScore = document.createElement('td');
-            tdScore.textContent = best ? `${best.score}%` : (processed ? '—' : '-');
-            tr.appendChild(tdScore);
+            tr.appendChild(confidenceCell(best, processed));
+            if (!best && !(processed && processed.target_exists)) tr.className = 'needs-attention';
+            else if (best && best.score < currentThreshold()) tr.className = 'is-low';
 
             // 操作
             const tdAction = document.createElement('td');
@@ -343,6 +428,7 @@ App.SubtitleCenter = (function(app) {
 
         updateSelectionUI(totalItems, selectedIndices.size);
         renderPagination(totalItems);
+        updateSummary();
     }
 
     // ---------- 执行单条 ----------

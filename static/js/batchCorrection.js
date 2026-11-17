@@ -141,7 +141,7 @@ App.BatchCorrection = (function(app) {
             }
             document.getElementById('batchTmdbSearchInput').value = defaultQuery;
 
-            document.getElementById('batchTmdbResults').innerHTML = '';
+            app.resultMessage(document.getElementById('batchTmdbResults'), '输入片名搜索 TMDB，点选正确的那一部。');
             document.getElementById('batchSelectedTmdbInfo').style.display = 'none';
             document.getElementById('batchSeason').value = 1;
             document.getElementById('batchStartEpisode').value = 1;
@@ -182,7 +182,7 @@ App.BatchCorrection = (function(app) {
             }
             document.getElementById('batchTmdbSearchInput').value = defaultQuery;
 
-            document.getElementById('batchTmdbResults').innerHTML = '';
+            app.resultMessage(document.getElementById('batchTmdbResults'), '输入片名搜索 TMDB，点选正确的那一部。');
             document.getElementById('batchSelectedTmdbInfo').style.display = 'none';
             document.getElementById('batchSeason').value = 1;
             document.getElementById('batchStartEpisode').value = 1;
@@ -257,7 +257,7 @@ App.BatchCorrection = (function(app) {
                 return;
             }
             const resultsDiv = document.getElementById('batchTmdbResults');
-            resultsDiv.innerHTML = '<div class="text-muted">正在搜索 TMDB…</div>';
+            app.resultMessage(resultsDiv, '正在搜索 TMDB…', 'loading');
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 25000);
@@ -273,7 +273,7 @@ App.BatchCorrection = (function(app) {
                 if (data.error) throw new Error(data.error);
 
                 if (!data.results || data.results.length === 0) {
-                    resultsDiv.innerHTML = '<div class="text-muted">没有搜索结果，换个关键词试试</div>';
+                    app.resultMessage(resultsDiv, '没有搜索结果。换个关键词，或切换剧集 / 电影试试。');
                     return;
                 }
 
@@ -282,7 +282,7 @@ App.BatchCorrection = (function(app) {
             } catch (e) {
                 clearTimeout(timeoutId);
                 let errMsg = e.message || '网络错误';
-                resultsDiv.replaceChildren(app.el('div', {className: 'text-danger', text: '搜索失败：' + errMsg}));
+                app.resultMessage(resultsDiv, '搜索失败：' + errMsg, 'error');
                 app.showToast(errMsg, 'error');
             }
         },

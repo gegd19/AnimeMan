@@ -18,7 +18,9 @@
                     <button type="button" onclick="App.BatchCorrection.searchTmdb()">搜索</button>
                 </div>
             </div>
-            <div id="batchTmdbResults" class="list-box" style="max-height: 240px;"></div>
+            <div id="batchTmdbResults" class="tmdb-results" aria-live="polite">
+                <div class="result-message">输入片名搜索 TMDB，点选正确的那一部。</div>
+            </div>
             <div id="batchSelectedTmdbInfo" class="selected-info" style="display:none;">
                 <strong>已选择：</strong><span id="batchSelectedTmdbTitle"></span> (ID: <span id="batchSelectedTmdbId"></span>)
             </div>

@@ -1,12 +1,20 @@
 <div class="view-head">
-    <h1 id="view-subtitles-title">字幕</h1>
+    <div>
+        <h1 id="view-subtitles-title">字幕</h1>
+        <p>把字幕放到对应视频旁边：先扫描文件夹，再匹配，最后确认执行。</p>
+    </div>
 </div>
+
+<!-- 三个步骤：状态文字由 subtitleCenter.js 根据扫描和匹配结果更新 -->
+<ol class="sub-steps" aria-label="字幕整理步骤">
+    <li class="sub-step" id="subStepScan" data-state="current"><span class="sub-step-num" aria-hidden="true">1</span><span><b>扫描</b><small id="subStepScanText">选择字幕文件夹</small></span></li>
+    <li class="sub-step" id="subStepMatch" data-state="todo"><span class="sub-step-num" aria-hidden="true">2</span><span><b>匹配</b><small id="subStepMatchText">扫描后可用</small></span></li>
+    <li class="sub-step" id="subStepExec" data-state="todo"><span class="sub-step-num" aria-hidden="true">3</span><span><b>确认执行</b><small id="subStepExecText">勾选后执行</small></span></li>
+</ol>
+
 <section class="sheet" aria-labelledby="subScanTitle">
     <div class="sheet-head">
-        <div>
-            <h2 id="subScanTitle">扫描与自动匹配</h2>
-            <p>按标题相似度把字幕对应到媒体库里的条目，不需要手动选择目标。</p>
-        </div>
+        <h2 id="subScanTitle"><span class="step-tag" aria-hidden="true">1</span>扫描字幕文件夹</h2>
     </div>
     <div class="sheet-body">
         <div class="field">
@@ -17,12 +25,27 @@
                 <button type="button" class="secondary" onclick="App.Config.setDefaultSubtitleFolder()" title="保存全部配置，并把当前路径设为默认字幕文件夹">设为默认</button>
             </div>
         </div>
+        <div class="toolbar step-actions">
+            <button type="button" class="primary" onclick="App.SubtitleCenter.scanSubtitleFolder()">扫描字幕</button>
+        </div>
+    </div>
+</section>
+
+<section class="sheet" aria-labelledby="subMatchTitle">
+    <div class="sheet-head">
+        <div>
+            <h2 id="subMatchTitle"><span class="step-tag" aria-hidden="true">2</span>匹配到媒体库</h2>
+            <p>自动匹配按标题相似度对应到媒体库条目；认不出来的，可以用下面两种方式指定目标。</p>
+        </div>
+    </div>
+    <div class="sheet-body">
         <div class="field">
             <label for="matchThresholdInput">匹配阈值</label>
             <div class="range-row">
                 <input type="range" id="matchThresholdInput" min="0" max="100" value="75">
                 <span id="thresholdValue" class="range-value">75</span>
             </div>
+            <p class="field-hint">低于阈值的结果会标为"需要确认"。</p>
         </div>
         <div class="field">
             <span class="field-label">选项</span>
@@ -31,61 +54,67 @@
                 <label class="check"><input type="checkbox" id="overwriteCheck"><span>覆盖已有字幕</span></label>
             </div>
         </div>
-        <div class="toolbar" style="margin-top: 16px;">
-            <button type="button" class="primary" onclick="App.SubtitleCenter.scanSubtitleFolder()">扫描字幕</button>
-            <button type="button" class="success" onclick="App.SubtitleCenter.autoMatchSubtitles()" id="matchBtn" disabled>自动匹配</button>
-            <button type="button" class="success" onclick="App.SubtitleCenter.executeAllMatches()" id="executeAllBtn" disabled>全部执行</button>
+        <div class="toolbar step-actions">
+            <button type="button" class="primary" onclick="App.SubtitleCenter.autoMatchSubtitles()" id="matchBtn" disabled>自动匹配</button>
         </div>
 
-        <!-- 指定目标：强制匹配（电影/单季）与 AI 匹配（整部剧集） -->
-        <div class="match-modes">
-            <div class="match-mode">
-                <h3>强制匹配</h3>
-                <p>按季号和集号直接对应，忽略标题。</p>
-                <div class="target-pick">
-                    <span id="forceMatchShowDisplay" class="target-display">未选择</span>
-                    <button type="button" onclick="App.SubtitleCenter.selectForceMatchShow()" class="secondary">选择电影或剧集季</button>
+        <details class="match-alt">
+            <summary>其他匹配方式：指定电影、剧集季或整部剧</summary>
+            <div class="match-modes">
+                <div class="match-mode">
+                    <h3>强制匹配</h3>
+                    <p>按季号和集号直接对应，忽略标题。</p>
+                    <div class="target-pick">
+                        <span id="forceMatchShowDisplay" class="target-display">未选择</span>
+                        <button type="button" onclick="App.SubtitleCenter.selectForceMatchShow()" class="secondary">选择电影或剧集季</button>
+                    </div>
+                    <div class="toolbar">
+                        <button type="button" class="warning" onclick="App.SubtitleCenter.forceMatchToShow()" id="forceMatchBtn" disabled>强制匹配勾选的字幕</button>
+                    </div>
                 </div>
-                <div class="toolbar">
-                    <button type="button" class="warning" onclick="App.SubtitleCenter.forceMatchToShow()" id="forceMatchBtn" disabled>强制匹配勾选的字幕</button>
+                <div class="match-mode">
+                    <h3>AI 智能匹配</h3>
+                    <p>AI 从字幕文件名识别剧集标题，同一部剧只调用一次，再在媒体库里批量匹配。</p>
+                    <div class="target-pick">
+                        <span id="selectedShowDisplay" class="target-display">未选择</span>
+                        <button type="button" onclick="App.SubtitleCenter.selectTargetShow()" class="secondary">选择整部剧集</button>
+                    </div>
+                    <div class="toolbar">
+                        <button type="button" onclick="App.SubtitleCenter.aiMatchToShow()" id="aiMatchBtn" class="success">AI 智能匹配</button>
+                        <button type="button" onclick="App.SubtitleCenter.applyAiMatches()" id="applyAiMatchBtn" class="warning">一键入库</button>
+                    </div>
                 </div>
             </div>
-            <div class="match-mode">
-                <h3>AI 智能匹配</h3>
-                <p>AI 从字幕文件名识别剧集标题，同一部剧只调用一次，再在媒体库里批量匹配。</p>
-                <div class="target-pick">
-                    <span id="selectedShowDisplay" class="target-display">未选择</span>
-                    <button type="button" onclick="App.SubtitleCenter.selectTargetShow()" class="secondary">选择整部剧集</button>
-                </div>
-                <div class="toolbar">
-                    <button type="button" onclick="App.SubtitleCenter.aiMatchToShow()" id="aiMatchBtn" class="success">AI 智能匹配</button>
-                    <button type="button" onclick="App.SubtitleCenter.applyAiMatches()" id="applyAiMatchBtn" class="warning">一键入库</button>
-                </div>
-            </div>
-        </div>
+        </details>
     </div>
 </section>
 
 <section class="sheet" aria-labelledby="subResultTitle">
     <div class="sheet-head">
-        <div class="toolbar">
-            <h2 id="subResultTitle">匹配结果</h2>
-            <label class="check" style="min-height: 0; padding: 0;">
-                <input type="checkbox" id="subtitleSelectAllFixed" onchange="App.SubtitleCenter.toggleSelectAllSubtitle(this.checked)">
-                <span>全选当前页</span>
-            </label>
-            <span class="count">已选 <span id="subtitleSelectedCount">0</span> 个文件</span>
+        <div>
+            <h2 id="subResultTitle"><span class="step-tag" aria-hidden="true">3</span>确认并执行</h2>
+            <p class="sub-summary" id="subtitleSummary" aria-live="polite"></p>
         </div>
         <div class="toolbar">
             <label class="sr-only" for="subtitleSortSelect">排序方式</label>
             <select id="subtitleSortSelect" onchange="App.SubtitleCenter.setSortMode(this.value)">
                 <option value="name" selected>按文件名排序</option>
                 <option value="confidence">按匹配度排序</option>
+                <option value="attention">需要处理的在前</option>
             </select>
-            <button type="button" onclick="App.SubtitleCenter.clearAllSelections()" class="secondary">清除选中</button>
         </div>
     </div>
     <div class="sheet-body">
+        <div class="toolbar result-toolbar">
+            <label class="check">
+                <input type="checkbox" id="subtitleSelectAllFixed" onchange="App.SubtitleCenter.toggleSelectAllSubtitle(this.checked)">
+                <span>全选当前页</span>
+            </label>
+            <span class="count">已选 <span id="subtitleSelectedCount">0</span> 个文件</span>
+            <button type="button" onclick="App.SubtitleCenter.clearAllSelections()" class="ghost btn-sm">清除选中</button>
+            <span class="spacer"></span>
+            <button type="button" class="success primary" onclick="App.SubtitleCenter.executeAllMatches()" id="executeAllBtn" disabled>执行勾选的匹配</button>
+        </div>
         <div class="table-wrap">
             <table class="failed-table rows-as-cards" id="subtitleMatchTable">
                 <thead>
@@ -93,7 +122,7 @@
                         <th style="width:40px;"><input type="checkbox" id="subtitleSelectAll" aria-label="全选当前页" onchange="App.SubtitleCenter.toggleSelectAllSubtitle(this.checked)"></th>
                         <th>字幕文件</th>
                         <th>匹配结果</th>
-                        <th>置信度</th>
+                        <th style="width:170px;">置信度</th>
                         <th>操作</th>
                     </tr>
                 </thead>

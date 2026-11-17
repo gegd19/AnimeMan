@@ -38,9 +38,21 @@
                 <div class="view-head">
                     <h1 id="view-settings-title">设置</h1>
                 </div>
-                <form id="configForm" class="sheet" onsubmit="return false;">
-                    {% include 'partials/config_panel.html' %}
-                </form>
+                <div class="settings-layout">
+                    <!-- 分区目录：按钮而不是锚点，避免与页面的 #hash 导航冲突 -->
+                    <nav class="settings-nav" aria-label="设置分区">
+                        <button type="button" data-scroll-to="cfgPathsTitle">路径</button>
+                        <button type="button" data-scroll-to="cfgProcessTitle">处理方式</button>
+                        <button type="button" data-scroll-to="cfgTmdbTitle">TMDB</button>
+                        <button type="button" data-scroll-to="cfgAiTitle">识别与 AI</button>
+                        <button type="button" data-scroll-to="cfgSubtitleTitle">字幕</button>
+                        <button type="button" data-scroll-to="cfgAuthTitle">访问认证</button>
+                        <button type="button" data-scroll-to="cfgLookTitle">外观</button>
+                    </nav>
+                    <form id="configForm" class="sheet" onsubmit="return false;">
+                        {% include 'partials/config_panel.html' %}
+                    </form>
+                </div>
             </section>
         </main>
     </div>

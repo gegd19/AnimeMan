@@ -20,10 +20,32 @@ App.FailedCache = (function(app) {
 
     function _header(folder, files) {
         const bar = app.el('div', {className: 'list-head'},
-            app.button('返回文件夹视图', () => _loadCache()),
+            app.button('返回文件夹视图', () => _loadCache(), 'ghost btn-sm'),
             app.el('strong', {text: `${folder}`}));
         if (files) bar.append(app.button('批量修正全部', () => _openBatchWithAllFiles(folder), 'success'));
         return bar;
+    }
+
+    // 路径的最后一段作为文件夹名，整条路径作为副标题；只用于显示。
+    function _folderName(folder) {
+        const parts = String(folder || '').split(/[\\/]/).filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : String(folder || '');
+    }
+
+    // 汇总一个文件夹里的失败原因：原因 → 次数，按次数降序。
+    function _reasonSummary(files) {
+        const counts = new Map();
+        for (const file of files || []) {
+            const reason = file.reason || '未记录原因';
+            counts.set(reason, (counts.get(reason) || 0) + 1);
+        }
+        return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+    }
+
+    function _emptyState() {
+        return app.el('div', {className: 'empty-state'},
+            app.el('b', {text: '没有失败记录'}),
+            app.el('span', {text: '扫描到的文件都已识别。之后识别失败的文件会出现在这里。'}));
     }
 
     function _correctionButton(file, label = '修正', className = 'warning') {
@@ -42,36 +64,54 @@ App.FailedCache = (function(app) {
             currentClusters = data.clusters || [];
             document.getElementById(countSpanId).textContent = currentClusters.reduce((sum, c) => sum + c.count, 0);
             if (!currentClusters.length) {
-                listDiv.textContent = '暂无失败缓存记录';
+                listDiv.replaceChildren(_emptyState());
                 return;
             }
-            const table = app.el('table', {className: 'failed-table'},
-                app.el('tr', {}, ...['文件夹', '失败数量', '操作'].map(text => app.el('th', {text}))));
+            // 每个文件夹一张卡片：文件夹名、完整路径、失败数、原因汇总、操作。
+            const cards = app.el('div', {className: 'failed-folders'});
             for (const cluster of currentClusters) {
-                table.append(app.el('tr', {},
-                    app.el('td', {title: cluster.folder, text: cluster.folder, className: 'mono'}),
-                    app.el('td', {text: cluster.count}), app.el('td', {},
+                const reasons = _reasonSummary(cluster.files);
+                const reasonList = app.el('ul', {className: 'reason-list'},
+                    ...reasons.slice(0, 3).map(([reason, count]) => app.el('li', {},
+                        app.el('span', {className: 'reason-text', text: reason}),
+                        app.el('span', {className: 'reason-count', text: `× ${count}`}))));
+                if (reasons.length > 3) reasonList.append(app.el('li', {className: 'reason-more', text: `另有 ${reasons.length - 3} 种原因`}));
+                cards.append(app.el('article', {className: 'failed-folder'},
+                    app.el('div', {className: 'failed-folder-head'},
+                        app.el('span', {className: 'folder-icon', attrs: {'aria-hidden': 'true'}}),
+                        app.el('div', {className: 'failed-folder-name'},
+                            app.el('h4', {title: cluster.folder, text: _folderName(cluster.folder)}),
+                            app.el('span', {className: 'mono', title: cluster.folder, text: cluster.folder})),
+                        app.el('span', {className: 'badge is-red', text: `${cluster.count} 个文件`})),
+                    ...(reasons.length ? [reasonList] : []),
+                    app.el('div', {className: 'failed-folder-actions'},
                         app.button('批量修正', () => App.BatchCorrection.openModal(cluster.folder, cluster.files), 'success'),
                         app.button('查看失败文件', () => _showFilesInFolder(cluster.folder, cluster.files)),
-                        app.button('查看所有文件', () => _showAllFilesInFolder(cluster.folder)))));
+                        app.button('查看所有文件', () => _showAllFilesInFolder(cluster.folder), 'ghost'))));
             }
+            const total = currentClusters.reduce((sum, c) => sum + c.count, 0);
             listDiv.replaceChildren(app.el('div', {className: 'list-head'},
-                app.button('切换为列表视图', () => _switchToListView())), table);
+                app.el('span', {className: 'count', text: `${currentClusters.length} 个文件夹，共 ${total} 个文件待处理`}),
+                app.el('span', {className: 'spacer'}),
+                app.button('按文件列出', () => _switchToListView(), 'ghost btn-sm')), cards);
         } catch (error) { _error(error); }
     }
 
+    // 失败文件：一行一个，文件名、原因、（可选）时间，右侧是修正按钮。
     function _showFilesInFolder(folder, files, withTime = false) {
-        const table = app.el('table', {className: 'failed-table'});
-        const columns = ['文件名', '失败原因', ...(withTime ? ['时间'] : []), '操作'];
-        table.append(app.el('tr', {}, ...columns.map(text => app.el('th', {text}))));
+        const list = app.el('ul', {className: 'failed-files'});
         for (const file of files) {
-            const row = app.el('tr', {}, app.el('td', {title: file.path, text: file.name}),
-                app.el('td', {text: file.reason || '', className: 'text-danger'}));
-            if (withTime) row.append(app.el('td', {text: file.failed_time ? new Date(file.failed_time * 1000).toLocaleString() : '未知'}));
-            row.append(app.el('td', {}, _correctionButton(file)));
-            table.append(row);
+            const meta = app.el('div', {className: 'failed-file-meta'},
+                app.el('span', {className: 'text-danger', text: file.reason || '未记录原因'}));
+            if (withTime) meta.append(app.el('span', {className: 'text-muted',
+                text: file.failed_time ? new Date(file.failed_time * 1000).toLocaleString() : '时间未知'}));
+            list.append(app.el('li', {},
+                app.el('div', {className: 'failed-file-body'},
+                    app.el('div', {className: 'failed-file-name', title: file.path, text: file.name}),
+                    meta),
+                _correctionButton(file)));
         }
-        document.getElementById(listDivId).replaceChildren(_header(folder), table);
+        document.getElementById(listDivId).replaceChildren(_header(folder), list);
     }
 
     async function _switchToListView() {
@@ -80,7 +120,7 @@ App.FailedCache = (function(app) {
             const files = data.failed || [];
             document.getElementById(countSpanId).textContent = files.length;
             if (!files.length) {
-                document.getElementById(listDivId).textContent = '暂无失败缓存记录';
+                document.getElementById(listDivId).replaceChildren(_emptyState());
                 return;
             }
             _showFilesInFolder('失败缓存', files, true);

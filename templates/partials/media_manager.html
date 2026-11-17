@@ -1,39 +1,54 @@
 <div class="view-head">
-    <h1 id="view-library-title">媒体库</h1>
+    <div>
+        <h1 id="view-library-title">媒体库</h1>
+        <p class="library-stats" id="libraryStats" aria-live="polite"></p>
+    </div>
     <div class="view-actions">
         <button type="button" onclick="App.MediaManager.refreshLibrary()" class="secondary"><span class="icon i-refresh" aria-hidden="true"></span>刷新</button>
     </div>
 </div>
-<section class="sheet" aria-labelledby="view-library-title">
-    <div class="sheet-head">
-        <div class="toolbar">
-            <span class="count">已选 <span id="mediaSelectedCount">0</span> 项</span>
-            <button type="button" onclick="App.MediaManager.batchCorrectSelected()" id="mediaBatchCorrectBtn" class="success" disabled>批量修正</button>
-            <button type="button" onclick="App.MediaManager.batchDeleteSelected()" id="mediaBatchDeleteBtn" class="danger" disabled title="只删除媒体库里的目标文件（链接），不删除源文件">批量删除</button>
-        </div>
-        <div class="toolbar">
-            <label class="sr-only" for="mediaLibrarySearchInput">按标题或年份过滤</label>
+
+<!-- 最近入库：内容由 mediaManager.js 用接口返回的数据填充；媒体库为空或正在过滤时隐藏 -->
+<section class="spotlight" id="librarySpotlight" aria-label="最近入库" hidden></section>
+
+<div class="library-bar">
+    <div class="view-toggle-bar" id="libraryViewTabs" role="group" aria-label="显示范围"></div>
+    <div class="toolbar">
+        <label class="sr-only" for="mediaLibrarySearchInput">按标题或年份过滤</label>
+        <span class="search-field">
+            <span class="icon i-search" aria-hidden="true"></span>
             <input type="search" id="mediaLibrarySearchInput" placeholder="按标题或年份过滤" autocomplete="off" oninput="App.MediaManager.filterLibrary(this.value)">
-            <label class="sr-only" for="mediaLibrarySortSelect">排序方式</label>
-            <select id="mediaLibrarySortSelect" onchange="App.MediaManager.setSort(this.value.split('-')[0], this.value.split('-')[1])">
-                <option value="processed_time-desc" selected>最近处理 ↓</option>
-                <option value="processed_time-asc">最近处理 ↑</option>
-                <option value="title-asc">标题 A-Z</option>
-                <option value="title-desc">标题 Z-A</option>
-                <option value="year-desc">年份 ↓</option>
-                <option value="year-asc">年份 ↑</option>
-            </select>
-        </div>
+        </span>
+        <label class="sr-only" for="mediaLibrarySortSelect">排序方式</label>
+        <select id="mediaLibrarySortSelect" onchange="App.MediaManager.setSort(this.value.split('-')[0], this.value.split('-')[1])">
+            <option value="processed_time-desc" selected>最近处理 ↓</option>
+            <option value="processed_time-asc">最近处理 ↑</option>
+            <option value="title-asc">标题 A-Z</option>
+            <option value="title-desc">标题 Z-A</option>
+            <option value="year-desc">年份 ↓</option>
+            <option value="year-asc">年份 ↑</option>
+        </select>
     </div>
-    <div class="sheet-body">
-        <!-- 卡片网格容器 -->
-        <div id="mediaLibraryManagerContainer">
-            <div class="empty-state">正在读取媒体库…</div>
-        </div>
+</div>
 
-        <!-- 分页控件容器（预留） -->
-        <div id="mediaLibraryPagination"></div>
-
-        <p class="note">删除只移除媒体库里的目标文件（链接），不会删除源文件。点击剧集卡片上的季数展开季列表；勾选单集后可以修正或删除；点击集标题查看源文件路径。</p>
+<!-- 海报墙容器 -->
+<div id="mediaLibraryManagerContainer" aria-labelledby="view-library-title">
+    <div class="media-card-grid is-skeleton" aria-hidden="true">
+        <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
+        <div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>
     </div>
-</section>
+    <p class="sr-only">正在读取媒体库…</p>
+</div>
+
+<!-- 分页控件容器（预留） -->
+<div id="mediaLibraryPagination"></div>
+
+<p class="note library-note">删除只移除媒体库里的目标文件（链接），不会删除源文件。点击剧集海报展开季集；勾选电影或单集后可以批量修正或删除；点击集标题查看源文件路径。</p>
+
+<!-- 选择条：有选中项时由 mediaManager.js 显示 -->
+<div class="selection-bar" id="mediaSelectionBar" role="region" aria-label="已选中的条目" hidden>
+    <span class="count">已选 <span id="mediaSelectedCount">0</span> 项</span>
+    <button type="button" onclick="App.MediaManager.batchCorrectSelected()" id="mediaBatchCorrectBtn" class="on-dark is-solid" disabled>批量修正</button>
+    <button type="button" onclick="App.MediaManager.batchDeleteSelected()" id="mediaBatchDeleteBtn" class="on-dark danger" disabled title="只删除媒体库里的目标文件（链接），不删除源文件">批量删除</button>
+    <button type="button" class="on-dark" data-action="clearSelection">取消选择</button>
+</div>

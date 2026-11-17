@@ -44,7 +44,7 @@ App.Correction = (function(app) {
 
             // 重置搜索相关
             document.getElementById('tmdbSearchInput').value = '';
-            document.getElementById('tmdbResultsBody').innerHTML = '<tr><td colspan="5">输入关键词搜索</td></tr>';
+            app.resultMessage(document.getElementById('tmdbResultsBody'), '输入片名搜索 TMDB，点选正确的那一部。');
             document.getElementById('selectedTmdbInfo').style.display = 'none';
             app.selectedTmdbId = null;
             document.getElementById('correctionSeason').value = '';
@@ -78,7 +78,9 @@ App.Correction = (function(app) {
             searchBtn.textContent = '搜索中...';
 
             const tbody = document.getElementById('tmdbResultsBody');
-            tbody.innerHTML = '<tr><td colspan="5">正在搜索 TMDB…</td></tr>';
+            app.resultMessage(tbody, '正在搜索 TMDB…', 'loading');
+            document.getElementById('selectedTmdbInfo').style.display = 'none';
+            app.selectedTmdbId = null;
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 25000);
@@ -100,18 +102,13 @@ App.Correction = (function(app) {
                 }
 
                 if (!data.results || data.results.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5">没有搜索结果，换个关键词试试</td></tr>';
+                    app.resultMessage(tbody, '没有搜索结果。换个关键词，或切换剧集 / 电影试试。');
                     app.showToast(`未找到与 "${query}" 相关的${mediaType === 'tv' ? '剧集' : '电影'}`, 'warning');
                     return;
                 }
 
                 app.renderTmdbResults(tbody, data.results, mediaType,
                     (id, title, type) => App.Correction.selectTmdbForCorrection(id, title, type));
-
-                const thead = document.querySelector('#tmdbSearchResults thead');
-                if (thead) {
-                    thead.innerHTML = '<tr><th>海报</th><th>标题</th><th>年份</th><th>季集数</th><th>操作</th></tr>';
-                }
 
                 app.showToast(`找到 ${data.results.length} 个结果`, 'success');
 
@@ -123,7 +120,7 @@ App.Correction = (function(app) {
                 } else {
                     errorMsg = e.message || '网络错误';
                 }
-                app.tableMessage(tbody, '搜索失败：' + errorMsg);
+                app.resultMessage(tbody, '搜索失败：' + errorMsg, 'error');
                 app.showToast(errorMsg, 'error');
             } finally {
                 searchBtn.disabled = false;

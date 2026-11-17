@@ -102,6 +102,26 @@ App.ProcessedCache = (function(app) {
         if (selectCountSpan) selectCountSpan.textContent = total;
     }
 
+    // 识别结果：小海报（地址带媒体类型）+ 标题 + 季集。未知 ID 不生成海报地址。
+    function mediaCell(item, mediaInfo) {
+        const type = item.media_type === 'movie' ? 'movie' : item.media_type === 'tv' ? 'tv' : '';
+        const poster = app.el('span', {className: 'row-poster'},
+            app.el('span', {className: 'poster-fallback', text: String(item.title || '?').slice(0, 1)}),
+            app.poster(type ? app.mediaPosterUrl(type, item.tmdb_id) : '', {alt: '', loading: 'lazy'}));
+        return app.el('span', {className: 'media-cell'}, poster,
+            app.el('span', {className: 'media-cell-text'},
+                app.el('span', {className: 'media-cell-title', text: mediaInfo}),
+                app.el('span', {className: 'cell-sub', text: type === 'movie' ? '电影' : type === 'tv' ? '剧集' : '类型未知'})));
+    }
+
+    // 准确率：人工确认 / 未评分用文字；有分数时数字加色条。
+    function confidenceCell(item) {
+        const score = app.recognitionScore(item);
+        return app.el('span', {className: 'confidence-cell'},
+            app.el('span', {text: score.label}),
+            score.detail ? app.el('small', {className: 'text-muted', text: ' ' + score.detail}) : '');
+    }
+
     function renderTable(items) {
         allItems = items;
         const tbody = document.getElementById(tableBodyId);
@@ -119,7 +139,6 @@ App.ProcessedCache = (function(app) {
         tbody.replaceChildren();
         let pageSelectedCount = 0;
         items.forEach(item => {
-            const score = app.recognitionScore(item);
             const checked = selectedItems.has(item.src);
             if (checked) pageSelectedCount++;
             let mediaInfo = item.title || '未知';
@@ -134,8 +153,8 @@ App.ProcessedCache = (function(app) {
                 app.el('td', {title: item.src, text: dirPath, className: 'cell-sub'}),
                 app.el('td', {title: item.target}, app.el('span', {className: item.target_exists ? 'badge is-green' : 'badge is-amber',
                     text: item.target_exists ? '存在' : '缺失'}), ' ' + (item.target || '').split('/').pop()),
-                app.el('td', {text: mediaInfo}),
-                app.el('td', {}, app.el('span', {text: score.label}), score.detail ? app.el('small', {className: 'text-muted', text: ' ' + score.detail}) : ''),
+                app.el('td', {}, mediaCell(item, mediaInfo)),
+                app.el('td', {}, confidenceCell(item)),
                 app.el('td', {text: formatTime(item.processed_time)}),
                 app.el('td', {}, app.button('手动修正', () => App.ProcessedCache.manualCorrectItem(item.src, item.src_name)),
                     app.button('删除', () => App.ProcessedCache.deleteItem(item.src), 'danger'))));

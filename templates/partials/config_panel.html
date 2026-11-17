@@ -107,7 +107,7 @@
         <label class="check"><input type="checkbox" id="userRulesEnabledCheck"><span>启用已保存的人工识别规则<small>默认关闭；文件及系列规则仅在配置的源目录内生效。</small></span></label>
         <label class="check"><input type="checkbox" id="numberingMapsEnabledCheck"><span>启用显式季集编号映射<small>默认关闭；映射只适用于指定源目录和剧集。</small></span></label>
         <label class="check"><input type="checkbox" id="recognitionAliasesEnabledCheck"><span>启用已确认的作品别名<small>默认关闭；人工别名仅在所选源目录及其子目录内生效。</small></span></label>
-        <details id="recognitionAliasesDetails">
+        <details id="recognitionAliasesDetails" data-independent-settings>
             <summary>确认跨语言作品别名</summary>
             <p class="field-hint">请确认别名确实属于所选作品。预览会核验 TMDB 身份；不同作品使用同一别名时会交由人工确认。已有失败条目可能需要手动重试。</p>
             <div class="field"><label for="recognitionAliasScope">源目录作用域</label><input id="recognitionAliasScope" type="text" autocomplete="off"></div>
@@ -120,7 +120,7 @@
             <button type="button" id="recognitionAliasRefresh">刷新人工别名</button>
             <div id="recognitionAliasList"></div>
         </details>
-        <details id="numberingMapsDetails">
+        <details id="numberingMapsDetails" data-independent-settings>
             <summary>管理季集编号映射</summary>
             <p class="field-hint">先填写并预览；保存前会验证 TMDB 目标季集。多集文件仍需人工处理。</p>
             <div class="field"><label for="numberingScope">源目录作用域</label><input id="numberingScope" type="text" autocomplete="off"></div>
@@ -225,7 +225,7 @@
     </div>
 </section>
 
-<div class="savebar">
-    <p>修改后需要保存才会写入配置文件。</p>
+<div class="savebar" id="configSavebar">
+    <p id="configSaveState">修改后需要保存才会写入配置文件。</p>
     <button type="button" class="success primary" onclick="App.Config.saveConfig()"><span class="icon i-save" aria-hidden="true"></span>保存配置</button>
 </div>

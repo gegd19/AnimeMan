@@ -28,9 +28,9 @@ function posterSvg(label, index) {
     const hue = hues[index % hues.length];
     return `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">
 <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue} 55% 62%)"/><stop offset="1" stop-color="hsl(${(hue + 40) % 360} 60% 30%)"/></linearGradient></defs>
-<rect width="300" height="450" fill="url(#g)"/><circle cx="215" cy="120" r="70" fill="hsl(${hue} 80% 85%)" opacity=".55"/>
-<path d="M0 330 L90 250 L160 310 L230 240 L300 300 V450 H0Z" fill="hsl(${(hue + 40) % 360} 50% 18%)" opacity=".7"/>
-<text x="24" y="410" font-family="sans-serif" font-size="30" font-weight="700" fill="#fff">${label}</text></svg>`;
+<rect width="300" height="450" fill="url(#g)"/><circle cx="205" cy="190" r="78" fill="hsl(${hue} 80% 85%)" opacity=".55"/>
+<path d="M0 340 L90 262 L160 320 L230 250 L300 312 V450 H0Z" fill="hsl(${(hue + 40) % 360} 50% 18%)" opacity=".7"/>
+<text x="150" y="410" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#fff" opacity=".0">${label}</text></svg>`;
 }
 const movieTitles = ['星屑电报', '雨后的第七号车站', '纸飞机与远洋', '午夜放映员', '夏日尽头的灯塔',
     '一个名字特别特别长的剧场版标题：关于海、风与最后一封没有寄出的信'];
@@ -68,7 +68,7 @@ const processedItems = Array.from({length: 9}, (_, i) => ({
     src_name: `[字幕组] ${showTitles[i % 4]} - ${String(i + 1).padStart(2, '0')} [1080p].mkv`,
     parent_dir: `[字幕组] ${showTitles[i % 4]}`, grandparent_dir: '番剧',
     target: `/library/tv/${showTitles[i % 4]}/Season 1/${showTitles[i % 4]} S01E0${i + 1}.mkv`, target_exists: i !== 4,
-    title: showTitles[i % 4], media_type: 'tv', season: i === 2 ? 0 : 1, episode: i + 1, year: '2024',
+    title: showTitles[i % 4], tmdb_id: 100 + (i % 4), media_type: 'tv', season: i === 2 ? 0 : 1, episode: i + 1, year: '2024',
     confidence: i === 1 ? null : 96 - i * 7, confirmed_by_user: i === 3, processed_time: now - i * 900,
 }));
 const failedFiles = [
@@ -137,10 +137,17 @@ async function open(browser, {viewport, status = 'running', config = baseConfig,
             '/api/offline/status': {total_folders: 12, total_files: 148, cached_folders: 9},
             '/api/media/library': lib,
             '/api/processed_cache': {items: processedItems, total_pages: 3},
-            '/api/failed_cache/clusters': {clusters: [{folder: '/mnt/source/番剧/[Raws] 月面便利店', count: 2, files: failedFiles}]},
+            '/api/failed_cache/clusters': {clusters: [
+                {folder: '/mnt/source/番剧/[Raws] 月面便利店', count: 2, files: failedFiles},
+                {folder: '/mnt/source/番剧/[字幕组] 一个文件夹名非常长的合集 [BDRip 1080p HEVC-10bit FLAC] Vol.1-6', count: 3, files: [
+                    {path: '/x/1.mkv', name: 'SP01.mkv', reason: '未找到匹配的 TMDB 条目'}, {path: '/x/2.mkv', name: 'SP02.mkv', reason: '未找到匹配的 TMDB 条目'},
+                    {path: '/x/3.mkv', name: 'Menu.mkv', reason: '文件名缺少可识别的集号'}]},
+                {folder: '/mnt/source/电影/午夜放映员 导演剪辑版', count: 1, files: [{path: '/y/1.mkv', name: 'Director.Cut.mkv', reason: 'AI 返回的年份与 TMDB 不一致'}]}]},
             '/api/failed_cache': {failed: failedFiles},
-            '/api/tmdb/search_proxy': {results: shows.slice(0, 3).map(s => ({id: s.tmdb_id, title: s.title, year: s.year, media_type: 'tv',
-                poster_url: `/media_poster/tv/${s.tmdb_id}`, seasons_detail: [{season_number: 1, episode_count: 12, name: '第 1 季'}]}))},
+            '/api/tmdb/search_proxy': {results: shows.slice(0, 5).map((s, i) => ({id: s.tmdb_id, title: s.title, year: s.year, media_type: 'tv',
+                poster_url: i === 4 ? null : `/media_poster/tv/${s.tmdb_id}`,
+                seasons_detail: [...(i === 0 ? [{season_number: 0, episode_count: 2, name: '特别篇'}] : []), {season_number: 1, episode_count: 12, name: '第 1 季'},
+                    ...(i < 2 ? [{season_number: 2, episode_count: 6, name: '第 2 季'}] : [])]}))},
             '/api/special_mappings': {mappings: [
                 {keyword: '[OVA] 月面便利店 特别篇', tmdb_id: 102, media_type: 'tv', season: 0, episode: 1, enabled: true},
                 {keyword: '午夜放映员 导演剪辑版', tmdb_id: 103, media_type: 'movie', enabled: false}]},
@@ -175,17 +182,47 @@ const scenes = [
         await page.evaluate(() => { localStorage.removeItem('onboardingDismissed'); App.Config.checkOnboarding(); });
         await go(page, 'home');
     }],
-    ['library', {status: 'completed'}, async page => {
+    ['library', {status: 'completed'}, async page => go(page, 'library')],
+    ['library-spotlight', {status: 'idle'}, async page => {
+        await go(page, 'library');
+        const thumb = page.locator('.spotlight-thumb').nth(1);
+        if (await thumb.count()) { await thumb.click(); await page.mouse.move(0, 0); }
+    }],
+    ['library-seasons', {status: 'completed'}, async page => {
         await go(page, 'library');
         const toggle = page.locator('.season-toggle-btn').first();
         if (await toggle.count()) { await toggle.click(); await page.locator('[data-action="toggleSeasonEpisodes"]').nth(1).click(); }
     }],
+    ['library-selected', {status: 'idle'}, async page => {
+        await go(page, 'library');
+        for (const index of [0, 2]) await page.locator('.movie-card input').nth(index).check();
+        const thumb = page.locator('.spotlight-thumb').nth(1);
+        if (await thumb.count()) await thumb.click();
+    }],
+    ['library-filter-empty', {status: 'idle'}, async page => {
+        await go(page, 'library');
+        await page.locator('#mediaLibrarySearchInput').fill('不存在的标题');
+    }],
     ['library-empty', {status: 'idle', lib: {movies: [], tv_shows: []}}, async page => go(page, 'library')],
+    ['subtitles-scanned', {status: 'idle'}, async (page) => {
+        await go(page, 'subtitles');
+        await page.evaluate(results => { App.scannedSubtitles = results.map(r => r.subtitle);
+            App.matchResults = results.map(r => ({subtitle: r.subtitle, candidates: [], best_match: null})); App.SubtitleCenter.renderMatchTable(); }, matchResults);
+    }],
     ['subtitles', {status: 'idle'}, async (page) => {
         await go(page, 'subtitles');
         await page.evaluate(results => { App.scannedSubtitles = results.map(r => r.subtitle); App.matchResults = results; App.SubtitleCenter.renderMatchTable(); }, matchResults);
     }],
     ['tools', {status: 'idle'}, async page => go(page, 'tools')],
+    ['home-log-errors', {status: 'completed'}, async page => {
+        await go(page, 'home');
+        await page.locator('[data-log-filter="error"]').click();
+    }],
+    ['settings-dirty', {status: 'idle'}, async page => {
+        await go(page, 'settings');
+        await page.locator('[data-scroll-to="cfgAiTitle"]').click();
+        await page.locator('#aiModelInput').fill('deepseek-chat');
+    }],
     ['settings', {status: 'idle'}, async page => go(page, 'settings')],
     ['modal-correction', {status: 'idle'}, async page => {
         await page.evaluate(file => App.Correction.openCorrectionModal(file.path, file.name), failedFiles[0]);
@@ -200,6 +237,17 @@ const scenes = [
     ['modal-failed-cache', {status: 'idle'}, async page => {
         await page.evaluate(() => App.FailedCache.viewFailedCache());
         await page.locator('#failedCacheList button').first().waitFor();
+    }],
+    ['modal-failed-files', {status: 'idle'}, async page => {
+        await page.evaluate(() => App.FailedCache.viewFailedCache());
+        await page.locator('#failedCacheList button').filter({hasText: '查看失败文件'}).nth(1).click();
+    }],
+    ['modal-batch-search', {status: 'idle'}, async page => {
+        await page.evaluate(files => App.BatchCorrection.openModalWithFiles('媒体库选中项', files),
+            episodes('群青色的合唱', 1, 3).map(e => ({path: e.cache_key, name: e.cache_key.split('/').pop()})));
+        await page.locator('#batchTmdbSearchInput').fill('群青');
+        await page.evaluate(() => App.BatchCorrection.searchTmdb());
+        await page.locator('#batchTmdbResults .tmdb-card').nth(1).click();
     }],
     ['modal-browse', {status: 'idle'}, async page => {
         await page.evaluate(() => App.Browse.openBrowser('source'));
@@ -230,7 +278,7 @@ const scenes = [
             const id = `${device}-${name}`;
             if (only && !only.test(id)) continue;
             if (!only && device === 'tablet' && !/^(home-running|library|settings)$/.test(name)) continue;
-            if (!only && /dark/.test(device) && !/^(home-running|library|settings|modal-correction|subtitles)$/.test(name)) continue;
+            if (!only && /dark/.test(device) && !/^(home-running|library|library-spotlight|library-seasons|settings|modal-correction|modal-failed-cache|subtitles)$/.test(name)) continue;
             const {page, context, consoleErrors} = await open(browser, {viewport, scheme, ...options});
             try {
                 await act(page);

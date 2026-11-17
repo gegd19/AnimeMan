@@ -145,12 +145,97 @@ App.Shell = (function(app) {
         }
     }
 
+    // ---------- 网站图标：任务进行中 / 结束时右下角加一个状态点 ----------
+    const FAVICON_BASE = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>" +
+        "<rect x='1' y='3' width='30' height='26' rx='5' fill='#1769AA'/>" +
+        "<rect x='6' y='8' width='6' height='3' rx='1' fill='#fff'/><circle cx='16' cy='9.5' r='2' fill='#fff'/>" +
+        "<rect x='20' y='8' width='6' height='3' rx='1' fill='#fff'/>" +
+        "<path d='M6 24l5.5-6.5 4 4 3-3L26 24' fill='none' stroke='#fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/>";
+    const FAVICON_DOT = {running: '#2F9BE8', stopping: '#E0A030', failed: '#D9483B'};
+    let faviconState = 'idle';
+
+    function updateFavicon(state) {
+        if (state === faviconState) return;
+        faviconState = state;
+        const link = byId('appFavicon');
+        if (!link) return;
+        const dot = FAVICON_DOT[state];
+        const svg = FAVICON_BASE + (dot ? `<circle cx='25' cy='25' r='6.5' fill='${dot}' stroke='#fff' stroke-width='2'/>` : '') + '</svg>';
+        link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+    }
+
+    // ---------- 任务日志：按级别筛选，计数来自当前显示的日志行 ----------
+    function setLogFilter(level) {
+        const box = byId('logBox');
+        if (!box) return;
+        box.dataset.filter = level;
+        for (const button of document.querySelectorAll('[data-log-filter]')) {
+            button.setAttribute('aria-pressed', String(button.dataset.logFilter === level));
+        }
+        updateLogCounts();
+    }
+
+    function updateLogCounts() {
+        const box = byId('logBox');
+        if (!box) return;
+        for (const badge of document.querySelectorAll('[data-log-count]')) {
+            const count = box.querySelectorAll('.log-line.log-' + badge.dataset.logCount).length;
+            const text = count ? String(count) : '';
+            if (badge.textContent !== text) badge.textContent = text;
+        }
+        const filter = box.dataset.filter || 'all';
+        const empty = filter !== 'all' && box.querySelector('.log-line') && !box.querySelector('.log-line.log-' + filter);
+        box.classList.toggle('is-filter-empty', !!empty);
+    }
+
+    // ---------- 设置：分区目录与未保存提示 ----------
+    function scrollToSection(id) {
+        const heading = byId(id);
+        const section = heading && heading.closest('.form-section');
+        if (!section) return;
+        section.scrollIntoView({block: 'start'});
+        const first = section.querySelector('input:not([type="hidden"]):not([readonly]), select, textarea, button');
+        if (first) first.focus({preventScroll: true});
+        markSection(id);
+    }
+
+    function markSection(id) {
+        for (const button of document.querySelectorAll('[data-scroll-to]')) {
+            if (button.dataset.scrollTo === id) button.setAttribute('aria-current', 'true');
+            else button.removeAttribute('aria-current');
+        }
+    }
+
+    function watchSections() {
+        if (typeof IntersectionObserver === 'undefined') return;
+        const visible = new Map();
+        const observer = new IntersectionObserver(entries => {
+            for (const entry of entries) visible.set(entry.target, entry.isIntersecting ? entry.boundingClientRect.top : null);
+            // 取视口内最靠上的分区
+            let best = null, top = Infinity;
+            for (const [section, y] of visible) if (y !== null && y < top) { top = y; best = section; }
+            const heading = best && best.getAttribute('aria-labelledby');
+            if (heading) markSection(heading);
+        }, {rootMargin: '-120px 0px -55% 0px'});
+        for (const section of document.querySelectorAll('#configForm .form-section')) observer.observe(section);
+    }
+
+    function setDirty(dirty) {
+        const bar = byId('configSavebar');
+        if (!bar) return;
+        bar.classList.toggle('is-dirty', dirty);
+        const label = byId('configSaveState');
+        const text = dirty ? '有未保存的修改。' : '修改后需要保存才会写入配置文件。';
+        if (label && label.textContent !== text) label.textContent = text;
+    }
+
     // ---------- 任务条与「本次运行」：只展示 /api/status 和 /api/config 返回的真实数据 ----------
     function onTaskStatus(data) {
         const bar = byId('taskBar');
         if (!bar || !data) return;
         const state = data.status || (data.running ? 'running' : 'idle');
         bar.dataset.state = state;
+        updateFavicon(state);
 
         const hasTotal = Number(data.total) > 0;
         const percent = hasTotal ? Math.round((Number(data.progress) || 0) / Number(data.total) * 100) : 0;
@@ -181,6 +266,8 @@ App.Shell = (function(app) {
         if (badge) badge.hidden = !dryRun;
         const mode = byId('statMode');
         if (mode) mode.textContent = dryRun ? '模拟' : '正式';
+        // 配置刚从服务端读取（首次加载或保存成功后），表单与已保存的一致。
+        setDirty(false);
     }
 
     // ---------- 初始化 ----------
@@ -197,6 +284,10 @@ App.Shell = (function(app) {
                 setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
                 return;
             }
+            const logFilter = event.target.closest('[data-log-filter]');
+            if (logFilter) { setLogFilter(logFilter.dataset.logFilter); return; }
+            const jump = event.target.closest('[data-scroll-to]');
+            if (jump) { scrollToSection(jump.dataset.scrollTo); return; }
             const dismiss = event.target.closest('[data-modal-dismiss]');
             if (dismiss) { const modal = dismiss.closest('.modal'); if (modal) modal.style.display = 'none'; }
         });
@@ -217,6 +308,19 @@ App.Shell = (function(app) {
                 observer.observe(modal, {attributes: true, attributeFilter: ['style']});
             }
         }
+
+        const form = byId('configForm');
+        if (form) {
+            // 只有用户的输入才算修改；脚本填表不会触发 input / change 事件。
+            const onEdit = event => { if (!event.target.closest('[data-theme-choice], [data-independent-settings]')) setDirty(true); };
+            form.addEventListener('input', onEdit);
+            form.addEventListener('change', onEdit);
+        }
+        const logBox = byId('logBox');
+        if (logBox && typeof MutationObserver !== 'undefined') {
+            new MutationObserver(updateLogCounts).observe(logBox, {childList: true});
+        }
+        watchSections();
 
         app.onTaskStatus = onTaskStatus;
         app.onConfigLoaded = onConfigLoaded;

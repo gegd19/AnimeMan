@@ -11,4 +11,6 @@
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     })();
 </script>
+<!-- 网站图标：内嵌 SVG，不新增静态文件。任务进行中时由 shell.js 加上状态点。 -->
+<link rel="icon" id="appFavicon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='3' width='30' height='26' rx='5' fill='%231769AA'/%3E%3Crect x='6' y='8' width='6' height='3' rx='1' fill='%23fff'/%3E%3Ccircle cx='16' cy='9.5' r='2' fill='%23fff'/%3E%3Crect x='20' y='8' width='6' height='3' rx='1' fill='%23fff'/%3E%3Cpath d='M6 24l5.5-6.5 4 4 3-3L26 24' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
