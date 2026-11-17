@@ -53,6 +53,9 @@ SEASON_INDICATORS = build_season_indicators(30)
 
 # 文件夹级 TMDB 缓存（成功匹配结果缓存）
 _folder_tmdb_cache: Dict[Tuple[str, str], int] = {}
+# Words that make a title name a later part of a series, so a season next to it counts from that part.
+_SEQUEL_MARK = re.compile(r'(?i)(?:^|[\s._:~-])(?:II|III|IV|V|VI|VII|VIII|IX|X|\d+(?:st|nd|rd|th)|season|part|act|cour|final|zoku|shin)(?=$|[\s._:!~-])'
+                          r'|(?<!no\.)\s\d{1,2}$|第\s*[一二三四五六七八九十\d]+\s*[季部期]|[续續]篇')
 _folder_tmdb_cache_lock = threading.RLock()
 
 
@@ -320,6 +323,24 @@ def process_video(
                 if date_conflict or not evaluate_candidates([details], media_type,
                         [search_title, title_orig, *alt_titles], search_year, include_alternatives=True)['selected']:
                     return (False, None, None, None, None, None, confidence, current_info)
+                # An alternative title often names one season of a long series ("Maria Holic Alive",
+                # "Golden Wind"); without a season in the name the parser's default season 1 is a guess.
+                # A stated season is trusted as for a main-title match, unless the title itself marks a
+                # later part ("Act II S2" counts from Act II, not TMDB's numbering).
+                if media_type == 'tv':
+                    from .parser_regex import explicit_season_number
+                    regular = {item.get('season_number') for item in details.get('seasons') or []
+                               if isinstance(item, dict) and type(item.get('season_number')) is int and item['season_number'] > 0}
+                    stated = explicit_season_number(src.stem)
+                    if stated is None:
+                        stated = explicit_season_number(src.parent.name)
+                    sequel_marked = any(isinstance(text, str) and _SEQUEL_MARK.search(text) for text in (search_title, title_orig))
+                    if len(regular) > 1 and (stated is None or sequel_marked):
+                        reason = '仅凭 TMDB 备用标题匹配到多季作品，备用标题可能只指其中一季，需要人工确认季号'
+                        if wrapped_log:
+                            wrapped_log(f"⚠️ {reason}", LOG_WARNING)
+                        return (False, None, None, None, None, None, confidence,
+                                dict(current_info, _alias_season_review=reason))
 
             if media_type == "movie":
                 official_title = details.get("title")
@@ -402,6 +423,9 @@ def process_video(
             initial_confidence = max(initial_confidence, 85)
         success, details, media_type, tmdb_id, official_title, official_year, confidence, final_info = try_process_with_info(info, initial_confidence)
 
+        if not success and final_info.get('_alias_season_review'):
+            save_failed_cache(src, final_info['_alias_season_review'], cache_dict, wrapped_log)
+            return False
         if not success and final_info.get('_verified_detail_alias'):
             save_failed_cache(src, 'TMDB 详情或别名证据发生变化，需要人工确认', cache_dict, wrapped_log)
             return False

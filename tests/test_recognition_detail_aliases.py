@@ -143,3 +143,71 @@ def test_removed_alias_after_selection_cannot_be_replaced_with_ai(tmp_path,confi
     monkeypatch.setattr(processor_core,'process_tv_branch',lambda *a:pytest.fail('removed alias must not write'))
     assert not processor_core.process_video(src,cfg,{})
     assert src.read_bytes()==b'synthetic'
+
+
+def _process(tmp_path, config_file, monkeypatch, filename, candidate, detail):
+    from core import config_manager, processor_core, tmdb_client, video_info
+    root = tmp_path / 'source'; folder = root / 'Show'; folder.mkdir(parents=True)
+    src = folder / filename; src.write_bytes(b'synthetic')
+    cfg = config_manager.load_config(config_file)
+    cfg.update(source_folders=[str(root)], recognition_aliases={'enabled': True})
+    monkeypatch.setattr(tmdb_client, 'search_tmdb_multi', lambda *a, **k: [candidate])
+    monkeypatch.setattr(tmdb_client, 'get_tmdb_details', lambda *a, **k: detail)
+    monkeypatch.setattr(video_info, 'get_video_duration', lambda *a: None)
+    observed = []
+    monkeypatch.setattr(processor_core, 'process_tv_branch', lambda *a: (observed.append(a) or True))
+    cache = {}
+    ok = processor_core.process_video(src, cfg, cache)
+    return ok, observed, cache.get(str(src.resolve()), {}), src
+
+
+@pytest.mark.parametrize('filename,alternative', [('Sakura no Uta Act II S02E02.mkv', 'Sakura no Uta Act II'),
+                                                  ('Sakura no Uta 2nd Season S01E04.mkv', 'Sakura no Uta 2nd Season'),
+                                                  ('Sakura no Uta V S02E02.mkv', 'Sakura no Uta V'),
+                                                  ('Sakura no Uta X S02E02.mkv', 'Sakura no Uta X')])
+def test_detail_alias_on_multi_season_show_requires_season_review(tmp_path, config_file, monkeypatch, filename, alternative):
+    # The alternative title names a later part; a season counted from it ("Act II S2") is not TMDB's season.
+    candidate = {'id': 42, 'name': '樱花之歌', 'first_air_date': '2020-01-01'}
+    detail = {**candidate, 'alternative_titles': {'results': [{'title': alternative}]},
+              'seasons': [{'season_number': 0}, {'season_number': 1}, {'season_number': 2}]}
+    ok, observed, entry, src = _process(tmp_path, config_file, monkeypatch, filename, candidate, detail)
+    assert not ok and not observed
+    assert entry.get('media_type') == 'failed'
+    if 'Act II' in filename:
+        # anitopy may move "2nd Season" out of the title, so that name can fail earlier; it must never be filed.
+        assert '需要人工确认季号' in entry.get('failed_reason', '')
+    assert src.read_bytes() == b'synthetic'
+
+
+def test_detail_alias_on_single_season_show_still_resolves(tmp_path, config_file, monkeypatch):
+    candidate = {'id': 42, 'name': '樱花之歌', 'first_air_date': '2020-01-01'}
+    detail = {**candidate, 'alternative_titles': {'results': [{'title': 'Sakura no Uta'}]},
+              'seasons': [{'season_number': 0}, {'season_number': 1}]}   # specials do not count as a second season
+    ok, observed, entry, src = _process(tmp_path, config_file, monkeypatch, 'Sakura no Uta S01E05.mkv', candidate, detail)
+    assert ok and observed and observed[0][6] == 42
+
+
+def test_detail_alias_without_any_season_in_name_is_not_defaulted_to_season_one(tmp_path, config_file, monkeypatch):
+    __import__('anitopy')   # "Title - 12" with no season is parsed by anitopy, which fills in season 1
+    candidate = {'id': 42, 'name': '樱花之歌', 'first_air_date': '2020-01-01'}
+    detail = {**candidate, 'alternative_titles': {'results': [{'title': 'Sakura no Uta Alive'}]},
+              'seasons': [{'season_number': 1}, {'season_number': 2}]}
+    ok, observed, entry, src = _process(tmp_path, config_file, monkeypatch, '[Group] Sakura no Uta Alive - 12 [720p].mkv', candidate, detail)
+    assert not ok and not observed
+    assert '需要人工确认季号' in entry.get('failed_reason', '')
+
+
+def test_main_title_match_on_multi_season_show_is_unchanged(tmp_path, config_file, monkeypatch):
+    candidate = {'id': 42, 'name': 'Sakura no Uta', 'first_air_date': '2020-01-01'}
+    detail = {**candidate, 'seasons': [{'season_number': 1}, {'season_number': 2}]}
+    ok, observed, entry, src = _process(tmp_path, config_file, monkeypatch, 'Sakura no Uta S02E03.mkv', candidate, detail)
+    assert ok and observed and observed[0][6] == 42
+
+
+def test_detail_alias_with_stated_season_and_plain_title_is_trusted(tmp_path, config_file, monkeypatch):
+    # "Mushoku Tensei - S02E14": the title is the series itself, so the stated season is TMDB's season.
+    candidate = {'id': 42, 'name': '樱花之歌', 'first_air_date': '2020-01-01'}
+    detail = {**candidate, 'alternative_titles': {'results': [{'title': 'Sakura no Uta'}]},
+              'seasons': [{'season_number': 1}, {'season_number': 2}]}
+    ok, observed, entry, src = _process(tmp_path, config_file, monkeypatch, 'Sakura no Uta S02E03.mkv', candidate, detail)
+    assert ok and observed and observed[0][6] == 42
