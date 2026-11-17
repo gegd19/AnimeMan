@@ -237,6 +237,23 @@ def process_video(
                             "candidate": dict(tmdb_result), "candidate_count": candidate_count,
                             "rule_version": parse_identity.RULE_VERSION, "evidence": list(evidence),
                             "ambiguity": "resolved", "validation_stage": "details_verified"}
+            score_evidence = []
+            parser_name = current_info.get("_parser")
+            if parser_name:
+                score_evidence.append(f"解析来源：{parser_name}")
+            if force_tmdb_id is not None:
+                score_evidence.append("人工映射指定 TMDB 身份")
+            else:
+                from .candidate_evaluator import evaluate_candidates
+                assessment = evaluate_candidates([tmdb_result], media_type,
+                    [search_title, title_orig, *alt_titles], search_year)
+                if assessment['selected']:
+                    score_evidence.append("候选标题与输入一致")
+            score_evidence.append("已获取 TMDB 详情")
+            score_conflicts = (["搜索存在多个候选，评分已降低"] if candidate_count > 1 else [])
+            current_info = dict(current_info, _recognition_score={
+                "origin": "manual_mapping" if force_tmdb_id is not None else "automatic",
+                "evidence": score_evidence, "conflicts": score_conflicts})
             return (True, details, media_type, tmdb_id, official_title, official_year, confidence, current_info)
 
         initial_confidence = compute_confidence(info, force_tmdb_id is not None)
@@ -278,10 +295,11 @@ def process_video(
             else:
                 wrapped_log(f"📺 识别为剧集: {official_title} S{final_info['season']:02d}E{final_info['episode']:02d}", LOG_SUCCESS)
 
+        branch_config = dict(config, _recognition_score=final_info['_recognition_score'])
         if media_type == "movie":
-            return process_movie_branch(src, config, cache_dict, wrapped_log, official_title, official_year, tmdb_id, details, confidence)
+            return process_movie_branch(src, branch_config, cache_dict, wrapped_log, official_title, official_year, tmdb_id, details, confidence)
         else:
-            return process_tv_branch(src, config, cache_dict, wrapped_log, official_title, official_year, tmdb_id, details, final_info, confidence)
+            return process_tv_branch(src, branch_config, cache_dict, wrapped_log, official_title, official_year, tmdb_id, details, final_info, confidence)
 
     except AIBudgetExceeded:
         save_failed_cache(src, "AI 调用预算已耗尽，需要人工确认", cache_dict, wrapped_log)

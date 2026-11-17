@@ -27,7 +27,7 @@ App.History = (function(app) {
         tbody.replaceChildren();
         history.forEach(item => {
             const conf = item.confidence;
-            const confidenceText = item.confirmed_by_user ? '人工确认' : (conf == null ? '未评分' : `${conf}%`);
+            const score = app.recognitionScore(item);
             const color = conf == null ? '#6c757d' : conf < 60 ? '#dc3545' : conf < 80 ? '#fd7e14' : '#28a745';
             let displayTitle = item.title || '未知标题';
             if (item.media_type === 'tv' && item.season != null && item.episode != null) {
@@ -39,7 +39,7 @@ App.History = (function(app) {
             tbody.append(app.el('tr', {}, app.el('td', {}, checkbox),
                 app.el('td', {title: item.src || '', text: item.src_name || '', style: 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'}),
                 app.el('td', {title: displayTitle, text: displayTitle, style: 'max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'}),
-                app.el('td', {text: confidenceText, style: `color:${color};font-weight:bold;`}),
+                app.el('td', {style: `color:${color};font-weight:bold;`}, app.el('span', {text: score.label}), score.detail ? app.el('small', {className: 'text-muted', text: ' ' + score.detail}) : ''),
                 app.el('td', {}, app.button('重试', () => App.History.retryProcessed(item.src)),
                     app.button('修正', () => App.History.openManualCorrectionForHistory(item.src, item.src_name), 'warning'))));
         });

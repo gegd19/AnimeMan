@@ -50,7 +50,10 @@ def register(app):
                 "episode": entry.get("episode"),
                 "year": entry.get("year"),
                 "tmdb_id": entry.get("tmdb_id"),
-                "confidence": entry.get("confidence", 0),
+                "confidence": entry.get("confidence"),
+                "score_origin": entry.get("score_origin"),
+                "score_evidence": entry.get("score_evidence"),
+                "score_conflicts": entry.get("score_conflicts"),
                 "confirmed_by_user": entry.get("confirmed_by_user", False),
                 "last_failure": entry.get("last_failure"),
                 "processed_time": entry.get("processed_time", 0)

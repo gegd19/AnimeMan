@@ -77,6 +77,18 @@ window.App = window.App || {};
         return `/media_poster/${mediaType}/${encodeURIComponent(tmdbId)}`;
     };
 
+    exports.recognitionScore = function(item) {
+        const manual = item.confirmed_by_user || item.score_origin === 'manual_mapping';
+        const score = item.confidence;
+        const label = manual ? '人工确认（人工指定）' : score == null ? '未评分' :
+            item.score_origin === 'automatic' ? `匹配评分：${score}` : `旧评分：${score}`;
+        const evidence = Array.isArray(item.score_evidence) ? item.score_evidence.filter(v => typeof v === 'string') : [];
+        const conflicts = Array.isArray(item.score_conflicts) ? item.score_conflicts.filter(v => typeof v === 'string') : [];
+        const detail = [evidence.length ? `证据：${evidence.join('、')}` : '',
+                        conflicts.length ? `提示：${conflicts.join('、')}` : ''].filter(Boolean).join('；');
+        return {label, detail};
+    };
+
     exports.poster = function(src, properties = {}) {
         const image = exports.el('img', properties);
         image.addEventListener('error', () => { image.style.display = 'none'; });

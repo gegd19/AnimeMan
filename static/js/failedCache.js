@@ -111,7 +111,8 @@ App.FailedCache = (function(app) {
                     if (file.media_type === 'tv' && file.season != null && file.episode != null) {
                         info += ` S${String(file.season).padStart(2, '0')}E${String(file.episode).padStart(2, '0')}`;
                     }
-                    info += file.confirmed_by_user ? ' (人工确认)' : file.confidence == null ? ' (未评分)' : ` (置信度: ${file.confidence}%)`;
+                    const score = app.recognitionScore(file);
+                    info += ` (${score.label}${score.detail ? '；' + score.detail : ''})`;
                 }
                 table.append(app.el('tr', {}, app.el('td', {}, app.el('span', {className: badgeClass, text: badge})),
                     app.el('td', {title: file.path, text: file.name}), app.el('td', {text: info, className: 'text-small'}),

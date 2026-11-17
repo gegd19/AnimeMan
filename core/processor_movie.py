@@ -102,6 +102,10 @@ def process_movie_branch(
                 "year": official_year,
                 "tmdb_id": tmdb_id,
                 "confidence": confidence,
+                **({"score_origin": config["_recognition_score"]["origin"],
+                    "score_evidence": list(config["_recognition_score"]["evidence"]),
+                    "score_conflicts": list(config["_recognition_score"]["conflicts"])}
+                   if "_recognition_score" in config else {}),
                 "processed_time": time.time(),
                 "alternative_titles": alt_titles
             }
@@ -110,7 +114,8 @@ def process_movie_branch(
             subtitle_handler.process_subtitles_for_video(src, target_path, movie_dir, config, log_func)
 
         if log_func:
-            log_func(f"💾 缓存已保存 (准确率: {confidence}%)", LOG_SUCCESS)
+            label = "人工指定" if config.get("_recognition_score", {}).get("origin") == "manual_mapping" else f"匹配评分: {confidence}"
+            log_func(f"💾 缓存已保存 ({label})", LOG_SUCCESS)
         return True
     except ProcessingCancelled:
         raise

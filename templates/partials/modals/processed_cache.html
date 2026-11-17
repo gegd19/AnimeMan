@@ -21,7 +21,7 @@
                 <label class="sr-only" for="processedCacheSortSelect">排序方式</label>
                 <select id="processedCacheSortSelect" onchange="App.ProcessedCache.setSort(this.value)">
                     <option value="processed_time">按处理时间</option>
-                    <option value="confidence">按置信度</option>
+                    <option value="confidence">按匹配评分</option>
                     <option value="title">按标题</option>
                     <option value="src_name">按文件名</option>
                 </select>
@@ -37,7 +37,7 @@
                             <th style="width:15%;">所在目录</th>
                             <th style="width:18%;">目标文件</th>
                             <th style="width:15%;" data-sort="title">类型/标题</th>
-                            <th style="width:9%;" data-sort="confidence" onclick="App.ProcessedCache.setSort('confidence')">准确率</th>
+                            <th style="width:9%;" data-sort="confidence" onclick="App.ProcessedCache.setSort('confidence')">匹配评分</th>
                             <th style="width:12%;" data-sort="processed_time" onclick="App.ProcessedCache.setSort('processed_time')">处理时间</th>
                             <th style="width:170px;">操作</th>
                         </tr>

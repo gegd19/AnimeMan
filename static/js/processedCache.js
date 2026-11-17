@@ -119,6 +119,7 @@ App.ProcessedCache = (function(app) {
         tbody.replaceChildren();
         let pageSelectedCount = 0;
         items.forEach(item => {
+            const score = app.recognitionScore(item);
             const checked = selectedItems.has(item.src);
             if (checked) pageSelectedCount++;
             let mediaInfo = item.title || '未知';
@@ -134,7 +135,7 @@ App.ProcessedCache = (function(app) {
                 app.el('td', {title: item.target}, app.el('span', {className: item.target_exists ? 'badge is-green' : 'badge is-amber',
                     text: item.target_exists ? '存在' : '缺失'}), ' ' + (item.target || '').split('/').pop()),
                 app.el('td', {text: mediaInfo}),
-                app.el('td', {text: item.confirmed_by_user ? '人工确认' : (item.confidence == null ? '未评分' : item.confidence + '%')}),
+                app.el('td', {}, app.el('span', {text: score.label}), score.detail ? app.el('small', {className: 'text-muted', text: ' ' + score.detail}) : ''),
                 app.el('td', {text: formatTime(item.processed_time)}),
                 app.el('td', {}, app.button('手动修正', () => App.ProcessedCache.manualCorrectItem(item.src, item.src_name)),
                     app.button('删除', () => App.ProcessedCache.deleteItem(item.src), 'danger'))));

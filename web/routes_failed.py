@@ -183,7 +183,10 @@ def register(app):
                     "season": entry.get("season"),
                     "episode": entry.get("episode"),
                     "year": entry.get("year"),
-                    "confidence": entry.get("confidence", 0),
+                    "confidence": entry.get("confidence"),
+                "score_origin": entry.get("score_origin"),
+                "score_evidence": entry.get("score_evidence"),
+                "score_conflicts": entry.get("score_conflicts"),
                     "confirmed_by_user": entry.get("confirmed_by_user", False),
                     "target": target,
                     "target_exists": Path(target).exists() if target else False,
@@ -511,7 +514,7 @@ def register(app):
 
     @app.route('/api/processed_history', methods=['GET'])
     def get_processed_history():
-        """返回所有成功处理的文件记录，含准确率，支持排序，最多返回300条"""
+        """返回所有成功处理的文件记录，含匹配评分，支持排序，最多返回300条"""
         sort_by = request.args.get('sort', 'processed_time')
         order = request.args.get('order', 'desc')
         limit = 300
@@ -530,7 +533,10 @@ def register(app):
                 "media_type": entry.get("media_type"),
                 "season": entry.get("season"),
                 "episode": entry.get("episode"),
-                "confidence": entry.get("confidence", 0),
+                "confidence": entry.get("confidence"),
+                "score_origin": entry.get("score_origin"),
+                "score_evidence": entry.get("score_evidence"),
+                "score_conflicts": entry.get("score_conflicts"),
                 "confirmed_by_user": entry.get("confirmed_by_user", False),
                 "processed_time": entry.get("processed_time", 0)
             }

@@ -38,3 +38,19 @@ test('manual confirmation is displayed without inventing an algorithm percentage
         assert.doesNotMatch(element(id).innerHTML,/(?:100|0|null)%/);
     }
 });
+
+test('recognition score labels distinguish legacy, manual, zero and evidence', ()=>{
+    const app={};
+    const context=vm.createContext({window:{App:app,addEventListener:()=>{}},App:app,console,
+        document:{addEventListener:()=>{}}});
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js/app.js'),'utf8'),context);
+    const manual=app.recognitionScore({confirmed_by_user:true,confidence:100});
+    assert.match(manual.label,/人工指定/);assert.doesNotMatch(manual.label,/100/);
+    assert.match(app.recognitionScore({score_origin:'manual_mapping',confidence:100}).label,/人工指定/);
+    assert.match(app.recognitionScore({confidence:0}).label,/旧评分.*0/);
+    assert.match(app.recognitionScore({}).label,/未评分/);
+    const current=app.recognitionScore({confidence:75,score_origin:'automatic',score_evidence:['标题匹配'],score_conflicts:['多个候选']});
+    assert.match(current.label,/匹配评分.*75/);
+    assert.match(current.detail,/标题匹配/);assert.match(current.detail,/多个候选/);
+    assert.doesNotMatch(current.label+current.detail,/准确率/);
+});
