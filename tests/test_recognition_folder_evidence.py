@@ -160,3 +160,12 @@ def test_confirmed_series_identity_keeps_unknown_special_for_manual_numbering(tm
     assert pending['identity_status']=='confirmed' and pending['numbering_status']=='unknown'
     assert current_pending_identity(files[1],cfg,pending)['tmdb_id']==42
     assert pending.get('episode') is None
+
+
+def test_folder_evidence_version_is_part_of_fingerprint(tmp_path,monkeypatch):
+    from core import folder_evidence
+    root,folder,files=make_files(tmp_path,['Show S01E01.mkv'])
+    config={'source_folders':[str(root)]}
+    old=folder_evidence.collect_folder_evidence(folder,files,config)['fingerprint']
+    monkeypatch.setattr(folder_evidence,'EVIDENCE_VERSION','future-test-version')
+    assert folder_evidence.collect_folder_evidence(folder,files,config)['fingerprint'] != old

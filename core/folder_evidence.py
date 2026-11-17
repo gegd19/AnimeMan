@@ -11,6 +11,7 @@ import unicodedata
 from .cancellation import check_cancelled
 from .parser_regex import parse_with_regex
 
+EVIDENCE_VERSION = "e03-v1"
 MAX_SAMPLES = 64
 
 
@@ -50,7 +51,7 @@ def collect_folder_evidence(folder, scanned_files, config, *, limit=MAX_SAMPLES)
         group = groups.setdefault(key, {'title':title, 'year':parsed.get('year'), 'files':[]})
         group['files'].append(path.name)
     group_list = [groups[key] for key in sorted(groups, key=lambda value:(value[0],value[1] or ''))]
-    fingerprint = hashlib.sha256(json.dumps([str(folder), len(ordered), missing, signatures], ensure_ascii=False).encode()).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps([EVIDENCE_VERSION, str(folder), len(ordered), missing, signatures], ensure_ascii=False).encode()).hexdigest()
     return {'groups':group_list, 'sampled':len(samples), 'complete':len(ordered) <= limit and missing == 0,
             'unknown':unknown + missing, 'identity_status':'conflict' if len(group_list)>1 else 'unconfirmed',
             'fingerprint':fingerprint}
